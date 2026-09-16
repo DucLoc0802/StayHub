@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fff8f2;
+  --foreground: #2f2926;
+  --card: #ffffff;
+  --card-foreground: #2f2926;
+  --popover: #fffcf9;
+  --popover-foreground: #2f2926;
+  --primary: #f28c52;
+  --primary-hover: #e97a3f;
+  --primary-foreground: #ffffff;
+  --secondary: #fff2e8;
+  --secondary-foreground: #9a4f2b;
+  --muted: #faf4ef;
+  --muted-foreground: #6f625c;
+  --subtle-foreground: #978a83;
+  --accent: #fbc9a6;
+  --accent-foreground: #67351f;
+  --border: #eaddd5;
+  --input: #eaddd5;
+  --ring: #f28c52;
+  --warning: #d58a16;
+  --warning-surface: #fff7dd;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-surface: var(--muted);
+  --color-muted: var(--muted-foreground);
+  --color-subtle: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-ink: var(--foreground);
+  --shadow-warm: 0 16px 42px -22px rgb(93 55 35 / 0.28);
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+a,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+.container {
+  width: min(1180px, calc(100% - 32px));
+  margin-inline: auto;
+}
+.btn-primary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--primary);
+  padding: 8px 16px;
+  color: var(--primary-foreground);
+  font-weight: 700;
+  transition: 0.2s;
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+.btn-ghost {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 8px 16px;
+  font-weight: 600;
+  transition: 0.2s;
+}
+.btn-ghost:hover {
+  border-color: var(--accent);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.hero-warm {
+  background: linear-gradient(135deg, #fff2e8 0%, #fffcf9 52%, #fbc9a6 140%);
+}
+.auth-warm {
+  background: radial-gradient(
+    circle at top,
+    var(--secondary) 0%,
+    transparent 55%
+  );
+}
+input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+::selection {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.rdp-root {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: var(--secondary);
+  --rdp-range_middle-background-color: var(--secondary);
+  --rdp-range_middle-color: var(--foreground);
+  --rdp-range_start-color: var(--primary-foreground);
+  --rdp-range_end-color: var(--primary-foreground);
+  color: var(--foreground);
+}
+.rdp-today:not(.rdp-selected) .rdp-day_button {
+  border-color: var(--primary-hover);
+  color: var(--secondary-foreground);
+}
+.rdp-day_button:hover:not(:disabled) {
+  background: var(--secondary);
+}
+.rdp-disabled {
+  color: var(--subtle-foreground);
+  opacity: 0.55;
+}

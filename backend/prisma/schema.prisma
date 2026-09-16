@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  GUEST
+  HOST
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+enum PropertyType {
+  HOMESTAY
+  HOTEL
+}
+
+enum PropertyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+}
+
+enum PaymentMethod {
+  FAKE
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  status       AccountStatus
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  properties   Property[]
+  bookings     Booking[]
+
+  @@index([role, status])
+}
+
+model Property {
+  id              String             @id @default(uuid()) @db.Uuid
+  hostId          String             @db.Uuid
+  type            PropertyType
+  name            String
+  description     String
+  district        String
+  address         String
+  pricePerNight   Int
+  depositPercent  Int
+  maxGuests       Int
+  bedrooms        Int
+  beds            Int
+  bathrooms       Int
+  status          PropertyStatus     @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  host            User               @relation(fields: [hostId], references: [id], onDelete: Restrict)
+  images          PropertyImage[]
+  propertyAmenities PropertyAmenity[]
+  bookings        Booking[]
+
+  @@index([hostId])
+  @@index([district])
+  @@index([status, pricePerNight])
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid()) @db.Uuid
+  propertyId String   @db.Uuid
+  url        String
+  sortOrder  Int      @default(0)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+}
+
+model Amenity {
+  id                  String             @id @default(uuid()) @db.Uuid
+  code                String             @unique
+  nameVi              String
+  propertyAmenities   PropertyAmenity[]
+}
+
+model PropertyAmenity {
+  propertyId String   @db.Uuid
+  amenityId  String   @db.Uuid
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, amenityId])
+  @@index([amenityId])
+}
+
+model Booking {
+  id                       String        @id @default(uuid()) @db.Uuid
+  guestId                  String        @db.Uuid
+  propertyId               String        @db.Uuid
+  checkIn                  DateTime      @db.Date
+  checkOut                 DateTime      @db.Date
+  guestCount               Int
+  nightlyPriceSnapshot     Int
+  totalNights              Int
+  totalAmount              Int
+  depositPercentSnapshot   Int
+  depositAmount            Int
+  remainingAmount          Int
+  status                   BookingStatus @default(PENDING_PAYMENT)
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  guest                    User          @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  property                 Property      @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  payments                 Payment[]
+
+  @@index([guestId, createdAt])
+  @@index([propertyId, checkIn, checkOut, status])
+}
+
+model Payment {
+  id        String        @id @default(uuid()) @db.Uuid
+  bookingId String        @db.Uuid
+  amount    Int
+  status    PaymentStatus
+  method    PaymentMethod @default(FAKE)
+  paidAt    DateTime?
+  createdAt DateTime      @default(now())
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId, status])
+}

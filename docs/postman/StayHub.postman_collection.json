@@ -1,0 +1,57 @@
+{
+  "info": {
+    "_postman_id": "5dd46e11-9d96-4f64-9e5a-stayhub0001",
+    "name": "StayHub API",
+    "description": "Main StayHub authentication, approval, property, booking, payment, cancellation, and authorization flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3001/api" }],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        { "name": "Register Guest", "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"newguest@stayhub.local\",\n  \"password\": \"StayHub123!\",\n  \"fullName\": \"Khách mới\",\n  \"role\": \"GUEST\"\n}" }, "url": "{{baseUrl}}/auth/register" } },
+        { "name": "Login Admin", "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json();", "pm.environment.set('accessToken', data.accessToken);"] } }], "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@stayhub.local\",\n  \"password\": \"StayHub123!\"\n}" }, "url": "{{baseUrl}}/auth/login" } },
+        { "name": "Login Host", "event": [{ "listen": "test", "script": { "exec": ["pm.environment.set('accessToken', pm.response.json().accessToken);"] } }], "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"host@stayhub.local\",\n  \"password\": \"StayHub123!\"\n}" }, "url": "{{baseUrl}}/auth/login" } },
+        { "name": "Login Guest", "event": [{ "listen": "test", "script": { "exec": ["pm.environment.set('accessToken', pm.response.json().accessToken);"] } }], "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"guest@stayhub.local\",\n  \"password\": \"StayHub123!\"\n}" }, "url": "{{baseUrl}}/auth/login" } },
+        { "name": "Current User", "request": { "method": "GET", "url": "{{baseUrl}}/auth/me" } }
+      ]
+    },
+    {
+      "name": "Admin approval",
+      "item": [
+        { "name": "List Pending Hosts", "event": [{ "listen": "test", "script": { "exec": ["const hosts = pm.response.json();", "if (hosts.length) pm.environment.set('hostId', hosts[0].id);"] } }], "request": { "method": "GET", "url": "{{baseUrl}}/admin/hosts" } },
+        { "name": "Approve Host", "request": { "method": "PATCH", "url": "{{baseUrl}}/admin/hosts/{{hostId}}/approve" } },
+        { "name": "Reject Host", "request": { "method": "PATCH", "url": "{{baseUrl}}/admin/hosts/{{hostId}}/reject" } }
+      ]
+    },
+    {
+      "name": "Properties",
+      "item": [
+        { "name": "Amenities", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/amenities" } },
+        { "name": "Search and Filter", "event": [{ "listen": "test", "script": { "exec": ["const data = pm.response.json();", "if (data.items.length) pm.environment.set('propertyId', data.items[0].id);"] } }], "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{baseUrl}}/properties?q=Quận&minPrice=500000&maxPrice=2000000&amenities=WIFI&sort=price_asc&page=1&limit=12", "host": ["{{baseUrl}}"], "path": ["properties"], "query": [{ "key": "q", "value": "Quận" }, { "key": "minPrice", "value": "500000" }, { "key": "maxPrice", "value": "2000000" }, { "key": "amenities", "value": "WIFI" }, { "key": "sort", "value": "price_asc" }, { "key": "page", "value": "1" }, { "key": "limit", "value": "12" }] } } },
+        { "name": "Property Detail", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/properties/{{propertyId}}" } },
+        { "name": "Host Create Property", "event": [{ "listen": "test", "script": { "exec": ["pm.environment.set('propertyId', pm.response.json().id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"type\": \"HOMESTAY\",\n  \"name\": \"Homestay Postman\",\n  \"description\": \"Không gian thử nghiệm đầy đủ tiện nghi tại Thành phố Hồ Chí Minh.\",\n  \"district\": \"Quận Bình Thạnh\",\n  \"address\": \"12 Nguyễn Gia Trí, Quận Bình Thạnh, TP.HCM\",\n  \"pricePerNight\": 900000,\n  \"depositPercent\": 35,\n  \"maxGuests\": 4,\n  \"bedrooms\": 2,\n  \"beds\": 2,\n  \"bathrooms\": 1,\n  \"imageUrls\": [\"https://images.unsplash.com/photo-1600585154340-be6161a56a0c\"],\n  \"amenityCodes\": [\"WIFI\", \"AIR_CONDITIONING\"]\n}" }, "url": "{{baseUrl}}/host/properties" } },
+        { "name": "Host Deactivate Property", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\": \"INACTIVE\"}" }, "url": "{{baseUrl}}/host/properties/{{propertyId}}/status" } }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        { "name": "Create Booking", "event": [{ "listen": "test", "script": { "exec": ["pm.environment.set('bookingId', pm.response.json().id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"propertyId\": \"{{propertyId}}\",\n  \"checkIn\": \"2027-10-10\",\n  \"checkOut\": \"2027-10-13\",\n  \"guestCount\": 2\n}" }, "url": "{{baseUrl}}/bookings" } },
+        { "name": "Pay Deposit", "request": { "method": "POST", "url": "{{baseUrl}}/bookings/{{bookingId}}/pay" } },
+        { "name": "My Bookings", "request": { "method": "GET", "url": "{{baseUrl}}/bookings/my" } },
+        { "name": "Cancel Booking", "request": { "method": "PATCH", "url": "{{baseUrl}}/bookings/{{bookingId}}/cancel" } },
+        { "name": "Host Booking View", "request": { "method": "GET", "url": "{{baseUrl}}/host/bookings" } }
+      ]
+    },
+    {
+      "name": "Authorization checks",
+      "item": [
+        { "name": "No Token - Host Properties Must Fail", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/host/properties" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Unauthorized', () => pm.expect(pm.response.code).to.eql(401));"] } }] },
+        { "name": "Guest Token - Admin Hosts Must Fail", "request": { "method": "GET", "url": "{{baseUrl}}/admin/hosts" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Forbidden', () => pm.expect(pm.response.code).to.eql(403));"] } }] }
+      ]
+    }
+  ]
+}
