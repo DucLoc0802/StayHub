@@ -34,7 +34,7 @@ export default function AccountPage() {
     );
   return (
     <div className="container max-w-3xl py-12">
-      <h1 className="text-3xl font-black">Tài khoản của tôi</h1>
+      <h1 className="text-3xl font-extrabold">Tài khoản của tôi</h1>
       {user.role === "HOST" && user.status === "PENDING" && (
         <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 font-medium text-amber-800">
           Tài khoản chủ nhà của bạn đang chờ phê duyệt.

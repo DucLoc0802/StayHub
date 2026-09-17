@@ -59,7 +59,7 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-be-vietnam-pro), sans-serif;
 }
 button,
 a,
@@ -116,6 +116,9 @@ button {
     var(--secondary) 0%,
     transparent 55%
   );
+}
+.font-display {
+  font-family: var(--font-be-vietnam-pro), sans-serif;
 }
 input[type="checkbox"] {
   accent-color: var(--primary);

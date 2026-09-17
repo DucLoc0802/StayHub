@@ -98,7 +98,7 @@ export default function HostPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-bold text-secondary-foreground">Khu vực chủ nhà</p>
-          <h1 className="text-3xl font-black">Quản lý StayHub</h1>
+          <h1 className="text-3xl font-extrabold">Quản lý StayHub</h1>
         </div>
         {tab === "properties" && (
           <PropertyDialog
@@ -146,7 +146,7 @@ export default function HostPage() {
                         ? "Đang hoạt động"
                         : "Đã tạm ngưng"}
                     </span>
-                    <h2 className="mt-1 text-xl font-black">{p.name}</h2>
+                    <h2 className="mt-1 text-xl font-extrabold">{p.name}</h2>
                     <p className="mt-1 text-sm text-muted">
                       {p.district} · {money(p.pricePerNight)} / đêm · Cọc{" "}
                       {p.depositPercent}%
@@ -262,7 +262,7 @@ function PropertyDialog({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
         <Dialog.Content className="fixed inset-2 z-50 overflow-auto rounded-2xl bg-white p-5 shadow-2xl sm:inset-8 lg:left-1/2 lg:w-[900px] lg:-translate-x-1/2">
           <div className="mb-6 flex justify-between">
-            <Dialog.Title className="text-2xl font-black">
+            <Dialog.Title className="text-2xl font-extrabold">
               {property ? "Chỉnh sửa chỗ nghỉ" : "Thêm chỗ nghỉ mới"}
             </Dialog.Title>
             <Dialog.Close>

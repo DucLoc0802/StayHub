@@ -63,7 +63,7 @@ export default function AdminHostsPage() {
   return (
     <div className="container max-w-4xl py-10">
       <p className="font-bold text-secondary-foreground">Quản trị StayHub</p>
-      <h1 className="text-3xl font-black">Phê duyệt chủ nhà</h1>
+      <h1 className="text-3xl font-extrabold">Phê duyệt chủ nhà</h1>
       <p className="mt-2 text-muted">
         Danh sách tài khoản chủ nhà đang chờ xét duyệt.
       </p>
@@ -79,7 +79,7 @@ export default function AdminHostsPage() {
               className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center"
             >
               <div>
-                <h2 className="font-black">{host.fullName}</h2>
+                <h2 className="font-extrabold">{host.fullName}</h2>
                 <p className="text-sm text-muted">
                   {host.email} · Đăng ký {dateVi(host.createdAt)}
                 </p>

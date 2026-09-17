@@ -69,7 +69,7 @@ export default function PropertyDetailPage() {
         <span className="rounded-full bg-secondary px-3 py-1 text-sm font-bold text-secondary-foreground">
           {p.type === "HOTEL" ? "Khách sạn" : "Homestay"}
         </span>
-        <h1 className="mt-3 text-3xl font-black md:text-4xl">{p.name}</h1>
+        <h1 className="mt-3 text-3xl font-extrabold md:text-4xl">{p.name}</h1>
         <p className="mt-2 flex items-center gap-2 text-muted">
           <MapPin size={17} />
           {p.address}
@@ -103,7 +103,7 @@ export default function PropertyDetailPage() {
       </div>
       <div className="mt-10 grid items-start gap-10 lg:grid-cols-[1fr_390px]">
         <article>
-          <h2 className="text-2xl font-black">Không gian dành cho bạn</h2>
+          <h2 className="text-2xl font-extrabold">Không gian dành cho bạn</h2>
           <div className="my-6 flex flex-wrap gap-4 border-y border-border py-5 text-sm">
             <span className="flex items-center gap-2 [&>svg]:text-primary-dark">
               <Users /> Tối đa {p.maxGuests} khách
@@ -119,7 +119,7 @@ export default function PropertyDetailPage() {
             </span>
           </div>
           <p className="leading-8 text-muted">{p.description}</p>
-          <h2 className="mt-10 text-2xl font-black">Tiện ích</h2>
+          <h2 className="mt-10 text-2xl font-extrabold">Tiện ích</h2>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {p.propertyAmenities.map(({ amenity }) => (
               <div
@@ -130,7 +130,7 @@ export default function PropertyDetailPage() {
               </div>
             ))}
           </div>
-          <h2 className="mt-10 text-2xl font-black">Chọn ngày lưu trú</h2>
+          <h2 className="mt-10 text-2xl font-extrabold">Chọn ngày lưu trú</h2>
           <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-white p-3 shadow-warm">
             <DayPicker
               mode="range"

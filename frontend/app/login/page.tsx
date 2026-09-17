@@ -104,7 +104,7 @@ export function AuthShell({
           <span className="mb-3 inline-block text-sm font-extrabold uppercase tracking-[0.18em] text-primary-dark">
             StayHub
           </span>
-          <h1 className="text-3xl font-black">{title}</h1>
+          <h1 className="text-3xl font-extrabold">{title}</h1>
           <p className="mt-2 text-sm text-muted">{subtitle}</p>
         </div>
         {children}

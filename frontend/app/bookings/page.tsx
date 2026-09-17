@@ -77,7 +77,7 @@ export default function BookingsPage() {
     );
   return (
     <div className="container py-10">
-      <h1 className="text-3xl font-black">Đặt phòng của tôi</h1>
+      <h1 className="text-3xl font-extrabold">Đặt phòng của tôi</h1>
       <p className="mt-2 text-muted">
         Theo dõi, thanh toán tiền cọc và quản lý chuyến đi.
       </p>
@@ -134,7 +134,7 @@ function BookingCard({
               >
                 {statusLabel[b.status]}
               </span>
-              <h2 className="mt-1 text-xl font-black">{b.property.name}</h2>
+              <h2 className="mt-1 text-xl font-extrabold">{b.property.name}</h2>
               <p className="text-sm text-muted">{b.property.district}</p>
             </div>
             <Link
@@ -208,7 +208,7 @@ function CancelDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-2xl">
-          <Dialog.Title className="text-xl font-black">
+          <Dialog.Title className="text-xl font-extrabold">
             Xác nhận hủy đặt phòng
           </Dialog.Title>
           <Dialog.Description className="mt-3 leading-7 text-muted">

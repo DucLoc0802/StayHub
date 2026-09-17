@@ -121,7 +121,7 @@ function PropertiesContent() {
         <p className="font-bold text-secondary-foreground">
           StayHub tại TP.HCM
         </p>
-        <h1 className="text-3xl font-black md:text-4xl">
+        <h1 className="text-3xl font-extrabold md:text-4xl">
           Tìm chỗ nghỉ phù hợp
         </h1>
       </div>
@@ -139,7 +139,7 @@ function PropertiesContent() {
             <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30" />
             <Dialog.Content className="fixed inset-y-0 right-0 z-50 w-[min(90vw,380px)] overflow-auto bg-white p-6 shadow-xl">
               <div className="mb-6 flex items-center justify-between">
-                <Dialog.Title className="text-xl font-black">
+                <Dialog.Title className="text-xl font-extrabold">
                   Bộ lọc
                 </Dialog.Title>
                 <Dialog.Close>
@@ -153,7 +153,7 @@ function PropertiesContent() {
       </div>
       <div className="grid gap-7 lg:grid-cols-[260px_1fr]">
         <aside className="hidden h-fit rounded-2xl border border-border bg-white p-5 lg:block">
-          <h2 className="mb-5 text-lg font-black">Bộ lọc</h2>
+          <h2 className="mb-5 text-lg font-extrabold">Bộ lọc</h2>
           {filterPanel}
         </aside>
         <div>
