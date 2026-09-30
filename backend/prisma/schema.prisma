@@ -1,0 +1,131 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+enum Role {
+  GUEST
+  HOST
+  ADMIN
+}
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+enum PropertyType {
+  HOMESTAY
+  HOTEL
+}
+enum PropertyStatus {
+  ACTIVE
+  INACTIVE
+}
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+}
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+}
+enum PaymentMethod {
+  FAKE
+}
+model User {
+  id           String @id @default(uuid()) @db.Char(36)
+  fullName     String @db.VarChar(100)
+  email        String @unique @db.VarChar(191)
+  passwordHash String @db.VarChar(100)
+  role         Role
+  status       AccountStatus
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  properties   Property[]
+  bookings     Booking[]
+  @@index([role, status])
+}
+model Property {
+  id             String @id @default(uuid()) @db.Char(36)
+  hostId         String @db.Char(36)
+  host           User @relation(fields: [hostId], references: [id])
+  type           PropertyType
+  name           String @db.VarChar(150)
+  description    String @db.Text
+  district       String @db.VarChar(80)
+  address        String @db.VarChar(250)
+  pricePerNight  Int
+  depositPercent Int
+  maxGuests      Int
+  bedrooms       Int
+  beds           Int
+  bathrooms      Int
+  status         PropertyStatus @default(ACTIVE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  images         PropertyImage[]
+  amenities      PropertyAmenity[]
+  bookings       Booking[]
+  @@index([hostId])
+  @@index([status, district])
+  @@index([status, pricePerNight])
+}
+model PropertyImage {
+  id         String @id @default(uuid()) @db.Char(36)
+  propertyId String @db.Char(36)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String @db.VarChar(2048)
+  sortOrder  Int
+  @@unique([propertyId, sortOrder])
+}
+model Amenity {
+  id         String @id @default(uuid()) @db.Char(36)
+  code       String @unique @db.VarChar(50)
+  nameVi     String @db.VarChar(100)
+  properties PropertyAmenity[]
+}
+model PropertyAmenity {
+  propertyId String @db.Char(36)
+  amenityId  String @db.Char(36)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity    Amenity @relation(fields: [amenityId], references: [id])
+  @@id([propertyId, amenityId])
+  @@index([amenityId])
+}
+model Booking {
+  id                     String @id @default(uuid()) @db.Char(36)
+  guestId                String @db.Char(36)
+  propertyId             String @db.Char(36)
+  guest                  User @relation(fields: [guestId], references: [id])
+  property               Property @relation(fields: [propertyId], references: [id])
+  checkIn                DateTime @db.Date
+  checkOut               DateTime @db.Date
+  guestCount             Int
+  nightlyPriceSnapshot   Int
+  totalNights            Int
+  totalAmount            Int
+  depositPercentSnapshot Int
+  depositAmount          Int
+  remainingAmount        Int
+  status                 BookingStatus @default(PENDING_PAYMENT)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  payment                Payment?
+  @@index([guestId, createdAt])
+  @@index([propertyId, status, checkIn, checkOut])
+}
+model Payment {
+  id        String @id @default(uuid()) @db.Char(36)
+  bookingId String @unique @db.Char(36)
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  amount    Int
+  status    PaymentStatus
+  method    PaymentMethod @default(FAKE)
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+}

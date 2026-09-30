@@ -1,0 +1,152 @@
+# StayHub
+
+Nền tảng đặt homestay/khách sạn tại TP. Hồ Chí Minh, xây mới theo task.txt. Một chỗ nghỉ là một đơn vị đặt độc lập. Giao diện tiếng Việt, cam ấm / kem / trắng, font Be Vietnam Pro.
+
+## Chức năng
+
+- Khách thuê đăng ký và tự đăng nhập; Người cho thuê đăng ký chờ duyệt; Quản trị viên duyệt hoặc từ chối.
+- Tìm kiếm tên/khu vực, giá, đủ tất cả tiện ích đã chọn, sắp xếp giá và phân trang.
+- Người cho thuê ACTIVE tạo/sửa/kích hoạt/tạm ngưng chỗ nghỉ, nhiều URL ảnh, tỷ lệ cọc riêng; chỉ xem đơn thuộc sở hữu.
+- Lịch chọn ngày, tính giá trên backend, lưu snapshot; thanh toán cọc giả lập xác nhận tự động.
+- Chống xác nhận hai đơn trùng lịch; hủy đơn giữ lại cọc đã trả, giải phóng lịch.
+- Loading/error/empty, menu và dialog có hỗ trợ bàn phím; layout responsive.
+
+## Stack và cấu trúc
+
+Next.js App Router + TypeScript + Tailwind + shadcn/Radix + React Hook Form/Zod + Axios/TanStack Query. NestJS REST + Prisma 6 + MySQL 8.4 + JWT + bcrypt + Swagger. Các phiên bản cụ thể nằm trong package-lock.json.
+
+```text
+frontend/                 Next.js, UI, Playwright
+backend/src/              NestJS modules, services, DTOs, guards
+backend/prisma/           Schema, migrations, seed
+backend/test/             Unit, validation, API/concurrency E2E
+docs/                     Phân tích, use cases, ERD, kiểm thử, Postman
+scripts/setup-env.mjs      Tạo env local và JWT ngẫu nhiên
+docker-compose.yml        Chỉ MySQL
+PROJECT_PLAN.md            Kế hoạch và tiến độ
+```
+
+## Chạy trên máy mới
+
+Cần Node.js 22.12+ hoặc 24 LTS, npm, Docker Compose. Cổng 3000, 4000, 3306 phải trống. Lần cài/build đầu cần mạng để tải npm packages và Google Fonts.
+
+Trên PowerShell nếu `npm.ps1` bị chặn, dùng `npm.cmd` và `npx.cmd` thay vì đổi execution policy.
+
+```powershell
+npm.cmd ci
+npm.cmd ci --prefix backend
+npm.cmd ci --prefix frontend
+node scripts/setup-env.mjs
+docker compose up -d mysql
+docker compose ps
+```
+
+Đợi mysql healthy. `setup-env` không ghi đè cấu hình đã có, tạo JWT secret ngẫu nhiên; .env được gitignore. Điều chỉnh DATABASE_URL nếu dùng MySQL riêng. Compose dùng tài khoản `stayhub` / `stayhub` chỉ dành cho local.
+
+```powershell
+cd backend
+npm.cmd run prisma:generate
+npm.cmd run prisma:validate
+npm.cmd run prisma:migrate
+npm.cmd run prisma:seed
+npm.cmd run dev
+```
+
+Mở terminal khác tại thư mục dự án:
+
+```powershell
+cd frontend
+npm.cmd run dev
+```
+
+- Giao diện: http://localhost:3000
+- REST API: http://localhost:4000/api
+- Swagger: http://localhost:4000/api/docs
+- Chỗ nghỉ: http://localhost:3000/properties
+- Người cho thuê: http://localhost:3000/host
+- Quản trị viên: http://localhost:3000/admin/hosts
+
+Swagger: gọi `/auth/login`, copy accessToken vào nút Authorize (Bearer). POST login/register không cần đăng nhập.
+
+## Chạy lại trong workspace hiện tại khi chưa có Docker
+
+Đã tải MySQL Community 8.4.11 portable chính thức vào `.local/mysql` và tạo database riêng ở `127.0.0.1:3307`. Cổng 3306 đã bận nên dịch vụ hiện có được giữ nguyên. `backend/.env` local hiện trỏ tới 3307; `.env.example` vẫn dùng 3306 cho Docker trên máy mới.
+
+Giữ ba terminal mở, chạy từ `E:\StayHub`:
+
+```powershell
+# Terminal 1: chỉ chạy nếu MySQL portable chưa hoạt động
+node scripts/start-local-mysql.mjs
+
+# Terminal 2
+npm.cmd start --prefix backend
+
+# Terminal 3
+npm.cmd start --prefix frontend
+```
+
+Dừng MySQL riêng bằng `node scripts/stop-local-mysql.mjs`. Thư mục `.local` và cấu hình root ngẫu nhiên không được đưa vào Git. Khi chuyển sang Docker, sửa DATABASE_URL local về cổng 3306 hoặc cổng Compose bạn chọn. Mỗi instance có dữ liệu riêng.
+
+## Tài khoản demo
+
+Mật khẩu chung: **StayHub123!** (chỉ dùng demo local).
+
+| Email                     | Vai trò        | Trạng thái |
+| ------------------------- | -------------- | ---------- |
+| admin@stayhub.local       | Quản trị viên  | ACTIVE     |
+| guest@stayhub.local       | Khách thuê     | ACTIVE     |
+| host@stayhub.local        | Người cho thuê | ACTIVE     |
+| pendinghost@stayhub.local | Người cho thuê | PENDING    |
+
+Seed tạo 4 chỗ nghỉ, cả HOMESTAY/HOTEL, 8 tiện ích và mật khẩu bcrypt. Chạy lại seed không ghi đè tài khoản/chỗ nghỉ đã tồn tại và không xóa lịch sử.
+
+## Quy tắc cần nhớ
+
+- PENDING_PAYMENT **không giữ chỗ**. Chỉ CONFIRMED chặn ngày. Checkout exclusive: trả ngày 15 thì đơn mới có thể nhận ngày 15.
+- Thanh toán kiểm tra lại availability và xác nhận trong cùng transaction Serializable, retry P2034. `Payment.bookingId` duy nhất.
+- Tỷ lệ cọc 1–100% theo chỗ nghỉ, số tiền nguyên VND, làm tròn lên 1 đồng. Không tính lại đơn cũ theo giá mới.
+- Giới hạn 365 đêm, giá tối đa 50 triệu/đêm, tổng không vượt 2.147.483.647 ₫. Backend từ chối tổng vượt giới hạn.
+- Hủy CONFIRMED giữ Payment SUCCESS và không hoàn tiền. Hủy/thu cọc đồng thời không được xác nhận lại đơn đã hủy.
+- HOST PENDING/REJECTED được đăng nhập nhưng không quản lý. REJECTED không được duyệt lại.
+- Không có đánh giá, sao, bản đồ, thanh toán thật, upload, host duyệt booking, chỉnh sửa hồ sơ hoặc phân cấp khách sạn/phòng.
+
+## Kiểm tra
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+npm.cmd test
+npm.cmd run format:check
+```
+
+API E2E cần MySQL đã migrate/seed và backend đang chạy:
+
+```powershell
+npm.cmd run test:e2e --prefix backend
+```
+
+E2E dùng email riêng cho từng lượt, kiểm tra luồng chính, phân quyền, snapshot, overlap, cọc lặp và tranh chấp cọc/hủy; dọn dữ liệu API test tự tạo trong `finally`. Nên dùng database local riêng.
+
+Playwright cần frontend và backend đang chạy cùng database demo. Cấu hình hiện dùng Microsoft Edge đã cài trên Windows:
+
+```powershell
+cd frontend
+npx.cmd playwright test
+```
+
+Máy không có Edge: đổi `channel` trong playwright.config.ts thành trình duyệt đã cài hoặc bỏ `channel` và chạy `npx playwright install chromium`. Test UI luồng đặt chỗ để lại một đơn CANCELLED có cọc để có thể kiểm tra lịch sử demo.
+
+Build production: `npm run build` tại root; sau đó `npm start --prefix backend` và `npm start --prefix frontend` ở hai terminal.
+
+## Tài liệu và Postman
+
+- [Kết quả kiểm chứng và giới hạn](docs/verification.md)
+- [17 use case](docs/use-cases.md)
+- [Gap analysis](docs/stayhub-gap-analysis.md)
+- [Kiến trúc](docs/architecture.md), [ERD](docs/erd.md), [Luồng nghiệp vụ](docs/business-flow.md)
+- [Test cases](docs/test-cases.md), [AI log](docs/ai-development-log-template.md)
+- [Postman collection](docs/postman/StayHub.postman_collection.json): import, đổi `runId` cho mỗi lượt, chọn ngày tương lai; chạy các thư mục theo thứ tự. Token/id được lưu tự động. Không chứa secret thật.
+
+## Giới hạn vận hành
+
+Đây là mini project local, chưa triển khai lên dịch vụ công khai. JWT localStorage là lựa chọn của đề bài. Ảnh Unsplash/URL của Host phụ thuộc nguồn ngoài. Không có tiền thật, email thật hoặc khôi phục mật khẩu. Các kiểm tra thực tế và phần chưa kiểm tra được ghi riêng trong verification.md; không suy luận “hoạt động” chỉ vì có mã nguồn.

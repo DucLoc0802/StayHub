@@ -1,0 +1,8 @@
+node_modules
+.next
+dist
+package-lock.json
+coverage
+.local
+frontend/next-env.d.ts
+test-results
