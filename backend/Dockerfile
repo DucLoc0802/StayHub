@@ -21,6 +21,7 @@ RUN npx prisma generate
 
 # Build TypeScript application
 RUN npm run build
+RUN npm run build:seed
 
 
 # Deps stage: install production dependencies only
@@ -55,6 +56,7 @@ WORKDIR /app
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/prisma ./prisma
+COPY --from=builder --chown=node:node /app/package.json ./package.json
 
 USER node
 

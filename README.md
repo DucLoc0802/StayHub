@@ -22,8 +22,27 @@ backend/prisma/           Schema, migrations, seed
 backend/test/             Unit, validation, API/concurrency E2E
 docs/                     Phân tích, use cases, ERD, kiểm thử, Postman
 scripts/setup-env.mjs      Tạo env local và JWT ngẫu nhiên
-docker-compose.yml        Chỉ MySQL
+docker-compose.yml        Frontend, backend và MySQL; tự seed khi khởi động
 PROJECT_PLAN.md            Kế hoạch và tiến độ
+```
+
+## Chạy toàn bộ bằng Docker
+
+Chuẩn bị `.env` ở thư mục gốc, `backend/.env` và `frontend/.env` theo các file `.env.example`. Trong `backend/.env`, `DATABASE_URL` phải dùng host `mysql`, cổng `3306`, tên database và tài khoản khớp với `.env` ở thư mục gốc.
+
+```powershell
+docker compose up -d --build
+docker compose logs -f server
+```
+
+Mỗi lần backend khởi động, Docker chờ MySQL healthy, chạy `prisma db push`, chạy seed đã biên dịch rồi mới mở API. Seed lỗi thì backend dừng để tránh khởi động với dữ liệu mẫu chưa hoàn tất. Image chứa sẵn Prisma CLI và seed JavaScript, không cần tải công cụ khi container khởi động.
+
+Mở http://localhost:3000/properties để xem 4 chỗ nghỉ mẫu với ảnh và 8 tiện ích. Đăng nhập bằng các tài khoản trong phần **Tài khoản demo** bên dưới, mật khẩu chung `StayHub123!`. Seed chạy lại không tạo trùng hoặc ghi đè tài khoản/chỗ nghỉ đã có; dữ liệu MySQL được giữ trong volume `mysql_data`.
+
+Để chạy seed riêng khi backend đang hoạt động:
+
+```powershell
+docker compose exec server node dist/seed/seed.js
 ```
 
 ## Chạy trên máy mới
