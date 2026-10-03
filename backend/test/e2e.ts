@@ -236,6 +236,24 @@ async function main() {
       (p, i) => i === 0 || p.pricePerNight >= all.items[i - 1].pricePerNight,
     ),
   );
+  const q2 = await request<Page<Property>>(
+    'GET',
+    '/properties?district=Qu%E1%BA%ADn%202&limit=48',
+  );
+  assert.equal(q2.total, 6);
+  assert.ok(q2.items.every((p) => p.district === 'Quận 2'));
+  const hotels = await request<Page<Property>>(
+    'GET',
+    '/properties?type=HOTEL&sort=price_desc&limit=48',
+  );
+  assert.ok(hotels.total > 0);
+  assert.ok(hotels.items.every((p) => p.type === 'HOTEL'));
+  assert.ok(
+    hotels.items.every(
+      (p, i) => i === 0 || p.pricePerNight <= hotels.items[i - 1].pricePerNight,
+    ),
+  );
+  await request('GET', '/properties?type=ROOM', undefined, undefined, 400);
   const none = await request<Page<Property>>(
     'GET',
     `/properties?q=${runId}&amenities=${amenities

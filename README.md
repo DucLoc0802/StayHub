@@ -5,7 +5,7 @@ Nền tảng đặt homestay/khách sạn tại TP. Hồ Chí Minh, xây mới t
 ## Chức năng
 
 - Khách thuê đăng ký và tự đăng nhập; Người cho thuê đăng ký chờ duyệt; Quản trị viên duyệt hoặc từ chối.
-- Tìm kiếm tên/khu vực, giá, đủ tất cả tiện ích đã chọn, sắp xếp giá và phân trang.
+- Tìm kiếm tên/khu vực, loại HOTEL/HOMESTAY, giá, đủ tất cả tiện ích đã chọn, sắp xếp giá và phân trang.
 - Người cho thuê ACTIVE tạo/sửa/kích hoạt/tạm ngưng chỗ nghỉ, nhiều URL ảnh, tỷ lệ cọc riêng; chỉ xem đơn thuộc sở hữu.
 - Lịch chọn ngày, tính giá trên backend, lưu snapshot; thanh toán cọc giả lập xác nhận tự động.
 - Chống xác nhận hai đơn trùng lịch; hủy đơn giữ lại cọc đã trả, giải phóng lịch.
@@ -37,7 +37,7 @@ docker compose logs -f server
 
 Mỗi lần backend khởi động, Docker chờ MySQL healthy, chạy `prisma db push`, chạy seed đã biên dịch rồi mới mở API. Seed lỗi thì backend dừng để tránh khởi động với dữ liệu mẫu chưa hoàn tất. Image chứa sẵn Prisma CLI và seed JavaScript, không cần tải công cụ khi container khởi động.
 
-Mở http://localhost:3000/properties để xem 4 chỗ nghỉ mẫu với ảnh và 8 tiện ích. Đăng nhập bằng các tài khoản trong phần **Tài khoản demo** bên dưới, mật khẩu chung `StayHub123!`. Seed chạy lại không tạo trùng hoặc ghi đè tài khoản/chỗ nghỉ đã có; dữ liệu MySQL được giữ trong volume `mysql_data`.
+Mở http://localhost:3000/properties để xem 38 chỗ nghỉ tổng hợp với ảnh minh họa và 14 tiện ích. Tên, địa chỉ khu vực, giá và tài khoản đều dùng cho demo; không lấy từ tin đăng thật. Đăng nhập bằng các tài khoản bên dưới, mật khẩu chung `StayHub123!`. Dữ liệu MySQL được giữ trong volume `mysql_data`.
 
 Để chạy seed riêng khi backend đang hoạt động:
 
@@ -67,7 +67,8 @@ cd backend
 npm.cmd run prisma:generate
 npm.cmd run prisma:validate
 npm.cmd run prisma:migrate
-npm.cmd run prisma:seed
+npm.cmd run build:seed
+npx.cmd prisma db seed
 npm.cmd run dev
 ```
 
@@ -110,14 +111,22 @@ Dừng MySQL riêng bằng `node scripts/stop-local-mysql.mjs`. Thư mục `.loc
 
 Mật khẩu chung: **StayHub123!** (chỉ dùng demo local).
 
-| Email                     | Vai trò        | Trạng thái |
-| ------------------------- | -------------- | ---------- |
-| admin@stayhub.local       | Quản trị viên  | ACTIVE     |
-| guest@stayhub.local       | Khách thuê     | ACTIVE     |
-| host@stayhub.local        | Người cho thuê | ACTIVE     |
-| pendinghost@stayhub.local | Người cho thuê | PENDING    |
+| Email                     | Vai trò                | Trạng thái |
+| ------------------------- | ---------------------- | ---------- |
+| admin@stayhub.local       | Quản trị viên          | ACTIVE     |
+| guest@stayhub.local       | Khách thuê             | ACTIVE     |
+| host@stayhub.local        | Người cho thuê         | ACTIVE     |
+| pendinghost@stayhub.local | Người cho thuê         | PENDING    |
+| host.east@stayhub.local   | Chủ nhà demo phía Đông | ACTIVE     |
+| host.south@stayhub.local  | Chủ nhà demo phía Nam  | ACTIVE     |
 
-Seed tạo 4 chỗ nghỉ, cả HOMESTAY/HOTEL, 8 tiện ích và mật khẩu bcrypt. Chạy lại seed không ghi đè tài khoản/chỗ nghỉ đã tồn tại và không xóa lịch sử.
+Seed gồm 38 chỗ nghỉ (7 Thủ Đức, 7 Quận 1, 6 Quận 2, 6 Bình Thạnh, 5 Quận 7, 3 Quận 3, 2 Gò Vấp, 2 Phú Nhuận), 14 tiện ích và 3 chủ nhà ACTIVE; giữ tài khoản chủ nhà chờ duyệt để demo admin. Quận 2 và tên phường/khu vực được dùng theo nhãn quen thuộc trước đây, không mô tả địa giới hành chính hiện hành. Giá 350.000–2.350.000 ₫/đêm là giá tổng hợp, không phải khảo sát thị trường.
+
+UUID chỗ nghỉ và email demo cố định giúp chạy seed nhiều lần không tạo trùng. Seed nâng cấp một lần 4 chỗ nghỉ cũ chỉ khi vẫn nhận diện được nội dung seed ban đầu; giữ ID, chủ sở hữu, trạng thái và lịch sử đặt phòng/thanh toán. Các chỗ nghỉ đã sửa và tài khoản đã đổi mật khẩu/vai trò/trạng thái được giữ nguyên. Tên hiển thị giả lập cũ của 3 tài khoản được đổi sang nhãn demo nếu chưa bị chỉnh sửa. Không tạo booking mẫu để các chỗ nghỉ sẵn sàng cho thử đặt phòng.
+
+Prisma 6 chạy `npx prisma db seed` bằng seed JavaScript đã biên dịch; tại máy local cần chạy `npm run build:seed` trước. `npm run prisma:seed` là lựa chọn chạy TypeScript trực tiếp trong môi trường phát triển. Image Docker đã chứa seed biên dịch và tự chạy khi backend khởi động.
+
+Hiện không có collector/scraper, importer dữ liệu ngoài hoặc dataset lấy từ website thương mại. Thu thập dữ liệu Việt Nam hợp lệ là giai đoạn riêng trong tương lai. [Chi tiết seed và kiểm chứng](docs/synthetic-seed-data.md).
 
 ## Quy tắc cần nhớ
 

@@ -29,6 +29,7 @@ export class PropertiesService {
       );
     const where: Prisma.PropertyWhereInput = {
       status: 'ACTIVE',
+      type: dto.type,
       district: dto.district,
       ...(dto.q
         ? {

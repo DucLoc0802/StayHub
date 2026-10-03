@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 
 export const districts = [
   'Quận 1',
+  'Quận 2',
   'Quận 3',
   'Quận 4',
   'Quận 5',

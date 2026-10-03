@@ -102,6 +102,10 @@ export class PropertyStatusDto {
   status!: 'ACTIVE' | 'INACTIVE';
 }
 export class SearchPropertyDto {
+  @ApiPropertyOptional({ enum: ['HOMESTAY', 'HOTEL'] })
+  @IsOptional()
+  @IsIn(['HOMESTAY', 'HOTEL'])
+  type?: 'HOMESTAY' | 'HOTEL';
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(150) q?: string;
   @ApiPropertyOptional({ enum: districts })
   @IsOptional()

@@ -1,133 +1,128 @@
 import 'dotenv/config';
-import { PrismaClient, Role, AccountStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import {
+  demoAccounts,
+  demoAmenities,
+  demoProperties,
+  legacySeedProperties,
+} from './demo-data';
+
 const prisma = new PrismaClient();
 async function main() {
   const passwordHash = await bcrypt.hash('StayHub123!', 12);
-  const accounts: [string, string, Role, AccountStatus][] = [
-    ['admin@stayhub.local', 'Quản trị StayHub', 'ADMIN', 'ACTIVE'],
-    ['guest@stayhub.local', 'Nguyễn Minh Anh', 'GUEST', 'ACTIVE'],
-    ['host@stayhub.local', 'Trần Hoàng Nam', 'HOST', 'ACTIVE'],
-    ['pendinghost@stayhub.local', 'Lê Thảo Nguyên', 'HOST', 'PENDING'],
-  ];
-  for (const [email, fullName, role, status] of accounts)
-    await prisma.user.upsert({
+  const users = new Map<string, { id: string; role: string; status: string }>();
+  for (const [email, fullName, role, status] of demoAccounts) {
+    const user = await prisma.user.upsert({
       where: { email },
       update: {},
       create: { email, fullName, role, status, passwordHash },
     });
-  const host = await prisma.user.findUniqueOrThrow({
-    where: { email: 'host@stayhub.local' },
-  });
-  const amenities = [
-    ['WIFI', 'Wi-Fi'],
-    ['AIR_CONDITIONING', 'Điều hòa'],
-    ['PARKING', 'Bãi đỗ xe'],
-    ['KITCHEN', 'Nhà bếp'],
-    ['SWIMMING_POOL', 'Hồ bơi'],
-    ['TV', 'TV'],
-    ['WASHING_MACHINE', 'Máy giặt'],
-    ['BALCONY', 'Ban công'],
-  ];
-  for (const [code, nameVi] of amenities)
+    users.set(email, user);
+  }
+  // Replace only the original fictional display names, preserving credentials,
+  // roles, approval decisions and any user-customized display name.
+  for (const [email, legacyName] of [
+    ['guest@stayhub.local', 'Nguyễn Minh Anh'],
+    ['host@stayhub.local', 'Trần Hoàng Nam'],
+    ['pendinghost@stayhub.local', 'Lê Thảo Nguyên'],
+  ]) {
+    await prisma.user.updateMany({
+      where: { email, fullName: legacyName },
+      data: { fullName: demoAccounts.find((a) => a[0] === email)![1] },
+    });
+  }
+  for (const [code, nameVi] of demoAmenities) {
     await prisma.amenity.upsert({
       where: { code },
-      update: { nameVi },
+      update: {},
       create: { code, nameVi },
     });
-  const allAmenities = await prisma.amenity.findMany();
-  const listings = [
-    {
-      id: '10000000-0000-4000-8000-000000000001',
-      name: 'Nắng Sài Gòn · Căn hộ ban công',
-      district: 'Quận 1',
-      address: '18 Nguyễn Văn Thủ, Đa Kao, TP. Hồ Chí Minh',
-      type: 'HOMESTAY' as const,
-      pricePerNight: 850000,
-      depositPercent: 30,
-      maxGuests: 2,
-      photo: 'photo-1600210492486-724fe5c67fb0',
-      codes: ['WIFI', 'AIR_CONDITIONING', 'KITCHEN', 'BALCONY'],
-    },
-    {
-      id: '10000000-0000-4000-8000-000000000002',
-      name: 'An Nhiên · Studio bên ô cửa',
-      district: 'Quận 3',
-      address: '42 Võ Văn Tần, TP. Hồ Chí Minh',
-      type: 'HOMESTAY' as const,
-      pricePerNight: 650000,
-      depositPercent: 20,
-      maxGuests: 2,
-      photo: 'photo-1616486338812-3dadae4b4ace',
-      codes: ['WIFI', 'AIR_CONDITIONING', 'KITCHEN', 'WASHING_MACHINE'],
-    },
-    {
-      id: '10000000-0000-4000-8000-000000000003',
-      name: 'The Mộc Hotel · Phòng Deluxe',
-      district: 'Bình Thạnh',
-      address: '65 Nguyễn Gia Trí, TP. Hồ Chí Minh',
-      type: 'HOTEL' as const,
-      pricePerNight: 1200000,
-      depositPercent: 40,
-      maxGuests: 3,
-      photo: 'photo-1611892440504-42a792e24d32',
-      codes: ['WIFI', 'AIR_CONDITIONING', 'PARKING', 'TV'],
-    },
-    {
-      id: '10000000-0000-4000-8000-000000000004',
-      name: 'Riverside · Góc bình yên',
-      district: 'Thủ Đức',
-      address: '28 Nguyễn Văn Hưởng, Thảo Điền, TP. Hồ Chí Minh',
-      type: 'HOMESTAY' as const,
-      pricePerNight: 1450000,
-      depositPercent: 50,
-      maxGuests: 4,
-      photo: 'photo-1600607687939-ce8a6c25118c',
-      codes: [
-        'WIFI',
-        'AIR_CONDITIONING',
-        'SWIMMING_POOL',
-        'BALCONY',
-        'KITCHEN',
-      ],
-    },
-  ];
-  for (const { photo, codes, ...data } of listings)
-    await prisma.property.upsert({
-      where: { id: data.id },
-      update: {},
-      create: {
-        ...data,
-        hostId: host.id,
-        description:
-          'Một không gian sáng thoáng, ấm áp và riêng tư để bạn tận hưởng nhịp sống Sài Gòn theo cách của mình. Nội thất gỗ tự nhiên, giường ngủ êm ái cùng những tiện nghi cần thiết cho chuyến đi. Gần các quán cà phê, nhà hàng và điểm khám phá địa phương. Toàn bộ chỗ nghỉ dành riêng cho nhóm của bạn. Nhận phòng từ 14:00, trả phòng trước 12:00. Vui lòng giữ yên tĩnh sau 22:00.',
-        bedrooms: data.maxGuests > 3 ? 2 : 1,
-        beds: data.maxGuests > 2 ? 2 : 1,
-        bathrooms: 1,
-        images: {
-          create: [
-            photo,
-            'photo-1615874959474-d609969a20ed',
-            'photo-1600566753086-00f18fb6b3ea',
-          ].map((image, sortOrder) => ({
-            url: `https://images.unsplash.com/${image}?auto=format&fit=crop&w=1400&q=85`,
-            sortOrder,
-          })),
+  }
+  const amenities = new Map(
+    (await prisma.amenity.findMany()).map((a) => [a.code, a.id]),
+  );
+  let created = 0;
+  let upgraded = 0;
+  let preserved = 0;
+  for (const { hostEmail, codes, images, ...data } of demoProperties) {
+    const host = users.get(hostEmail)!;
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.property.findUnique({
+        where: { id: data.id },
+        include: {
+          images: { orderBy: { sortOrder: 'asc' } },
+          amenities: { include: { amenity: true } },
         },
+      });
+      const old = legacySeedProperties[Number(data.id.slice(-12)) - 1];
+      const untouchedLegacy =
+        existing &&
+        old &&
+        existing.hostId === host.id &&
+        host.role === 'HOST' &&
+        host.status === 'ACTIVE' &&
+        Object.entries(old.data).every(
+          ([key, value]) => existing[key as keyof typeof old.data] === value,
+        ) &&
+        JSON.stringify(
+          existing.images.map(({ url, sortOrder }) => ({ url, sortOrder })),
+        ) === JSON.stringify(old.images) &&
+        existing.amenities
+          .map(({ amenity }) => amenity.code)
+          .sort()
+          .join(',') === old.codes.slice().sort().join(',');
+      const relations = {
+        images: { create: images },
         amenities: {
-          create: allAmenities
-            .filter((a) => codes.includes(a.code))
-            .map((a) => ({ amenityId: a.id })),
+          create: codes.map((code) => ({ amenityId: amenities.get(code)! })),
         },
-      },
+      };
+      if (untouchedLegacy) {
+        // Upgrade the recognized old seed once; retain ID/owner/status/history.
+        const { status, ...scalars } = data;
+        void status;
+        await tx.property.update({
+          where: { id: data.id },
+          data: {
+            ...scalars,
+            images: { deleteMany: {}, ...relations.images },
+            amenities: { deleteMany: {}, ...relations.amenities },
+          },
+        });
+        upgraded++;
+      } else if (existing) {
+        preserved++;
+      } else {
+        if (host.role !== 'HOST' || host.status !== 'ACTIVE') {
+          throw new Error(
+            `Demo host must be an approved ACTIVE HOST to create properties: ${hostEmail}`,
+          );
+        }
+        await tx.property.create({
+          data: { ...data, hostId: host.id, ...relations },
+        });
+        created++;
+      }
     });
+  }
   console.info(
-    'Đã tạo dữ liệu demo StayHub (không ghi đè tài khoản/chỗ nghỉ đã có).',
+    JSON.stringify(
+      {
+        dataset: 'StayHub synthetic demo',
+        targetProperties: demoProperties.length,
+        created,
+        upgradedLegacy: upgraded,
+        preserved,
+      },
+      null,
+      2,
+    ),
   );
 }
 main()
-  .catch((error) => {
-    console.error(error);
+  .catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : 'Demo seed failed');
     process.exitCode = 1;
   })
   .finally(() => prisma.$disconnect());

@@ -28,7 +28,7 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const query = new URLSearchParams(params.toString());
-    for (const key of ['district', 'minPrice', 'maxPrice']) {
+    for (const key of ['district', 'type', 'minPrice', 'maxPrice']) {
       const value = String(data.get(key) ?? '');
       if (value) query.set(key, value);
       else query.delete(key);
@@ -53,6 +53,18 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
           {districts.map((d) => (
             <option key={d}>{d}</option>
           ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor={`${formId}-type`}>Loại chỗ nghỉ</label>
+        <select
+          id={`${formId}-type`}
+          name="type"
+          defaultValue={params.get('type') ?? ''}
+        >
+          <option value="">Tất cả loại chỗ nghỉ</option>
+          <option value="HOMESTAY">Homestay</option>
+          <option value="HOTEL">Khách sạn</option>
         </select>
       </div>
       <fieldset>
@@ -202,7 +214,7 @@ export function PropertyList() {
                     Lọc chỗ nghỉ
                   </DialogTitle>
                   <DialogDescription className="mb-6 text-sm text-muted-foreground">
-                    Chọn khu vực, ngân sách và tiện ích phù hợp.
+                    Chọn khu vực, loại chỗ nghỉ, ngân sách và tiện ích phù hợp.
                   </DialogDescription>
                   <FilterForm
                     key={params.toString()}
