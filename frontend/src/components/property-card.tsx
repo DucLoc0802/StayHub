@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { ArrowUpRight, MapPin, Users } from 'lucide-react';
 import type { Property } from '@/lib/types';
 import { money } from '@/lib/utils';
+import { propertyPath } from '@/lib/property-url';
 import { PropertyImage } from './property-image';
 export function PropertyCard({ property }: { property: Property }) {
   return (
     <Link
-      href={`/properties/${property.id}`}
+      href={propertyPath(property)}
       className="group block overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">

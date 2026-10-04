@@ -26,7 +26,7 @@ export default function HomePage() {
             <div className="py-4 md:py-9">
               <p className="eyebrow flex items-center gap-2">
                 <Sun size={16} />
-                CHÀO SÀI GÒN, CHÀO BẠN.
+                PENTABUG XIN CHÀO BẠN.
               </p>
               <h1 className="mt-6 text-[clamp(2.4rem,4.6vw,4.15rem)] font-semibold leading-[1.22] tracking-[-0.055em]">
                 Chỗ nghỉ vừa ý,
@@ -68,10 +68,10 @@ export default function HomePage() {
                 </span>
                 <div>
                   <p className="text-sm font-semibold">
-                    Ở một nơi. Yêu một thành phố.
+                    Tận hưởng Sài Gòn mỗi ngày
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Những ngày thật chậm tại Sài Gòn
+                    Cảm nhận sự bình yên, ấm áp
                   </p>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bath,
@@ -12,6 +13,7 @@ import {
   House,
 } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
+import { propertyPath } from '@/lib/property-url';
 import { ErrorState, Loading } from './ui/states';
 import {
   Dialog,
@@ -22,11 +24,19 @@ import {
 import { BookingCard } from './booking-card';
 import { PropertyImage } from './property-image';
 export function PropertyDetail({ id }: { id: string }) {
+  const router = useRouter();
   const property = useQuery({
     queryKey: ['property', id],
     queryFn: () => api.property(id),
   });
   const [selected, setSelected] = useState<number | null>(null);
+  useEffect(() => {
+    if (!property.data) return;
+    const path = propertyPath(property.data);
+    if (window.location.pathname !== path) {
+      router.replace(`${path}${window.location.search}${window.location.hash}`);
+    }
+  }, [property.data, router]);
   if (property.isPending) return <Loading />;
   if (property.isError)
     return (
@@ -160,10 +170,11 @@ export function PropertyDetail({ id }: { id: string }) {
             </ul>
           </section>
           <section className="rounded-2xl border bg-cream p-6">
-            <h2 className="font-semibold">Một vài điều cần biết</h2>
+            <h2 className="font-semibold">Một số lưu ý</h2>
             <ul className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
               <li>
-                Toàn bộ chỗ nghỉ là một đơn vị đặt độc lập, dành riêng cho bạn.
+                Nhận phòng: {p.checkInTime} · Trả phòng: {p.checkOutTime} (giờ
+                Việt Nam).
               </li>
               <li>
                 Đặt cọc {p.depositPercent}% để xác nhận. Phần còn lại thanh toán
@@ -173,7 +184,6 @@ export function PropertyDetail({ id }: { id: string }) {
                 Có thể hủy đơn đã xác nhận, nhưng tiền cọc đã thanh toán sẽ
                 không được hoàn lại.
               </li>
-              <li>Thanh toán trên StayHub là giả lập cho mục đích học tập.</li>
             </ul>
           </section>
         </div>

@@ -26,8 +26,8 @@ class PropertiesController {
   @Get() search(@Query() dto: SearchPropertyDto) {
     return this.properties.search(dto);
   }
-  @Get(':id') detail(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.properties.detail(id);
+  @Get(':slug') detail(@Param('slug') slug: string) {
+    return this.properties.detail(slug);
   }
 }
 @ApiTags('Chỗ nghỉ của tôi')

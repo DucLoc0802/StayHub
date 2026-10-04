@@ -18,13 +18,18 @@ export const availabilityConflict =
 export class BookingsService {
   constructor(private readonly prisma: PrismaService) {}
   async create(guestId: string, dto: CreateBookingDto) {
-    const dates = bookingDates(dto.checkIn, dto.checkOut);
     return this.prisma.serializable(async (tx) => {
       const property = await tx.property.findFirst({
         where: { id: dto.propertyId, status: 'ACTIVE' },
       });
       if (!property)
         throw new NotFoundException('Không tìm thấy chỗ nghỉ đang hoạt động.');
+      const dates = bookingDates(
+        dto.checkIn,
+        dto.checkOut,
+        new Date(),
+        property.checkInTime,
+      );
       if (dto.guestCount > property.maxGuests)
         throw new BadRequestException(
           'Số khách vượt quá sức chứa của chỗ nghỉ.',
@@ -40,6 +45,8 @@ export class BookingsService {
           guestId,
           propertyId: property.id,
           guestCount: dto.guestCount,
+          checkInTimeSnapshot: property.checkInTime,
+          checkOutTimeSnapshot: property.checkOutTime,
           ...dates,
           ...priceSnapshot(
             property.pricePerNight,

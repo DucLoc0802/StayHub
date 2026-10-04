@@ -10,22 +10,27 @@ import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from './providers';
 import { Button } from './ui/button';
-const schema = z.object({
-  email: z.email('Email không hợp lệ.').max(191, 'Email tối đa 191 ký tự.'),
+const schema = (register: boolean) => z.object({
+  email: register
+    ? z.email('Email không hợp lệ.').max(191, 'Email tối đa 191 ký tự.')
+    : z.string().trim().toLowerCase().max(191, 'Tài khoản tối đa 191 ký tự.').refine(
+        (value) => ['admin', 'host', 'guest'].includes(value) || z.email().safeParse(value).success,
+        'Nhập email hoặc tài khoản demo admin, host, guest.',
+      ),
   password: z
     .string()
-    .min(8, 'Mật khẩu cần ít nhất 8 ký tự.')
+    .min(register ? 8 : 1, register ? 'Mật khẩu cần ít nhất 8 ký tự.' : 'Vui lòng nhập mật khẩu.')
     .max(72, 'Mật khẩu tối đa 72 ký tự.'),
   fullName: z.string().optional(),
   role: z.enum(['GUEST', 'HOST']),
 });
-type Values = z.infer<typeof schema>;
+type Values = z.infer<ReturnType<typeof schema>>;
 export function AuthForm({ register = false }: { register?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const auth = useAuth();
   const form = useForm<Values>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema(register)),
     defaultValues: {
       email: '',
       password: '',
@@ -67,12 +72,9 @@ export function AuthForm({ register = false }: { register?: boolean }) {
         <p className="eyebrow mt-8">MỖI CHUYẾN ĐI, MỘT CÂU CHUYỆN</p>
         <h2 className="mt-5 text-4xl font-semibold leading-snug tracking-tight">
           Chào bạn,
-          <br />
-          mừng bạn về StayHub.
         </h2>
         <p className="mt-6 max-w-sm text-sm leading-7 text-muted-foreground">
-          Một nơi dừng chân ấm áp, một trải nghiệm thật riêng. Hãy để những kỷ
-          niệm đẹp bắt đầu từ đây.
+          Đăng nhập/Đăng ký để bắt đầu khám phá những điều mới m
         </p>
         <div className="mt-12 flex gap-3 text-sm">
           <House className="text-secondary-foreground" />
@@ -147,12 +149,12 @@ export function AuthForm({ register = false }: { register?: boolean }) {
             </>
           )}
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">{register ? 'Email' : 'Tài khoản hoặc email'}</label>
             <input
               id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="ban@example.com"
+              type={register ? 'email' : 'text'}
+              autoComplete={register ? 'email' : 'username'}
+              placeholder={register ? 'ban@example.com' : 'Nhập vào tài khoản email'}
               {...form.register('email')}
             />
             <p className="field-error">
@@ -165,7 +167,7 @@ export function AuthForm({ register = false }: { register?: boolean }) {
               id="password"
               type="password"
               autoComplete={register ? 'new-password' : 'current-password'}
-              placeholder="Tối thiểu 8 ký tự"
+              placeholder={register ? 'Tối thiểu 8 ký tự' : 'Nhập mật khẩu'}
               {...form.register('password')}
             />
             <p className="field-error">

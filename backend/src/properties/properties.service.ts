@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { propertyLookup, withPropertySlug } from './property-slug';
 import {
   CreatePropertyDto,
   SearchPropertyDto,
@@ -16,8 +18,23 @@ export const propertyInclude = {
   amenities: { include: { amenity: true } },
 } satisfies Prisma.PropertyInclude;
 @Injectable()
-export class PropertiesService {
+export class PropertiesService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
+  async onModuleInit() {
+    const missing = await this.prisma.property.findMany({
+      where: { slug: null },
+      select: { id: true, name: true },
+      orderBy: { id: 'asc' },
+    });
+    for (const property of missing) {
+      await withPropertySlug(property.name, (slug) =>
+        this.prisma.property.updateMany({
+          where: { id: property.id, slug: null },
+          data: { slug },
+        }),
+      );
+    }
+  }
   async search(dto: SearchPropertyDto) {
     if (
       dto.minPrice !== undefined &&
@@ -67,15 +84,16 @@ export class PropertiesService {
       totalPages: Math.ceil(total / dto.limit),
     };
   }
-  async detail(id: string) {
+  async detail(slug: string) {
+    const lookup = propertyLookup(slug);
     const property = await this.prisma.property.findFirst({
-      where: { id, status: 'ACTIVE' },
+      where: { ...lookup, status: 'ACTIVE' },
       include: propertyInclude,
     });
     if (!property) throw new NotFoundException('Không tìm thấy chỗ nghỉ.');
     const unavailableDates = await this.prisma.booking.findMany({
       where: {
-        propertyId: id,
+        propertyId: property.id,
         status: 'CONFIRMED',
         checkOut: { gte: new Date() },
       },
@@ -109,17 +127,20 @@ export class PropertiesService {
   async create(hostId: string, dto: CreatePropertyDto) {
     await this.validateAmenities(dto.amenityIds);
     const { images, amenityIds, ...data } = dto;
-    return this.prisma.property.create({
-      data: {
-        ...data,
-        hostId,
-        images: {
-          create: images.map((url, sortOrder) => ({ url, sortOrder })),
+    return withPropertySlug(dto.name, (slug) =>
+      this.prisma.property.create({
+        data: {
+          ...data,
+          slug,
+          hostId,
+          images: {
+            create: images.map((url, sortOrder) => ({ url, sortOrder })),
+          },
+          amenities: { create: amenityIds.map((amenityId) => ({ amenityId })) },
         },
-        amenities: { create: amenityIds.map((amenityId) => ({ amenityId })) },
-      },
-      include: propertyInclude,
-    });
+        include: propertyInclude,
+      }),
+    );
   }
   async update(id: string, hostId: string, dto: UpdatePropertyDto) {
     await this.owned(id, hostId);

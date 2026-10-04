@@ -1,0 +1,7 @@
+ALTER TABLE `Property`
+  ADD COLUMN `checkInTime` CHAR(5) NOT NULL DEFAULT '14:00',
+  ADD COLUMN `checkOutTime` CHAR(5) NOT NULL DEFAULT '12:00';
+
+ALTER TABLE `Booking`
+  ADD COLUMN `checkInTimeSnapshot` CHAR(5) NOT NULL DEFAULT '14:00',
+  ADD COLUMN `checkOutTimeSnapshot` CHAR(5) NOT NULL DEFAULT '12:00';

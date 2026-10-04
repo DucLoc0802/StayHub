@@ -57,6 +57,8 @@ test('catalog matches app validation and sensible capacities and varied faciliti
     );
     const dto = plainToInstance(CreatePropertyDto, {
       ...data,
+      checkInTime: '14:00',
+      checkOutTime: '12:00',
       images: images.map((i) => i.url),
       amenityIds: codes.map((c) => amenityIds.get(c)),
     });
@@ -66,7 +68,7 @@ test('catalog matches app validation and sensible capacities and varied faciliti
     assert.ok(data.bedrooms <= data.beds);
     assert.ok(data.bathrooms >= 1);
     assert.match(data.description, /dữ liệu tổng hợp/);
-    assert.match(data.address, /địa chỉ demo/);
+    assert.match(data.address, /Khu vực đường .+, TP\. Hồ Chí Minh/);
     assert.equal(new Set(codes).size, codes.length);
     assert.equal(images.length, 3);
   }

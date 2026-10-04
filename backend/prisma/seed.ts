@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import {
   demoAccounts,
+  demoPasswords,
   demoAmenities,
   demoProperties,
   legacySeedProperties,
@@ -10,17 +11,32 @@ import {
 
 const prisma = new PrismaClient();
 async function main() {
-  const passwordHash = await bcrypt.hash('StayHub123!', 12);
+  const defaultPasswordHash = await bcrypt.hash('StayHub123!', 12);
   const users = new Map<string, { id: string; role: string; status: string }>();
   for (const [email, fullName, role, status] of demoAccounts) {
+    const demoPassword = demoPasswords[email];
+    const passwordHash = demoPassword
+      ? await bcrypt.hash(demoPassword, 12)
+      : defaultPasswordHash;
     const user = await prisma.user.upsert({
       where: { email },
       update: {},
       create: { email, fullName, role, status, passwordHash },
     });
+    // Keep the three primary demo credentials fixed, including existing databases.
+    // Avoid changing the hash/timestamps again when the password already matches.
+    if (
+      demoPassword &&
+      !(await bcrypt.compare(demoPassword, user.passwordHash))
+    ) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      });
+    }
     users.set(email, user);
   }
-  // Replace only the original fictional display names, preserving credentials,
+  // Replace only the original fictional display names, preserving IDs,
   // roles, approval decisions and any user-customized display name.
   for (const [email, legacyName] of [
     ['guest@stayhub.local', 'Nguyễn Minh Anh'],

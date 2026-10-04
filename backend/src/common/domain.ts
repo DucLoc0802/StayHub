@@ -34,6 +34,7 @@ export function bookingDates(
   checkIn: string,
   checkOut: string,
   now = new Date(),
+  checkInTime?: string,
 ) {
   const parse = (value: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
@@ -51,6 +52,13 @@ export function bookingDates(
   const totalNights = (end.getTime() - start.getTime()) / 86400000;
   if (checkIn < vietnamToday(now))
     throw new BadRequestException('Ngày nhận phòng không được ở quá khứ.');
+  if (
+    checkInTime &&
+    now.getTime() > new Date(`${checkIn}T${checkInTime}:00+07:00`).getTime()
+  )
+    throw new BadRequestException(
+      'Đã quá giờ nhận phòng của ngày này. Vui lòng chọn ngày khác.',
+    );
   if (totalNights < 1 || totalNights > 365)
     throw new BadRequestException('Thời gian lưu trú phải từ 1 đến 365 đêm.');
   return { checkIn: start, checkOut: end, totalNights };

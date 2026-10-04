@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { SlidersHorizontal, ArrowLeft, ArrowRight } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
-import { districts } from '@/lib/utils';
+import { districts, money } from '@/lib/utils';
 import { PropertyCard } from './property-card';
 import { SearchBox } from './search-box';
 import { Button } from './ui/button';
@@ -16,10 +16,28 @@ import {
   DialogTrigger,
 } from './ui/dialog';
 import { Empty, ErrorState, Loading } from './ui/states';
+const PRICE_LIMIT = 5000000;
+const PRICE_STEP = 50000;
+
 function FilterForm({ onApply }: { onApply?: () => void }) {
   const formId = useId();
   const params = useSearchParams();
   const router = useRouter();
+  const [priceRange, setPriceRange] = useState<[number, number]>(() => {
+    function initialPrice(key: string, fallback: number) {
+      const value = params.get(key);
+      const price = value ? Number(value) : fallback;
+      return Number.isFinite(price)
+        ? Math.min(
+            PRICE_LIMIT,
+            Math.max(0, Math.round(price / PRICE_STEP) * PRICE_STEP),
+          )
+        : fallback;
+    }
+    const minPrice = initialPrice('minPrice', 0);
+    const maxPrice = initialPrice('maxPrice', PRICE_LIMIT);
+    return [Math.min(minPrice, maxPrice), Math.max(minPrice, maxPrice)];
+  });
   const amenities = useQuery({
     queryKey: ['amenities'],
     queryFn: api.amenities,
@@ -72,39 +90,80 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
           Ngân sách mỗi đêm
         </legend>
         <div className="space-y-3">
-          <div className="field">
-            <label
-              className="text-xs text-muted-foreground"
-              htmlFor={`${formId}-min-price`}
-            >
-              Từ (₫)
+          <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+            <label className="!text-xs" htmlFor={`${formId}-min-price`}>
+              Từ{' '}
+              <span className="font-semibold text-foreground">
+                {money(priceRange[0])}
+              </span>
             </label>
-            <input
-              id={`${formId}-min-price`}
-              type="number"
-              name="minPrice"
-              min={0}
-              max={50000000}
-              defaultValue={params.get('minPrice') ?? ''}
-              placeholder="0"
-            />
-          </div>
-          <div className="field">
             <label
-              className="text-xs text-muted-foreground"
+              className="!text-xs text-right"
               htmlFor={`${formId}-max-price`}
             >
-              Đến (₫)
+              Đến{' '}
+              <span className="font-semibold text-foreground">
+                {money(priceRange[1])}
+              </span>
             </label>
+          </div>
+          <div className="relative flex h-8 items-center">
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-2 h-1.5 rounded-full bg-border"
+            >
+              <div
+                className="absolute h-full rounded-full bg-primary"
+                style={{
+                  left: `${(priceRange[0] / PRICE_LIMIT) * 100}%`,
+                  right: `${100 - (priceRange[1] / PRICE_LIMIT) * 100}%`,
+                }}
+              />
+            </div>
+            <input
+              id={`${formId}-min-price`}
+              className="price-range"
+              style={{ zIndex: priceRange[0] === PRICE_LIMIT ? 3 : 1 }}
+              type="range"
+              name="minPrice"
+              min={0}
+              max={PRICE_LIMIT}
+              step={PRICE_STEP}
+              value={priceRange[0]}
+              aria-valuemax={priceRange[1]}
+              aria-valuetext={money(priceRange[0])}
+              onChange={(event) =>
+                setPriceRange(([, maxPrice]) => [
+                  Math.min(Number(event.target.value), maxPrice),
+                  maxPrice,
+                ])
+              }
+            />
             <input
               id={`${formId}-max-price`}
-              type="number"
+              className="price-range z-2"
+              type="range"
               name="maxPrice"
               min={0}
-              max={50000000}
-              defaultValue={params.get('maxPrice') ?? ''}
-              placeholder="Không giới hạn"
+              max={PRICE_LIMIT}
+              step={PRICE_STEP}
+              value={priceRange[1]}
+              aria-valuemin={priceRange[0]}
+              aria-valuetext={money(priceRange[1])}
+              onChange={(event) =>
+                setPriceRange(([minPrice]) => [
+                  minPrice,
+                  Math.max(Number(event.target.value), minPrice),
+                ])
+              }
             />
+          </div>
+          <div
+            aria-hidden="true"
+            className="flex justify-between text-xs text-muted-foreground"
+          >
+            <span>0 ₫</span>
+            <span>5 triệu ₫</span>
           </div>
         </div>
       </fieldset>

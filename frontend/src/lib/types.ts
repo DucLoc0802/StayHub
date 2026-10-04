@@ -18,6 +18,7 @@ export interface PropertyImage {
   sortOrder: number;
 }
 export interface Property {
+  slug?: string | null;
   id: string;
   hostId: string;
   name: string;
@@ -31,6 +32,8 @@ export interface Property {
   bedrooms: number;
   beds: number;
   bathrooms: number;
+  checkInTime: string;
+  checkOutTime: string;
   status: 'ACTIVE' | 'INACTIVE';
   images: PropertyImage[];
   amenities: { amenity: Amenity; amenityId: string }[];
@@ -41,6 +44,8 @@ export interface Booking {
   property: Property;
   checkIn: string;
   checkOut: string;
+  checkInTimeSnapshot: string;
+  checkOutTimeSnapshot: string;
   guestCount: number;
   totalNights: number;
   nightlyPriceSnapshot: number;

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { RegisterDto } from '../src/auth/auth.dto';
+import { LoginDto, RegisterDto } from '../src/auth/auth.dto';
 import {
   CreatePropertyDto,
   SearchPropertyDto,
@@ -37,6 +37,42 @@ test('public registration rejects ADMIN and normalizes email', async () => {
   assert.ok((await validate(data)).some((e) => e.property === 'role'));
   data.role = 'HOST';
   assert.equal((await validate(data)).length, 0);
+});
+
+test('demo login aliases accept short passwords while registration remains strict', async () => {
+  for (const account of ['admin', 'host', 'guest']) {
+    const login = plainToInstance(LoginDto, {
+      email: ` ${account.toUpperCase()} `,
+      password: account,
+    });
+    assert.equal(login.email, `${account}@stayhub.local`);
+    assert.equal((await validate(login)).length, 0);
+    const registration = plainToInstance(RegisterDto, {
+      email: account,
+      password: account,
+      fullName: 'Tài khoản demo',
+      role: 'GUEST',
+    });
+    const invalid = (await validate(registration)).map(
+      (error) => error.property,
+    );
+    assert.ok(invalid.includes('email'));
+    assert.ok(invalid.includes('password'));
+  }
+  assert.ok(
+    (
+      await validate(
+        plainToInstance(LoginDto, { email: 'unknown', password: 'test' }),
+      )
+    ).length > 0,
+  );
+  assert.ok(
+    (
+      await validate(
+        plainToInstance(LoginDto, { email: 'guest', password: '' }),
+      )
+    ).length > 0,
+  );
 });
 test('property requires image, amenity, valid integer price/capacity/deposit', async () => {
   const data = plainToInstance(CreatePropertyDto, {
@@ -76,4 +112,33 @@ test('search parses numbers and comma-separated amenity ids', async () => {
   assert.equal(data.page, 2);
   assert.equal(data.amenities?.length, 2);
   assert.equal((await validate(data)).length, 0);
+});
+
+test('host times require valid HH:mm and partial edits keep omitted times', async () => {
+  for (const value of ['', '9:00', '24:00', '14:60', '14:00:00', null, 1400]) {
+    const errors = await validate(
+      plainToInstance(UpdatePropertyDto, {
+        checkInTime: value,
+        checkOutTime: value,
+      }),
+    );
+    assert.ok(errors.some((e) => e.property === 'checkInTime'));
+    assert.ok(errors.some((e) => e.property === 'checkOutTime'));
+  }
+  for (const value of ['00:00', '14:30', '23:59']) {
+    assert.equal(
+      (
+        await validate(
+          plainToInstance(UpdatePropertyDto, {
+            checkInTime: value,
+            checkOutTime: value,
+          }),
+        )
+      ).length,
+      0,
+    );
+  }
+  const edit = plainToInstance(UpdatePropertyDto, { name: 'Tên chỗ nghỉ mới' });
+  assert.equal(edit.checkInTime, undefined);
+  assert.equal(edit.checkOutTime, undefined);
 });

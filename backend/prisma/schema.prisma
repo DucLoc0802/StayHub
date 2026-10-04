@@ -56,6 +56,7 @@ model Property {
   host           User @relation(fields: [hostId], references: [id])
   type           PropertyType
   name           String @db.VarChar(150)
+  slug           String? @unique @db.VarChar(191)
   description    String @db.Text
   district       String @db.VarChar(80)
   address        String @db.VarChar(250)
@@ -65,6 +66,8 @@ model Property {
   bedrooms       Int
   beds           Int
   bathrooms      Int
+  checkInTime    String @default("14:00") @db.Char(5)
+  checkOutTime   String @default("12:00") @db.Char(5)
   status         PropertyStatus @default(ACTIVE)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -105,6 +108,8 @@ model Booking {
   property               Property @relation(fields: [propertyId], references: [id])
   checkIn                DateTime @db.Date
   checkOut               DateTime @db.Date
+  checkInTimeSnapshot    String @default("14:00") @db.Char(5)
+  checkOutTimeSnapshot   String @default("12:00") @db.Char(5)
   guestCount             Int
   nightlyPriceSnapshot   Int
   totalNights            Int

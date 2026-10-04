@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
+import { priceSnapshot, vietnamToday } from '../src/common/domain';
 import type {
   Amenity,
   Booking,
@@ -117,8 +118,8 @@ async function main() {
   await request('GET', '/host/properties', guest.accessToken, undefined, 403);
   await request('GET', '/bookings/my', undefined, undefined, 401);
   const admin = await request<Session>('POST', '/auth/login', undefined, {
-    email: 'admin@stayhub.local',
-    password: 'StayHub123!',
+    email: 'admin',
+    password: 'admin',
   });
   const pending = await request<User[]>(
     'GET',
@@ -179,6 +180,8 @@ async function main() {
     bedrooms: 1,
     beds: 2,
     bathrooms: 1,
+    checkInTime: '15:30',
+    checkOutTime: '11:00',
     images: ['https://images.unsplash.com/photo-1600210492486-724fe5c67fb0'],
     amenityIds: amenities.slice(0, 2).map((a) => a.id),
   };
@@ -186,6 +189,8 @@ async function main() {
     { pricePerNight: 0 },
     { depositPercent: 101 },
     { maxGuests: 0 },
+    { checkInTime: '24:00' },
+    { checkOutTime: '11:60' },
     { images: [] },
     { amenityIds: [] },
   ])
@@ -211,8 +216,8 @@ async function main() {
     400,
   );
   const otherHost = await request<Session>('POST', '/auth/login', undefined, {
-    email: 'host@stayhub.local',
-    password: 'StayHub123!',
+    email: 'host',
+    password: 'host',
   });
   await request(
     'PATCH',
@@ -262,13 +267,67 @@ async function main() {
       .join(',')}`,
   );
   assert.equal(none.total, 0);
-  await request('GET', `/properties/${property.id}`);
+  const byId = await request<Property>('GET', '/properties/' + property.id);
+  assert.ok(byId.slug);
+  assert.equal(byId.slug, property.slug);
+  const bySlug = await request<Property>('GET', '/properties/' + property.slug);
+  assert.equal(bySlug.id, property.id);
+  const byOldPath = await request<Property>(
+    'GET',
+    '/properties/old-name--' + property.id,
+  );
+  assert.equal(byOldPath.id, property.id);
   const bookingData = {
     propertyId: property.id,
     checkIn: day(40),
     checkOut: day(43),
     guestCount: 2,
   };
+  // A property whose check-in is at midnight cannot accept today's booking.
+  const today = vietnamToday();
+  const tomorrow = new Date(new Date(today).getTime() + 86400000)
+    .toISOString()
+    .slice(0, 10);
+  await request('PATCH', '/host/properties/' + property.id, host.accessToken, {
+    checkInTime: '00:00',
+  });
+  await request(
+    'POST',
+    '/bookings',
+    guest.accessToken,
+    {
+      ...bookingData,
+      checkIn: today,
+      checkOut: tomorrow,
+    },
+    400,
+  );
+  const expired = await prisma.booking.create({
+    data: {
+      guestId: guest.user.id,
+      propertyId: property.id,
+      guestCount: 1,
+      checkIn: new Date(today),
+      checkOut: new Date(tomorrow),
+      checkInTimeSnapshot: '00:00',
+      checkOutTimeSnapshot: '11:00',
+      ...priceSnapshot(property.pricePerNight, property.depositPercent, 1),
+    },
+  });
+  await request(
+    'POST',
+    '/bookings/' + expired.id + '/pay',
+    guest.accessToken,
+    undefined,
+    400,
+  );
+  assert.equal(
+    await prisma.payment.count({ where: { bookingId: expired.id } }),
+    0,
+  );
+  await request('PATCH', '/host/properties/' + property.id, host.accessToken, {
+    checkInTime: '15:30',
+  });
   for (const invalid of [
     { guestCount: 4 },
     { checkIn: day(-1) },
@@ -298,6 +357,8 @@ async function main() {
     bookingData,
     201,
   );
+  assert.equal(booking.checkInTimeSnapshot, '15:30');
+  assert.equal(booking.checkOutTimeSnapshot, '11:00');
   assert.equal(booking.status, 'PENDING_PAYMENT');
   assert.equal(booking.depositAmount, 1200000);
   assert.equal(booking.remainingAmount, 1800000);
@@ -322,6 +383,8 @@ async function main() {
   );
   assert.ok(!own.some((b) => b.id === booking.id));
   await request('PATCH', `/host/properties/${property.id}`, host.accessToken, {
+    checkInTime: '16:00',
+    checkOutTime: '10:00',
     pricePerNight: 1500000,
     depositPercent: 50,
   });
@@ -334,6 +397,8 @@ async function main() {
   );
   assert.equal(confirmed.payment?.amount, 1200000);
   assert.equal(confirmed.totalAmount, 3000000);
+  assert.equal(confirmed.checkInTimeSnapshot, '15:30');
+  assert.equal(confirmed.checkOutTimeSnapshot, '11:00');
   await request(
     'POST',
     `/bookings/${booking.id}/pay`,
@@ -513,6 +578,46 @@ async function main() {
     1,
   );
   passed++;
+  const duplicateName = await request<Property>(
+    'POST',
+    '/host/properties',
+    host.accessToken,
+    data,
+    201,
+  );
+  assert.equal(duplicateName.slug, property.slug + '-2');
+  const simultaneous = await Promise.all(
+    [0, 1].map(() =>
+      request<Property>(
+        'POST',
+        '/host/properties',
+        host.accessToken,
+        data,
+        201,
+      ),
+    ),
+  );
+  assert.deepEqual(simultaneous.map((p) => p.slug).sort(), [
+    property.slug + '-3',
+    property.slug + '-4',
+  ]);
+  const renamed = await request<Property>(
+    'PATCH',
+    '/host/properties/' + property.id,
+    host.accessToken,
+    { name: data.name + ' updated' },
+  );
+  assert.equal(renamed.slug, property.slug);
+  const afterRename = await request<Property>(
+    'GET',
+    '/properties/' + property.slug,
+  );
+  assert.equal(afterRename.id, property.id);
+  const otherSlug = await request<Property>(
+    'GET',
+    '/properties/' + duplicateName.slug,
+  );
+  assert.equal(otherSlug.id, duplicateName.id);
   const swagger = await fetch(`${base}/docs`);
   assert.equal(swagger.status, 200);
   passed++;

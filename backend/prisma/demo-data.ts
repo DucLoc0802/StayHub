@@ -9,6 +9,11 @@ export const demoAccounts: [string, string, Role, AccountStatus][] = [
   ['host.east@stayhub.local', 'Chủ nhà demo phía Đông', 'HOST', 'ACTIVE'],
   ['host.south@stayhub.local', 'Chủ nhà demo phía Nam', 'HOST', 'ACTIVE'],
 ];
+export const demoPasswords: Record<string, string> = {
+  'admin@stayhub.local': 'admin',
+  'host@stayhub.local': 'host',
+  'guest@stayhub.local': 'guest',
+};
 export const demoAmenities = [
   ['WIFI', 'Wi-Fi'],
   ['AIR_CONDITIONING', 'Máy lạnh'],
@@ -620,7 +625,7 @@ export const demoProperties = groups
           name,
           type,
           district,
-          address: `Khu vực đường ${street}, ${area}, ${district}, TP. Hồ Chí Minh (địa chỉ demo)`,
+          address: `Khu vực đường ${street}, ${area}, ${district}, TP. Hồ Chí Minh`,
           description: `${text} Nhận phòng từ 14:00, trả phòng trước 12:00; giữ yên tĩnh sau 22:00. Chỗ nghỉ, địa chỉ và giá là dữ liệu tổng hợp cho demo StayHub, không phải cơ sở lưu trú thật.`,
           pricePerNight,
           depositPercent:

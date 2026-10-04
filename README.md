@@ -7,8 +7,10 @@ Nền tảng đặt homestay/khách sạn tại TP. Hồ Chí Minh, xây mới t
 - Khách thuê đăng ký và tự đăng nhập; Người cho thuê đăng ký chờ duyệt; Quản trị viên duyệt hoặc từ chối.
 - Tìm kiếm tên/khu vực, loại HOTEL/HOMESTAY, giá, đủ tất cả tiện ích đã chọn, sắp xếp giá và phân trang.
 - Người cho thuê ACTIVE tạo/sửa/kích hoạt/tạm ngưng chỗ nghỉ, nhiều URL ảnh, tỷ lệ cọc riêng; chỉ xem đơn thuộc sở hữu.
+- Chủ nhà thiết lập giờ nhận/trả phòng (HH:mm, UTC+7); khách thấy giờ khi chọn ngày và trong lịch sử đơn. Sau giờ nhận phòng, lịch làm mờ và không cho chọn ngày hôm nay và API từ chối tạo đơn/thanh toán cọc quá hạn. Giờ được lưu theo từng đơn, thay đổi giờ chỗ nghỉ chỉ áp dụng cho đơn mới. Chỗ nghỉ và đơn cũ mặc định nhận 14:00, trả 12:00.
 - Lịch chọn ngày, tính giá trên backend, lưu snapshot; thanh toán cọc giả lập xác nhận tự động.
 - Chống xác nhận hai đơn trùng lịch; hủy đơn giữ lại cọc đã trả, giải phóng lịch.
+- Link chỗ nghỉ dùng tên ngắn như /properties/loi-hoa-family-home, trùng tên thêm hậu tố -2, -3. Đường dẫn được giữ khi đổi tên chỗ nghỉ; link UUID và link dài cũ tự chuyển sang link ngắn. API tự bổ sung đường dẫn cho các chỗ nghỉ cũ khi khởi động.
 - Loading/error/empty, menu và dialog có hỗ trợ bàn phím; layout responsive.
 
 ## Stack và cấu trúc
@@ -37,7 +39,7 @@ docker compose logs -f server
 
 Mỗi lần backend khởi động, Docker chờ MySQL healthy, chạy `prisma db push`, chạy seed đã biên dịch rồi mới mở API. Seed lỗi thì backend dừng để tránh khởi động với dữ liệu mẫu chưa hoàn tất. Image chứa sẵn Prisma CLI và seed JavaScript, không cần tải công cụ khi container khởi động.
 
-Mở http://localhost:3000/properties để xem 38 chỗ nghỉ tổng hợp với ảnh minh họa và 14 tiện ích. Tên, địa chỉ khu vực, giá và tài khoản đều dùng cho demo; không lấy từ tin đăng thật. Đăng nhập bằng các tài khoản bên dưới, mật khẩu chung `StayHub123!`. Dữ liệu MySQL được giữ trong volume `mysql_data`.
+Mở http://localhost:3000/properties để xem 38 chỗ nghỉ tổng hợp với ảnh minh họa và 14 tiện ích. Tên, địa chỉ khu vực, giá và tài khoản đều dùng cho demo; không lấy từ tin đăng thật. Đăng nhập bằng `admin/admin`, `host/host` hoặc `guest/guest`. Dữ liệu MySQL được giữ trong volume `mysql_data`.
 
 Để chạy seed riêng khi backend đang hoạt động:
 
@@ -109,20 +111,20 @@ Dừng MySQL riêng bằng `node scripts/stop-local-mysql.mjs`. Thư mục `.loc
 
 ## Tài khoản demo
 
-Mật khẩu chung: **StayHub123!** (chỉ dùng demo local).
+Tài khoản và mật khẩu dưới đây chỉ dùng demo local. Màn hình đăng nhập nhận tên demo hoặc email tương ứng; đăng ký vẫn yêu cầu email hợp lệ và mật khẩu ít nhất 8 ký tự.
 
-| Email                     | Vai trò                | Trạng thái |
-| ------------------------- | ---------------------- | ---------- |
-| admin@stayhub.local       | Quản trị viên          | ACTIVE     |
-| guest@stayhub.local       | Khách thuê             | ACTIVE     |
-| host@stayhub.local        | Người cho thuê         | ACTIVE     |
-| pendinghost@stayhub.local | Người cho thuê         | PENDING    |
-| host.east@stayhub.local   | Chủ nhà demo phía Đông | ACTIVE     |
-| host.south@stayhub.local  | Chủ nhà demo phía Nam  | ACTIVE     |
+| Tài khoản đăng nhập       | Email                     | Mật khẩu    | Vai trò                | Trạng thái |
+| ------------------------- | ------------------------- | ----------- | ---------------------- | ---------- |
+| admin                     | admin@stayhub.local       | admin       | Quản trị viên          | ACTIVE     |
+| host                      | host@stayhub.local        | host        | Người cho thuê         | ACTIVE     |
+| guest                     | guest@stayhub.local       | guest       | Khách thuê             | ACTIVE     |
+| pendinghost@stayhub.local | pendinghost@stayhub.local | StayHub123! | Người cho thuê         | PENDING    |
+| host.east@stayhub.local   | host.east@stayhub.local   | StayHub123! | Chủ nhà demo phía Đông | ACTIVE     |
+| host.south@stayhub.local  | host.south@stayhub.local  | StayHub123! | Chủ nhà demo phía Nam  | ACTIVE     |
 
 Seed gồm 38 chỗ nghỉ (7 Thủ Đức, 7 Quận 1, 6 Quận 2, 6 Bình Thạnh, 5 Quận 7, 3 Quận 3, 2 Gò Vấp, 2 Phú Nhuận), 14 tiện ích và 3 chủ nhà ACTIVE; giữ tài khoản chủ nhà chờ duyệt để demo admin. Quận 2 và tên phường/khu vực được dùng theo nhãn quen thuộc trước đây, không mô tả địa giới hành chính hiện hành. Giá 350.000–2.350.000 ₫/đêm là giá tổng hợp, không phải khảo sát thị trường.
 
-UUID chỗ nghỉ và email demo cố định giúp chạy seed nhiều lần không tạo trùng. Seed nâng cấp một lần 4 chỗ nghỉ cũ chỉ khi vẫn nhận diện được nội dung seed ban đầu; giữ ID, chủ sở hữu, trạng thái và lịch sử đặt phòng/thanh toán. Các chỗ nghỉ đã sửa và tài khoản đã đổi mật khẩu/vai trò/trạng thái được giữ nguyên. Tên hiển thị giả lập cũ của 3 tài khoản được đổi sang nhãn demo nếu chưa bị chỉnh sửa. Không tạo booking mẫu để các chỗ nghỉ sẵn sàng cho thử đặt phòng.
+UUID chỗ nghỉ và email demo cố định giúp chạy seed nhiều lần không tạo trùng. Seed nâng cấp một lần 4 chỗ nghỉ cũ chỉ khi vẫn nhận diện được nội dung seed ban đầu; giữ ID, chủ sở hữu, trạng thái và lịch sử đặt phòng/thanh toán. Các chỗ nghỉ đã sửa và vai trò/trạng thái tài khoản được giữ nguyên. Seed cập nhật mật khẩu của đúng ba tài khoản demo chính về admin/host/guest nếu đang khác; mật khẩu của các tài khoản khác được giữ nguyên. Tên hiển thị giả lập cũ của 3 tài khoản được đổi sang nhãn demo nếu chưa bị chỉnh sửa. Không tạo booking mẫu để các chỗ nghỉ sẵn sàng cho thử đặt phòng.
 
 Prisma 6 chạy `npx prisma db seed` bằng seed JavaScript đã biên dịch; tại máy local cần chạy `npm run build:seed` trước. `npm run prisma:seed` là lựa chọn chạy TypeScript trực tiếp trong môi trường phát triển. Image Docker đã chứa seed biên dịch và tự chạy khi backend khởi động.
 

@@ -56,8 +56,8 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
   page,
 }) => {
   await page.goto('/login');
-  await page.getByLabel('Email', { exact: true }).fill('guest@stayhub.local');
-  await page.getByLabel('Mật khẩu', { exact: true }).fill('StayHub123!');
+  await page.getByLabel('Tài khoản hoặc email', { exact: true }).fill('guest');
+  await page.getByLabel('Mật khẩu', { exact: true }).fill('guest');
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL('/');
   await page.goto('/properties/10000000-0000-4000-8000-000000000001');
@@ -120,14 +120,19 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
 test('role areas, host form validation and account states fit narrow screens', async ({
   page,
 }) => {
-  for (const [email, route, heading] of [
-    ['host@stayhub.local', '/host', 'Cùng đón những chuyến đi mới.'],
-    ['pendinghost@stayhub.local', '/account', 'Tài khoản của tôi'],
-    ['admin@stayhub.local', '/admin/hosts', 'Xét duyệt người cho thuê'],
+  for (const [email, password, route, heading] of [
+    ['host', 'host', '/host', 'Cùng đón những chuyến đi mới.'],
+    [
+      'pendinghost@stayhub.local',
+      'StayHub123!',
+      '/account',
+      'Tài khoản của tôi',
+    ],
+    ['admin', 'admin', '/admin/hosts', 'Xét duyệt người cho thuê'],
   ]) {
     await page.goto('/login');
-    await page.getByLabel('Email', { exact: true }).fill(email);
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('StayHub123!');
+    await page.getByLabel('Tài khoản hoặc email', { exact: true }).fill(email);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
     await expect(page).toHaveURL(route);
     await expect(
@@ -141,7 +146,7 @@ test('role areas, host form validation and account states fit narrow screens', a
         ),
       ).toBe(true);
     }
-    if (email.startsWith('host@')) {
+    if (email === 'host') {
       await page.getByRole('link', { name: 'Thêm chỗ nghỉ' }).click();
       await page.getByLabel('Giá mỗi đêm (₫)').fill('850000');
       await page.getByRole('button', { name: 'Lưu chỗ nghỉ' }).click();

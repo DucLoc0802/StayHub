@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -9,6 +9,8 @@ import { CalendarDays, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
 import { money } from '@/lib/utils';
+import { propertyPath } from '@/lib/property-url';
+import { earliestCheckInDate } from '@/lib/booking-time';
 import type { Property } from '@/lib/types';
 import { useAuth } from './providers';
 import { Button } from './ui/button';
@@ -19,9 +21,18 @@ export function BookingCard({ property }: { property: Property }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const client = useQueryClient();
-  const [today] = useState(() =>
-    parseISO(new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)),
-  );
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const refresh = () => setNow(new Date());
+    const timer = window.setInterval(refresh, 1000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+  const earliestDate = earliestCheckInDate(property.checkInTime, now);
+  const expired = !!range?.from && range.from < earliestDate;
   const nights =
     range?.from && range.to
       ? differenceInCalendarDays(range.to, range.from)
@@ -38,13 +49,19 @@ export function BookingCard({ property }: { property: Property }) {
     )
   );
   const mutation = useMutation({
-    mutationFn: () =>
-      api.createBooking({
+    mutationFn: () => {
+      if (range!.from! < earliestCheckInDate(property.checkInTime)) {
+        throw new Error(
+          'Đã quá giờ nhận phòng của ngày này. Vui lòng chọn ngày khác.',
+        );
+      }
+      return api.createBooking({
         propertyId: property.id,
         checkIn: format(range!.from!, 'yyyy-MM-dd'),
         checkOut: format(range!.to!, 'yyyy-MM-dd'),
         guestCount: guests,
-      }),
+      });
+    },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['bookings'] });
       toast.success(
@@ -54,7 +71,7 @@ export function BookingCard({ property }: { property: Property }) {
     },
     onError: (error) => {
       toast.error(errorMessage(error));
-      void client.invalidateQueries({ queryKey: ['property', property.id] });
+      void client.invalidateQueries({ queryKey: ['property'] });
     },
   });
   return (
@@ -75,11 +92,12 @@ export function BookingCard({ property }: { property: Property }) {
         </h2>
         <Calendar
           mode="range"
+          defaultMonth={earliestDate}
           selected={range}
           onSelect={setRange}
           min={1}
           max={365}
-          disabled={{ before: today }}
+          disabled={{ before: earliestDate }}
           numberOfMonths={1}
         />
         <div className="mt-4 grid grid-cols-2 divide-x rounded-xl border bg-cream p-3 text-center">
@@ -90,6 +108,9 @@ export function BookingCard({ property }: { property: Property }) {
             <p className="mt-1 text-sm font-medium">
               {range?.from ? format(range.from, 'dd/MM/yyyy') : 'Chọn ngày'}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {property.checkInTime}
+            </p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -98,8 +119,14 @@ export function BookingCard({ property }: { property: Property }) {
             <p className="mt-1 text-sm font-medium">
               {range?.to ? format(range.to, 'dd/MM/yyyy') : 'Chọn ngày'}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {property.checkOutTime}
+            </p>
           </div>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Giờ Việt Nam (UTC+7)
+        </p>
         {!!property.unavailableDates?.length && (
           <details className="mt-3 text-xs text-muted-foreground">
             <summary>Khoảng ngày đã có khách</summary>
@@ -149,6 +176,11 @@ export function BookingCard({ property }: { property: Property }) {
           </div>
         </dl>
       )}
+      {expired && (
+        <p role="alert" className="my-3 text-sm text-destructive">
+          Đã quá giờ nhận phòng của ngày này. Vui lòng chọn ngày khác.
+        </p>
+      )}
       {conflict && (
         <p role="alert" className="my-3 text-sm text-destructive">
           Khoảng ngày này đã có khách. Vui lòng chọn ngày khác.
@@ -165,7 +197,9 @@ export function BookingCard({ property }: { property: Property }) {
         </Button>
       ) : !user ? (
         <Button asChild className="mt-5 w-full">
-          <Link href={`/login?next=/properties/${property.id}`}>
+          <Link
+            href={`/login?next=${encodeURIComponent(propertyPath(property))}`}
+          >
             Đăng nhập để đặt chỗ
           </Link>
         </Button>
@@ -177,7 +211,11 @@ export function BookingCard({ property }: { property: Property }) {
         <Button
           className="mt-5 w-full"
           disabled={
-            mutation.isPending || nights < 1 || conflict || total > 2147483647
+            mutation.isPending ||
+            nights < 1 ||
+            conflict ||
+            expired ||
+            total > 2147483647
           }
           onClick={() => mutation.mutate()}
         >

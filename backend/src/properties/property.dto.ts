@@ -14,6 +14,7 @@ import {
   Length,
   Max,
   MaxLength,
+  Matches,
   Min,
 } from 'class-validator';
 import { districts } from '../common/domain';
@@ -72,6 +73,18 @@ export class CreatePropertyDto {
   @Min(1)
   @Max(50)
   bathrooms!: number;
+  @ApiProperty({ example: '14:00', description: 'Giờ nhận phòng (UTC+7)' })
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'Giờ nhận phòng phải có định dạng HH:mm (00:00–23:59).',
+  })
+  checkInTime!: string;
+  @ApiProperty({ example: '12:00', description: 'Giờ trả phòng (UTC+7)' })
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'Giờ trả phòng phải có định dạng HH:mm (00:00–23:59).',
+  })
+  checkOutTime!: string;
   @ApiProperty({ type: [String] })
   @IsArray()
   @ArrayMinSize(1)

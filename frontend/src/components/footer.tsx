@@ -7,13 +7,8 @@ export function Footer() {
         <div>
           <Link className="flex items-center gap-2 text-xl font-bold" href="/">
             <House className="text-secondary-foreground" />
-            stayhub.
+            StayHub
           </Link>
-          <p className="mt-4 max-w-sm text-sm leading-7 text-muted-foreground">
-            Những chỗ nghỉ ấm áp, những trải nghiệm đáng nhớ.
-            <br />
-            Khám phá một Sài Gòn theo cách của bạn.
-          </p>
         </div>
         <div>
           <h2 className="mb-4 text-sm font-semibold">Khám phá StayHub</h2>
@@ -42,12 +37,12 @@ export function Footer() {
           <p className="mt-4 text-xs leading-6 text-muted-foreground">
             TP. Hồ Chí Minh, Việt Nam
             <br />
-            Thanh toán cọc giả lập · Dự án học tập
+            University of Information Technology, VNU-HCM
           </p>
         </div>
       </div>
       <div className="container-shell border-t py-5 text-xs text-muted-foreground">
-        © {new Date().getFullYear()} StayHub. Một nơi ở, nhiều kỷ niệm.
+        © {new Date().getFullYear()} StayHub, tìm kiếm bình yên giữa Sài Gòn.
       </div>
     </footer>
   );

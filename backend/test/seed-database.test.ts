@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import {
   demoProperties,
   demoAccounts,
+  demoPasswords,
   demoAmenities,
   legacySeedProperties,
 } from '../prisma/demo-data';
@@ -55,6 +57,17 @@ test(
       );
       assert.equal(await prisma.booking.count(), 0);
       assert.equal(await prisma.payment.count(), 0);
+      const demoUsers = await prisma.user.findMany({
+        orderBy: { email: 'asc' },
+      });
+      for (const user of demoUsers) {
+        assert.ok(
+          await bcrypt.compare(
+            demoPasswords[user.email] ?? 'StayHub123!',
+            user.passwordHash,
+          ),
+        );
+      }
       for (const actual of before) {
         const expected = demoProperties.find((p) => p.id === actual.id)!;
         assert.equal(actual.name, expected.name);
@@ -64,6 +77,10 @@ test(
       }
       seedAgain();
       assert.deepEqual(await snapshot(), before);
+      assert.deepEqual(
+        await prisma.user.findMany({ orderBy: { email: 'asc' } }),
+        demoUsers,
+      );
       const first = before[0];
       const editedName = first.name + ' (đã sửa demo)';
       await prisma.property.update({
@@ -82,7 +99,7 @@ test(
       });
       assert.equal(await prisma.propertyImage.count(), 114);
       const host = await prisma.user.findUniqueOrThrow({
-        where: { email: 'host@stayhub.local' },
+        where: { email: 'host.east@stayhub.local' },
       });
       try {
         const editedHost = await prisma.user.update({

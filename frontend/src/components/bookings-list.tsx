@@ -86,7 +86,8 @@ export function BookingsList({ host = false }: { host?: boolean }) {
               <div className="my-5 flex flex-wrap gap-5 text-sm">
                 <span className="flex items-center gap-2">
                   <CalendarDays size={16} />
-                  {dateLabel(b.checkIn)} → {dateLabel(b.checkOut)} ·{' '}
+                  {dateLabel(b.checkIn)} lúc {b.checkInTimeSnapshot} →{' '}
+                  {dateLabel(b.checkOut)} lúc {b.checkOutTimeSnapshot} (UTC+7) ·{' '}
                   {b.totalNights} đêm
                 </span>
                 <span className="flex items-center gap-2">

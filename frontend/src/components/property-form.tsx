@@ -26,6 +26,12 @@ const schema = z.object({
   bedrooms: z.number().int().min(0).max(50),
   beds: z.number().int().min(1).max(50),
   bathrooms: z.number().int().min(1).max(50),
+  checkInTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ nhận phòng không hợp lệ.'),
+  checkOutTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ trả phòng không hợp lệ.'),
   imagesText: z.string().min(1, 'Cần ít nhất một ảnh.'),
   amenityIds: z.array(z.string()).min(1, 'Chọn ít nhất một tiện ích.'),
 });
@@ -57,6 +63,8 @@ function Editor({ property }: { property?: Property }) {
           bedrooms: 1,
           beds: 1,
           bathrooms: 1,
+          checkInTime: '14:00',
+          checkOutTime: '12:00',
           imagesText: '',
           amenityIds: [],
         },
@@ -200,6 +208,27 @@ function Editor({ property }: { property?: Property }) {
             </div>
           ))}
         </div>
+      </div>
+      <div className="panel p-6">
+        <h3 className="mb-5 font-semibold">Giờ nhận và trả phòng</h3>
+        <div className="grid gap-5 sm:grid-cols-2">
+          {(
+            [
+              ['checkInTime', 'Giờ nhận phòng'],
+              ['checkOutTime', 'Giờ trả phòng'],
+            ] as const
+          ).map(([name, label]) => (
+            <div key={name} className="field">
+              <label htmlFor={name}>{label}</label>
+              <input id={name} type="time" step={60} {...form.register(name)} />
+              {error(name)}
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-6 text-muted-foreground">
+          Giờ Việt Nam (UTC+7). Sau giờ nhận phòng, khách chỉ có thể đặt từ ngày
+          kế tiếp.
+        </p>
       </div>
       <div className="panel p-6">
         <fieldset>

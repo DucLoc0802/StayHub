@@ -30,25 +30,12 @@ export function Header() {
           <span className="flex size-10 items-center justify-center rounded-xl bg-primary">
             <House size={23} strokeWidth={2} />
           </span>
-          stayhub<span className="text-primary-hover">.</span>
+          StayHub<span className="text-primary-hover"></span>
         </Link>
         <nav
           aria-label="Điều hướng chính"
           className="hidden items-center gap-8 text-sm md:flex"
         >
-          <Link
-            href="/properties"
-            className={
-              pathname.startsWith('/properties')
-                ? 'font-semibold text-secondary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }
-          >
-            Khám phá chỗ nghỉ
-          </Link>
-          <span className="hidden text-xs text-muted-foreground lg:block">
-            Một chút Sài Gòn, một nơi để về.
-          </span>
         </nav>
         <div className="flex items-center gap-3">
           {!user && (

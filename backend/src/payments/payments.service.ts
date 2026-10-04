@@ -26,6 +26,8 @@ export class PaymentsService {
       bookingDates(
         booking.checkIn.toISOString().slice(0, 10),
         booking.checkOut.toISOString().slice(0, 10),
+        new Date(),
+        booking.checkInTimeSnapshot,
       );
       if (
         await tx.booking.findFirst({
