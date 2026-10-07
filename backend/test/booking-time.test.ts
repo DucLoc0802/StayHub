@@ -1,138 +1,70 @@
-import 'reflect-metadata';
+﻿import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bookingDates } from '../src/common/domain';
-import { BookingsService } from '../src/bookings/bookings.service';
-import { PaymentsService } from '../src/payments/payments.service';
-import type { PrismaService } from '../src/prisma/prisma.service';
+import { paymentDeadline, bookingPolicy } from '../src/bookings/booking-policy';
+import { availabilityByNight } from '../src/bookings/availability';
 import { earliestCheckInDate } from '../../frontend/src/lib/booking-time';
 import { format } from '../../frontend/node_modules/date-fns';
 
-const checkIn = '2026-10-04';
-const checkOut = '2026-10-05';
-const cutoff = new Date('2026-10-04T07:00:00Z');
-
-test('Vietnam check-in cutoff agrees between API and calendar, including midnight and seconds', () => {
-  for (const [time, instant, firstDay, allowed] of [
-    ['14:00', '2026-10-04T06:59:59.999Z', checkIn, true],
-    ['14:00', '2026-10-04T07:00:00.000Z', checkIn, true],
-    ['14:00', '2026-10-04T07:00:00.001Z', checkOut, false],
-    ['14:00', '2026-10-04T16:59:59.999Z', checkOut, false],
-    ['14:00', '2026-10-04T17:00:00.000Z', checkOut, false],
-    ['00:00', '2026-10-03T17:00:00.000Z', checkIn, true],
-    ['00:00', '2026-10-03T17:00:00.001Z', checkOut, false],
-    ['23:59', '2026-10-04T16:58:59.999Z', checkIn, true],
-    ['23:59', '2026-10-04T16:59:00.001Z', checkOut, false],
+test('lead time rejects check-in at/below two hours; calendar agrees in Vietnam time', () => {
+  for (const [instant, allowed] of [
+    ['2027-10-04T04:59:59.999Z', true],
+    ['2027-10-04T05:00:00.000Z', false],
+    ['2027-10-04T05:30:00Z', false],
   ] as const) {
     const now = new Date(instant);
     assert.equal(
-      format(earliestCheckInDate(time, now), 'yyyy-MM-dd'),
-      firstDay,
+      format(
+        earliestCheckInDate('14:00', now, bookingPolicy.minimumLeadTimeHours),
+        'yyyy-MM-dd',
+      ),
+      allowed ? '2027-10-04' : '2027-10-05',
     );
     if (allowed)
-      assert.equal(bookingDates(checkIn, checkOut, now, time).totalNights, 1);
-    else assert.throws(() => bookingDates(checkIn, checkOut, now, time));
+      assert.equal(
+        paymentDeadline('2027-10-04', '14:00', 24, now).toISOString(),
+        '2027-10-04T05:00:00.000Z',
+      );
+    else assert.throws(() => paymentDeadline('2027-10-04', '14:00', 24, now));
   }
+});
+test('24-hour boundary caps payment at one hour, earlier arrivals use host window', () => {
+  const now = new Date('2027-10-04T07:00:00Z');
   assert.equal(
-    bookingDates(checkOut, '2026-10-06', cutoff, '00:00').totalNights,
-    1,
+    paymentDeadline('2027-10-05', '14:00', 24, now).getTime() - now.getTime(),
+    3600000,
   );
+  assert.equal(
+    paymentDeadline('2027-10-05', '14:01', 6, now).getTime() - now.getTime(),
+    6 * 3600000,
+  );
+  assert.equal(
+    paymentDeadline('2027-10-04', '16:30', 6, now).getTime() - now.getTime(),
+    30 * 60000,
+  );
+  assert.throws(() => paymentDeadline('2027-10-06', '14:00', 48, now));
 });
-
-function fixture() {
-  const property = {
-    id: 'property',
-    status: 'ACTIVE',
-    maxGuests: 2,
-    pricePerNight: 850000,
-    depositPercent: 30,
-    checkInTime: '14:00',
-    checkOutTime: '11:30',
-  };
-  let saved: Record<string, unknown> | undefined;
-  let paymentCreated = false;
-  const tx = {
-    property: { findFirst: async () => property },
-    booking: {
-      findFirst: async () => null,
-      create: async ({ data }: { data: Record<string, unknown> }) => {
-        saved = data;
-        return data;
+test('nightly occupancy uses peak overlap, not sum across disjoint nights', () => {
+  const result = availabilityByNight(
+    10,
+    [
+      {
+        checkIn: new Date('2027-10-05'),
+        checkOut: new Date('2027-10-08'),
+        quantity: 2,
       },
-      updateMany: async () => ({ count: 1 }),
-      findUniqueOrThrow: async () => saved,
-    },
-    payment: {
-      create: async () => {
-        paymentCreated = true;
+      {
+        checkIn: new Date('2027-10-06'),
+        checkOut: new Date('2027-10-09'),
+        quantity: 3,
       },
-    },
-  };
-  const prisma = {
-    serializable: async (work: (transaction: typeof tx) => unknown) => work(tx),
-  } as unknown as PrismaService;
-  return {
-    property,
-    tx,
-    prisma,
-    saved: () => saved,
-    paymentCreated: () => paymentCreated,
-  };
-}
-
-test('booking API rejects expired same-day requests and snapshots host-defined times', async (t) => {
-  t.mock.timers.enable({ apis: ['Date'], now: cutoff });
-  const f = fixture();
-  const service = new BookingsService(f.prisma);
-  const dto = { propertyId: 'property', checkIn, checkOut, guestCount: 2 };
-  await service.create('guest', dto);
-  assert.equal(f.saved()?.checkInTimeSnapshot, '14:00');
-  assert.equal(f.saved()?.checkOutTimeSnapshot, '11:30');
-  f.property.checkInTime = '15:00';
-  assert.equal(f.saved()?.checkInTimeSnapshot, '14:00');
-  t.mock.timers.setTime(new Date('2026-10-04T08:00:00.001Z').getTime());
-  await assert.rejects(
-    () => service.create('guest', dto),
-    /Đã quá giờ nhận phòng/,
+    ],
+    new Date('2027-10-05'),
+    new Date('2027-10-10'),
   );
-  await service.create('guest', {
-    ...dto,
-    checkIn: checkOut,
-    checkOut: '2026-10-06',
-  });
-});
-
-test('deposit payment uses booked check-in time and rejects payment after its cutoff', async (t) => {
-  t.mock.timers.enable({ apis: ['Date'], now: cutoff });
-  const f = fixture();
-  const booking = {
-    id: 'booking',
-    guestId: 'guest',
-    propertyId: 'property',
-    property: f.property,
-    status: 'PENDING_PAYMENT',
-    payment: null,
-    depositAmount: 255000,
-    checkIn: new Date(checkIn),
-    checkOut: new Date(checkOut),
-    checkInTimeSnapshot: '14:00',
-    checkOutTimeSnapshot: '11:30',
-  };
-  f.property.checkInTime = '12:00';
-  f.tx.booking.findFirst = async (...args: unknown[]) => {
-    const input = args[0] as { where: { id?: string } };
-    return input.where.id ? (booking as never) : null;
-  };
-  await new PaymentsService(f.prisma).pay('booking', 'guest');
-  assert.equal(f.paymentCreated(), true);
-  const expired = fixture();
-  expired.property.checkInTime = '23:59';
-  expired.tx.booking.findFirst = async () =>
-    ({ ...booking, property: expired.property }) as never;
-  t.mock.timers.setTime(cutoff.getTime() + 1);
-  await assert.rejects(
-    () => new PaymentsService(expired.prisma).pay('booking', 'guest'),
-    /Đã quá giờ nhận phòng/,
+  assert.deepEqual(
+    result.days.map((d) => d.availableUnits),
+    [8, 5, 5, 7, 10],
   );
-  assert.equal(expired.paymentCreated(), false);
+  assert.equal(result.availableUnits, 5);
 });

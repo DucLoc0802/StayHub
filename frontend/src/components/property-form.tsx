@@ -1,6 +1,7 @@
 'use client';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,29 @@ import type { Property } from '@/lib/types';
 import { districts } from '@/lib/utils';
 import { Button } from './ui/button';
 import { ErrorState, Loading } from './ui/states';
+const roomSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(2).max(100),
+  description: z.string().max(5000),
+  pricePerNight: z.number().int().min(1).max(50000000),
+  totalUnits: z.number().int().min(1).max(100),
+  maxGuests: z.number().int().min(1).max(50),
+  bedrooms: z.number().int().min(0).max(50),
+  beds: z.number().int().min(1).max(50),
+  bathrooms: z.number().int().min(1).max(50),
+  status: z.enum(['ACTIVE', 'INACTIVE']),
+});
+const defaultRoom = {
+  name: 'Nguyên căn homestay',
+  description: '',
+  pricePerNight: 850000,
+  totalUnits: 1,
+  maxGuests: 2,
+  bedrooms: 1,
+  beds: 1,
+  bathrooms: 1,
+  status: 'ACTIVE' as const,
+};
 const schema = z.object({
   type: z.enum(['HOMESTAY', 'HOTEL']),
   name: z.string().trim().min(3, 'Tên cần ít nhất 3 ký tự.').max(150),
@@ -20,12 +44,9 @@ const schema = z.object({
     .max(10000),
   district: z.string().min(1, 'Vui lòng chọn khu vực.'),
   address: z.string().trim().min(5, 'Vui lòng nhập địa chỉ đầy đủ.').max(250),
-  pricePerNight: z.number().int().min(1, 'Giá phải lớn hơn 0.').max(50000000),
   depositPercent: z.number().int().min(1).max(100),
-  maxGuests: z.number().int().min(1).max(50),
-  bedrooms: z.number().int().min(0).max(50),
-  beds: z.number().int().min(1).max(50),
-  bathrooms: z.number().int().min(1).max(50),
+  paymentWindowHours: z.number().int().min(1).max(24),
+  roomTypes: z.array(roomSchema).min(1).max(20),
   checkInTime: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ nhận phòng không hợp lệ.'),
@@ -43,6 +64,13 @@ function Editor({ property }: { property?: Property }) {
     queryKey: ['amenities'],
     queryFn: api.amenities,
   });
+  const amenityOptions = [
+    ...(amenities.data ?? []),
+    ...(property?.amenities
+      .map((a) => a.amenity)
+      .filter((a) => !amenities.data?.some((active) => active.id === a.id)) ??
+      []),
+  ];
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: property
@@ -57,18 +85,31 @@ function Editor({ property }: { property?: Property }) {
           description: '',
           district: '',
           address: '',
-          pricePerNight: 850000,
           depositPercent: 30,
-          maxGuests: 2,
-          bedrooms: 1,
-          beds: 1,
-          bathrooms: 1,
+          paymentWindowHours: undefined,
+          roomTypes: [defaultRoom],
           checkInTime: '14:00',
           checkOutTime: '12:00',
           imagesText: '',
           amenityIds: [],
         },
   });
+  const rooms = useFieldArray({
+    control: form.control,
+    name: 'roomTypes',
+    keyName: 'fieldKey',
+  });
+  const kind = useWatch({ control: form.control, name: 'type' });
+  const roomValues = useWatch({ control: form.control, name: 'roomTypes' });
+  const policy = useQuery({
+    queryKey: ['booking-policy'],
+    queryFn: api.bookingPolicy,
+  });
+  const defaultWindow = policy.data?.defaultPaymentWindowHours;
+  useEffect(() => {
+    if (!property && defaultWindow && !form.getValues('paymentWindowHours'))
+      form.setValue('paymentWindowHours', defaultWindow);
+  }, [defaultWindow, form, property]);
   const mutation = useMutation({
     mutationFn: (values: Values) => {
       const { imagesText, ...data } = values;
@@ -89,6 +130,8 @@ function Editor({ property }: { property?: Property }) {
       void client.invalidateQueries({ queryKey: ['properties'] });
       void client.invalidateQueries({ queryKey: ['property'] });
       void client.invalidateQueries({ queryKey: ['owned-property'] });
+      void client.invalidateQueries({ queryKey: ['availability'] });
+      void client.invalidateQueries({ queryKey: ['quote'] });
       router.push('/host');
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -103,8 +146,18 @@ function Editor({ property }: { property?: Property }) {
     );
   return (
     <form
-      className="mx-auto max-w-3xl space-y-7"
+      className="motion-content mx-auto max-w-3xl space-y-7"
       onSubmit={form.handleSubmit((values) => {
+        if (
+          values.type === 'HOMESTAY' &&
+          (values.roomTypes.length !== 1 ||
+            values.roomTypes[0].totalUnits !== 1)
+        ) {
+          form.setError('roomTypes', {
+            message: 'Homestay cần đúng một loại chỗ ở với số lượng bằng 1.',
+          });
+          return;
+        }
         const urls = values.imagesText
           .split('\n')
           .map((s) => s.trim())
@@ -182,33 +235,145 @@ function Editor({ property }: { property?: Property }) {
         </div>
       </div>
       <div className="panel p-6">
-        <h3 className="mb-5 font-semibold">Giá và sức chứa</h3>
+        <h3 className="mb-5 font-semibold">Chính sách đặt cọc</h3>
         <div className="grid gap-5 sm:grid-cols-2">
-          {(
-            [
-              ['pricePerNight', 'Giá mỗi đêm (₫)', 1, 50000000],
-              ['depositPercent', 'Tiền cọc (%)', 1, 100],
-              ['maxGuests', 'Số khách tối đa', 1, 50],
-              ['bedrooms', 'Số phòng ngủ', 0, 50],
-              ['beds', 'Số giường', 1, 50],
-              ['bathrooms', 'Số phòng tắm', 1, 50],
-            ] as const
-          ).map(([name, label, min, max]) => (
-            <div key={name} className="field">
-              <label htmlFor={name}>{label}</label>
-              <input
-                id={name}
-                type="number"
-                min={min}
-                max={max}
-                step={1}
-                {...form.register(name, { valueAsNumber: true })}
-              />
-              {error(name)}
-            </div>
-          ))}
+          <div className="field">
+            <label htmlFor="depositPercent">Tiền cọc (%)</label>
+            <input
+              id="depositPercent"
+              type="number"
+              min={1}
+              max={100}
+              {...form.register('depositPercent', { valueAsNumber: true })}
+            />
+            {error('depositPercent')}
+          </div>
+          <div className="field">
+            <label htmlFor="paymentWindowHours">Thời hạn thanh toán cọc</label>
+            <select
+              id="paymentWindowHours"
+              {...form.register('paymentWindowHours', { valueAsNumber: true })}
+            >
+              {(policy.data?.paymentWindowOptions ?? []).map((hours) => (
+                <option key={hours} value={hours}>
+                  {hours} giờ
+                </option>
+              ))}
+            </select>
+            {error('paymentWindowHours')}
+          </div>
         </div>
+        <p className="mt-3 text-xs leading-6 text-muted-foreground">
+          Đặt trong vòng {policy.data?.lastMinuteThresholdHours ?? '…'} giờ
+          trước nhận phòng: hạn cọc tối đa{' '}
+          {policy.data?.lastMinutePaymentWindowHours ?? '…'} giờ, đồng thời phải
+          trước giờ nhận phòng ít nhất{' '}
+          {policy.data?.minimumLeadTimeHours ?? '…'} giờ.
+        </p>
       </div>
+      <section className="panel space-y-5 p-6">
+        <h3 className="font-semibold">Loại phòng / chỗ ở có thể đặt</h3>
+        {rooms.fields.map((room, i) => (
+          <fieldset
+            key={room.fieldKey}
+            className="space-y-4 rounded-xl border p-4"
+          >
+            <legend className="px-2 font-medium">
+              {roomValues[i]?.name || 'Loại phòng mới'}
+            </legend>
+            <div className="field">
+              <label htmlFor={`room-name-${i}`}>Tên loại phòng</label>
+              <input
+                id={`room-name-${i}`}
+                {...form.register(`roomTypes.${i}.name`)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`room-description-${i}`}>Mô tả loại phòng</label>
+              <textarea
+                id={`room-description-${i}`}
+                rows={2}
+                {...form.register(`roomTypes.${i}.description`)}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(
+                [
+                  ['pricePerNight', 'Giá mỗi đêm (₫)', 1, 50000000],
+                  [
+                    'totalUnits',
+                    'Số đơn vị có thể bán',
+                    1,
+                    kind === 'HOMESTAY' ? 1 : 100,
+                  ],
+                  ['maxGuests', 'Khách tối đa mỗi đơn vị', 1, 50],
+                  ['bedrooms', 'Phòng ngủ mỗi đơn vị', 0, 50],
+                  ['beds', 'Giường mỗi đơn vị', 1, 50],
+                  ['bathrooms', 'Phòng tắm mỗi đơn vị', 1, 50],
+                ] as const
+              ).map(([name, label, min, max]) => (
+                <div className="field" key={name}>
+                  <label htmlFor={`room-${i}-${name}`}>{label}</label>
+                  <input
+                    id={`room-${i}-${name}`}
+                    type="number"
+                    min={min}
+                    max={max}
+                    {...form.register(`roomTypes.${i}.${name}`, {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="field">
+              <label htmlFor={`room-status-${i}`}>Trạng thái loại phòng</label>
+              <select
+                id={`room-status-${i}`}
+                {...form.register(`roomTypes.${i}.status`)}
+              >
+                <option value="ACTIVE">Mở bán</option>
+                <option value="INACTIVE">Ngừng bán</option>
+              </select>
+            </div>
+            {!room.id && rooms.fields.length > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => rooms.remove(i)}
+              >
+                Bỏ loại phòng mới
+              </Button>
+            )}
+            {form.formState.errors.roomTypes?.[i] && (
+              <p role="alert" className="field-error">
+                Kiểm tra tên, giá, số lượng và sức chứa của loại phòng này.
+              </p>
+            )}
+          </fieldset>
+        ))}
+        {error('roomTypes')}
+        {kind === 'HOTEL' && rooms.fields.length < 20 && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              rooms.append({
+                ...defaultRoom,
+                name: 'Phòng đôi tiêu chuẩn',
+                totalUnits: 5,
+              })
+            }
+          >
+            Thêm loại phòng
+          </Button>
+        )}
+        {kind === 'HOMESTAY' && (
+          <p className="text-xs text-muted-foreground">
+            Homestay có một loại chỗ ở nguyên căn, số đơn vị có thể bán bằng 1.
+          </p>
+        )}
+      </section>
       <div className="panel p-6">
         <h3 className="mb-5 font-semibold">Giờ nhận và trả phòng</h3>
         <div className="grid gap-5 sm:grid-cols-2">
@@ -226,8 +391,8 @@ function Editor({ property }: { property?: Property }) {
           ))}
         </div>
         <p className="mt-3 text-xs leading-6 text-muted-foreground">
-          Giờ Việt Nam (UTC+7). Sau giờ nhận phòng, khách chỉ có thể đặt từ ngày
-          kế tiếp.
+          Giờ Việt Nam (UTC+7). Khách cần đặt đủ sớm để đáp ứng thời gian chuẩn
+          bị trước nhận phòng.
         </p>
       </div>
       <div className="panel p-6">
@@ -242,7 +407,7 @@ function Editor({ property }: { property?: Property }) {
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              {amenities.data.map((a) => (
+              {amenityOptions.map((a) => (
                 <label key={a.id} className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -250,6 +415,7 @@ function Editor({ property }: { property?: Property }) {
                     {...form.register('amenityIds')}
                   />
                   {a.nameVi}
+                  {a.active === false ? ' (đã ngừng hoạt động)' : ''}
                 </label>
               ))}
             </div>
@@ -286,7 +452,9 @@ function Editor({ property }: { property?: Property }) {
           Quay lại
         </Button>
         <Button
-          disabled={mutation.isPending || !amenities.data?.length}
+          disabled={
+            mutation.isPending || !amenityOptions.length || !policy.data
+          }
           type="submit"
         >
           {mutation.isPending ? 'Đang lưu…' : 'Lưu chỗ nghỉ'}

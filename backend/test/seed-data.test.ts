@@ -6,6 +6,7 @@ import {
   demoAccounts,
   demoAmenities,
   demoProperties,
+  demoAccommodations,
 } from '../prisma/demo-data';
 import {
   CreatePropertyDto,
@@ -47,7 +48,7 @@ test('catalog matches app validation and sensible capacities and varied faciliti
     images,
     status,
     ...data
-  } of demoProperties) {
+  } of demoAccommodations) {
     assert.match(id, /^[a-f0-9-]{36}$/);
     assert.ok(
       demoAccounts.some(
@@ -64,9 +65,13 @@ test('catalog matches app validation and sensible capacities and varied faciliti
     });
     assert.equal(validateSync(dto).length, 0, data.name);
     assert.equal(status, 'ACTIVE');
-    assert.ok(data.maxGuests <= data.beds * 2);
-    assert.ok(data.bedrooms <= data.beds);
-    assert.ok(data.bathrooms >= 1);
+    for (const room of data.roomTypes) {
+      assert.ok(room.maxGuests <= room.beds * 2);
+      assert.ok(room.bedrooms <= room.beds);
+      assert.ok(room.bathrooms >= 1);
+    }
+    assert.equal(data.roomTypes.length, data.type === 'HOTEL' ? 3 : 1);
+    if (data.type === 'HOMESTAY') assert.equal(data.roomTypes[0].totalUnits, 1);
     assert.match(data.description, /dữ liệu tổng hợp/);
     assert.match(data.address, /Khu vực đường .+, TP\. Hồ Chí Minh/);
     assert.equal(new Set(codes).size, codes.length);

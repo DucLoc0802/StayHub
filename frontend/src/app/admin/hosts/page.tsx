@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
@@ -29,6 +29,9 @@ function ApprovalList() {
     user: User;
     action: 'approve' | 'reject';
   } | null>(null);
+  const [displayDecision, setDisplayDecision] = useState<typeof decision>(null);
+  const dialogTrigger = useRef<HTMLButtonElement | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const mutation = useMutation({
     mutationFn: (data: NonNullable<typeof decision>) =>
       api.decideHost(data.user.id, data.action),
@@ -43,7 +46,11 @@ function ApprovalList() {
     },
   });
   return (
-    <div className="container-shell page-section">
+    <div
+      ref={contentRef}
+      tabIndex={-1}
+      className="container-shell page-section"
+    >
       <p className="eyebrow">QUẢN TRỊ VIÊN</p>
       <h1 className="page-title mt-3">Xét duyệt người cho thuê</h1>
       <p className="mb-8 mt-3 text-sm text-muted-foreground">
@@ -59,7 +66,7 @@ function ApprovalList() {
       ) : !hosts.data.length ? (
         <Empty>Không có tài khoản đang chờ phê duyệt.</Empty>
       ) : (
-        <div className="space-y-4">
+        <div className="motion-content space-y-4">
           {hosts.data.map((user) => (
             <article
               key={user.id}
@@ -78,16 +85,20 @@ function ApprovalList() {
                 <StatusBadge status={user.status} />
                 <Button
                   variant="outline"
-                  onClick={() => {
+                  onClick={(event) => {
+                    dialogTrigger.current = event.currentTarget;
                     mutation.reset();
+                    setDisplayDecision({ user, action: 'reject' });
                     setDecision({ user, action: 'reject' });
                   }}
                 >
                   Từ chối
                 </Button>
                 <Button
-                  onClick={() => {
+                  onClick={(event) => {
+                    dialogTrigger.current = event.currentTarget;
                     mutation.reset();
+                    setDisplayDecision({ user, action: 'approve' });
                     setDecision({ user, action: 'approve' });
                   }}
                 >
@@ -104,16 +115,24 @@ function ApprovalList() {
           if (!open && !mutation.isPending) setDecision(null);
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const target = dialogTrigger.current?.isConnected
+              ? dialogTrigger.current
+              : contentRef.current;
+            target?.focus({ preventScroll: true });
+          }}
+        >
           <DialogTitle className="text-lg font-semibold">
-            {decision?.action === 'approve'
+            {displayDecision?.action === 'approve'
               ? 'Phê duyệt tài khoản'
               : 'Từ chối tài khoản'}
           </DialogTitle>
           <DialogDescription className="mt-4 text-sm leading-7 text-muted-foreground">
-            {decision?.action === 'approve'
-              ? `Cho phép ${decision.user.fullName} quản lý và đăng chỗ nghỉ?`
-              : `Từ chối tài khoản của ${decision?.user.fullName}? Tài khoản bị từ chối không thể được phê duyệt lại trong phạm vi hiện tại.`}
+            {displayDecision?.action === 'approve'
+              ? `Cho phép ${displayDecision.user.fullName} quản lý và đăng chỗ nghỉ?`
+              : `Từ chối tài khoản của ${displayDecision?.user.fullName}? Tài khoản bị từ chối không thể được phê duyệt lại trong phạm vi hiện tại.`}
           </DialogDescription>
           {mutation.isError && (
             <p role="alert" className="mt-3 field-error">
@@ -130,7 +149,7 @@ function ApprovalList() {
             </Button>
             <Button
               variant={
-                decision?.action === 'reject' ? 'destructive' : 'default'
+                displayDecision?.action === 'reject' ? 'destructive' : 'default'
               }
               disabled={mutation.isPending}
               onClick={() => {

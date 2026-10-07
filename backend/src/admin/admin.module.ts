@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { publicUser, Roles } from '../common/security';
 import { PrismaService } from '../prisma/prisma.service';
+import { ManagementModule } from './management.module';
 @Injectable()
 class AdminService {
   constructor(private readonly prisma: PrismaService) {}
@@ -54,5 +55,9 @@ class AdminController {
     return this.admin.decide(id, 'REJECTED');
   }
 }
-@Module({ controllers: [AdminController], providers: [AdminService] })
+@Module({
+  imports: [ManagementModule],
+  controllers: [AdminController],
+  providers: [AdminService],
+})
 export class AdminModule {}

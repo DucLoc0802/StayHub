@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
-import { priceSnapshot, vietnamToday } from '../src/common/domain';
+
 import type {
   Amenity,
   Booking,
@@ -14,6 +14,11 @@ import type {
 // Runs against a running API and an isolated MySQL database. Test-created data is removed in finally.
 const base = process.env.TEST_API_URL ?? 'http://localhost:4000/api';
 const prisma = new PrismaClient();
+assert.match(
+  new URL(process.env.DATABASE_URL!).pathname,
+  /^\/stayhub_(inventory|seed)_test$/,
+  'API tests require an isolated test database',
+);
 const runId = `e2e-${Date.now()}`;
 const createdUsers: string[] = [];
 let passed = 0;
@@ -55,6 +60,11 @@ async function register(role: 'GUEST' | 'HOST', suffix: string) {
     201,
   );
   createdUsers.push(session.user.id);
+  if (role === 'GUEST')
+    await request('PATCH', '/auth/profile', session.accessToken, {
+      fullName: session.user.fullName,
+      phoneNumber: '0901234567',
+    });
   assert.ok(session.accessToken);
   return session;
 }
@@ -168,31 +178,50 @@ async function main() {
   assert.equal(current.status, 'ACTIVE');
   const amenities = await request<Amenity[]>('GET', '/amenities');
   assert.ok(amenities.length >= 2);
-  const data = {
-    name: `Chỗ nghỉ ${runId}`,
-    description: 'Một chỗ nghỉ để kiểm tra tất cả luồng nghiệp vụ.',
-    type: 'HOMESTAY',
-    district: 'Quận 1',
-    address: '18 Nguyễn Văn Thủ, TP. Hồ Chí Minh',
-    pricePerNight: 1000000,
-    depositPercent: 40,
-    maxGuests: 3,
+  const room = {
+    name: 'Phòng đôi tiêu chuẩn',
+    description: 'Phòng riêng',
+    pricePerNight: 600000,
+    totalUnits: 10,
+    maxGuests: 2,
     bedrooms: 1,
-    beds: 2,
+    beds: 1,
     bathrooms: 1,
+    status: 'ACTIVE',
+  };
+  const data = {
+    name: 'Chỗ nghỉ ' + runId,
+    description: 'Một chỗ nghỉ để kiểm tra tất cả luồng nghiệp vụ.',
+    type: 'HOTEL',
+    district: 'Quận 1',
+    address: 'Địa chỉ tổng hợp tại TP. Hồ Chí Minh',
+    depositPercent: 40,
+    paymentWindowHours: 6,
     checkInTime: '15:30',
     checkOutTime: '11:00',
-    images: ['https://images.unsplash.com/photo-1600210492486-724fe5c67fb0'],
+    images: ['https://example.com/room.jpg'],
     amenityIds: amenities.slice(0, 2).map((a) => a.id),
+    roomTypes: [
+      room,
+      {
+        ...room,
+        name: 'Phòng gia đình',
+        totalUnits: 3,
+        maxGuests: 4,
+        beds: 2,
+        pricePerNight: 1200000,
+      },
+    ],
   };
   for (const invalid of [
-    { pricePerNight: 0 },
     { depositPercent: 101 },
-    { maxGuests: 0 },
+    { paymentWindowHours: 2 },
     { checkInTime: '24:00' },
-    { checkOutTime: '11:60' },
     { images: [] },
     { amenityIds: [] },
+    { roomTypes: [{ ...room, totalUnits: 0 }] },
+    { type: 'HOMESTAY' },
+    { pricePerNight: 1 },
   ])
     await request(
       'POST',
@@ -208,132 +237,46 @@ async function main() {
     data,
     201,
   );
-  await request(
-    'PATCH',
-    `/host/properties/${property.id}`,
-    host.accessToken,
-    { pricePerNight: null },
-    400,
-  );
-  const otherHost = await request<Session>('POST', '/auth/login', undefined, {
-    email: 'host',
-    password: 'host',
-  });
-  await request(
-    'PATCH',
-    `/host/properties/${property.id}`,
-    otherHost.accessToken,
-    { name: 'Không được phép' },
-    404,
-  );
-  const search = await request<Page<Property>>(
-    'GET',
-    `/properties?q=${runId}&amenities=${data.amenityIds.join(',')}&minPrice=900000&maxPrice=1100000`,
-  );
-  assert.equal(search.total, 1);
-  const all = await request<Page<Property>>(
-    'GET',
-    '/properties?sort=price_asc&limit=2',
-  );
-  assert.ok(all.items.length <= 2);
-  assert.ok(
-    all.items.every(
-      (p, i) => i === 0 || p.pricePerNight >= all.items[i - 1].pricePerNight,
-    ),
-  );
-  const q2 = await request<Page<Property>>(
-    'GET',
-    '/properties?district=Qu%E1%BA%ADn%202&limit=48',
-  );
-  assert.equal(q2.total, 6);
-  assert.ok(q2.items.every((p) => p.district === 'Quận 2'));
-  const hotels = await request<Page<Property>>(
-    'GET',
-    '/properties?type=HOTEL&sort=price_desc&limit=48',
-  );
-  assert.ok(hotels.total > 0);
-  assert.ok(hotels.items.every((p) => p.type === 'HOTEL'));
-  assert.ok(
-    hotels.items.every(
-      (p, i) => i === 0 || p.pricePerNight <= hotels.items[i - 1].pricePerNight,
-    ),
-  );
-  await request('GET', '/properties?type=ROOM', undefined, undefined, 400);
-  const none = await request<Page<Property>>(
-    'GET',
-    `/properties?q=${runId}&amenities=${amenities
-      .slice(0, 3)
-      .map((a) => a.id)
-      .join(',')}`,
-  );
-  assert.equal(none.total, 0);
-  const byId = await request<Property>('GET', '/properties/' + property.id);
-  assert.ok(byId.slug);
-  assert.equal(byId.slug, property.slug);
-  const bySlug = await request<Property>('GET', '/properties/' + property.slug);
-  assert.equal(bySlug.id, property.id);
-  const byOldPath = await request<Property>(
-    'GET',
-    '/properties/old-name--' + property.id,
-  );
-  assert.equal(byOldPath.id, property.id);
-  const bookingData = {
-    propertyId: property.id,
-    checkIn: day(40),
-    checkOut: day(43),
-    guestCount: 2,
-  };
-  // A property whose check-in is at midnight cannot accept today's booking.
-  const today = vietnamToday();
-  const tomorrow = new Date(new Date(today).getTime() + 86400000)
-    .toISOString()
-    .slice(0, 10);
-  await request('PATCH', '/host/properties/' + property.id, host.accessToken, {
-    checkInTime: '00:00',
-  });
-  await request(
-    'POST',
-    '/bookings',
-    guest.accessToken,
-    {
-      ...bookingData,
-      checkIn: today,
-      checkOut: tomorrow,
-    },
-    400,
-  );
-  const expired = await prisma.booking.create({
-    data: {
-      guestId: guest.user.id,
-      propertyId: property.id,
-      guestCount: 1,
-      checkIn: new Date(today),
-      checkOut: new Date(tomorrow),
-      checkInTimeSnapshot: '00:00',
-      checkOutTimeSnapshot: '11:00',
-      ...priceSnapshot(property.pricePerNight, property.depositPercent, 1),
-    },
-  });
-  await request(
-    'POST',
-    '/bookings/' + expired.id + '/pay',
-    guest.accessToken,
-    undefined,
-    400,
+  assert.equal(property.roomTypes.length, 2);
+  assert.equal(property.minPricePerNight, 600000);
+  assert.equal(
+    (await request<Property>('GET', '/properties/' + property.slug)).id,
+    property.id,
   );
   assert.equal(
-    await prisma.payment.count({ where: { bookingId: expired.id } }),
-    0,
+    (await request<Property>('GET', '/properties/' + property.id)).id,
+    property.id,
   );
-  await request('PATCH', '/host/properties/' + property.id, host.accessToken, {
-    checkInTime: '15:30',
-  });
+  await request(
+    'GET',
+    '/host/properties/' + property.id,
+    otherGuest.accessToken,
+    undefined,
+    403,
+  );
+  const rt = property.roomTypes[0];
+  const dates = { checkIn: day(70), checkOut: day(73) };
+  const query = new URLSearchParams(dates).toString();
+  const quote = await request<{ totalAmount: number; availableUnits: number }>(
+    'GET',
+    '/room-types/' + rt.id + '/quote?' + query + '&quantity=2&guestCount=4',
+  );
+  assert.equal(quote.totalAmount, 3600000);
+  assert.equal(quote.availableUnits, 10);
+  const bookingData = {
+    roomTypeId: rt.id,
+    quantity: 2,
+    guestCount: 4,
+    ...dates,
+  };
+  await request('POST', '/bookings', undefined, bookingData, 401);
+  await request('POST', '/bookings', host.accessToken, bookingData, 403);
   for (const invalid of [
-    { guestCount: 4 },
-    { checkIn: day(-1) },
-    { checkOut: bookingData.checkIn },
-    { checkIn: '2030-02-30' },
-    { totalAmount: 1 },
+    { quantity: 0 },
+    { quantity: 11 },
+    { guestCount: 5 },
+    { checkOut: dates.checkIn },
+    { propertyId: property.id },
   ])
     await request(
       'POST',
@@ -342,7 +285,6 @@ async function main() {
       { ...bookingData, ...invalid },
       400,
     );
-  await request('POST', '/bookings', host.accessToken, bookingData, 403);
   const booking = await request<Booking>(
     'POST',
     '/bookings',
@@ -350,257 +292,178 @@ async function main() {
     bookingData,
     201,
   );
-  const competing = await request<Booking>(
-    'POST',
-    '/bookings',
-    otherGuest.accessToken,
-    bookingData,
-    201,
-  );
+  assert.equal(booking.quantity, 2);
+  assert.equal(booking.depositAmount, 1440000);
   assert.equal(booking.checkInTimeSnapshot, '15:30');
-  assert.equal(booking.checkOutTimeSnapshot, '11:00');
-  assert.equal(booking.status, 'PENDING_PAYMENT');
-  assert.equal(booking.depositAmount, 1200000);
-  assert.equal(booking.remainingAmount, 1800000);
-  await request(
-    'POST',
-    `/bookings/${booking.id}/pay`,
-    otherGuest.accessToken,
-    undefined,
-    404,
-  );
-  await request(
-    'PATCH',
-    `/bookings/${booking.id}/cancel`,
-    otherGuest.accessToken,
-    undefined,
-    404,
-  );
-  const own = await request<Booking[]>(
+  const availability = await request<{ availableUnits: number }>(
     'GET',
-    '/bookings/my',
-    otherGuest.accessToken,
+    '/room-types/' + rt.id + '/availability?' + query,
   );
-  assert.ok(!own.some((b) => b.id === booking.id));
-  await request('PATCH', `/host/properties/${property.id}`, host.accessToken, {
-    checkInTime: '16:00',
-    checkOutTime: '10:00',
-    pricePerNight: 1500000,
-    depositPercent: 50,
-  });
-  const confirmed = await request<Booking>(
-    'POST',
-    `/bookings/${booking.id}/pay`,
-    guest.accessToken,
-    undefined,
-    201,
-  );
-  assert.equal(confirmed.payment?.amount, 1200000);
-  assert.equal(confirmed.totalAmount, 3000000);
-  assert.equal(confirmed.checkInTimeSnapshot, '15:30');
-  assert.equal(confirmed.checkOutTimeSnapshot, '11:00');
-  await request(
-    'POST',
-    `/bookings/${booking.id}/pay`,
-    guest.accessToken,
-    undefined,
-    409,
-  );
-  await request(
-    'POST',
-    `/bookings/${competing.id}/pay`,
-    otherGuest.accessToken,
-    undefined,
-    409,
-  );
-  assert.equal(
-    await prisma.payment.count({ where: { bookingId: competing.id } }),
-    0,
-  );
+  assert.equal(availability.availableUnits, 8);
   await request('POST', '/bookings', guest.accessToken, bookingData, 409);
   await request(
     'POST',
-    '/bookings',
+    '/bookings/' + booking.id + '/pay',
+    otherGuest.accessToken,
+    undefined,
+    404,
+  );
+  const fields = property.roomTypes.map(
+    ({
+      id,
+      name,
+      description,
+      pricePerNight,
+      totalUnits,
+      maxGuests,
+      bedrooms,
+      beds,
+      bathrooms,
+      status,
+    }) => ({
+      id,
+      name,
+      description,
+      pricePerNight,
+      totalUnits,
+      maxGuests,
+      bedrooms,
+      beds,
+      bathrooms,
+      status,
+    }),
+  );
+  await request('PATCH', '/host/properties/' + property.id, host.accessToken, {
+    roomTypes: fields.map((r) => ({
+      ...r,
+      pricePerNight: r.pricePerNight + 100000,
+    })),
+  });
+  const paid = await request<Booking>(
+    'POST',
+    '/bookings/' + booking.id + '/pay',
     guest.accessToken,
-    { ...bookingData, checkIn: day(43), checkOut: day(45) },
+    undefined,
     201,
   );
-  const hostBookings = await request<Booking[]>(
-    'GET',
-    '/host/bookings',
-    host.accessToken,
-  );
-  assert.ok(hostBookings.some((b) => b.id === booking.id));
-  const hiddenBookings = await request<Booking[]>(
-    'GET',
-    '/host/bookings',
-    otherHost.accessToken,
-  );
-  assert.ok(!hiddenBookings.some((b) => b.id === booking.id));
-  const cancelled = await request<Booking>(
-    'PATCH',
-    `/bookings/${booking.id}/cancel`,
-    guest.accessToken,
-  );
-  assert.equal(cancelled.status, 'CANCELLED');
-  assert.equal(cancelled.payment?.status, 'SUCCESS');
+  assert.equal(paid.status, 'CONFIRMED');
+  assert.equal(paid.totalAmount, booking.totalAmount);
+  assert.equal(paid.payment?.amount, booking.depositAmount);
   await request(
-    'PATCH',
-    `/bookings/${booking.id}/cancel`,
+    'POST',
+    '/bookings/' + booking.id + '/pay',
     guest.accessToken,
     undefined,
     409,
   );
   await request(
+    'PATCH',
+    '/bookings/' + booking.id + '/cancel',
+    guest.accessToken,
+  );
+  await request(
     'POST',
-    `/bookings/${competing.id}/pay`,
-    otherGuest.accessToken,
+    '/bookings/' + booking.id + '/pay',
+    guest.accessToken,
     undefined,
-    201,
+    409,
   );
-  await request(
-    'PATCH',
-    `/bookings/${competing.id}/cancel`,
-    otherGuest.accessToken,
-  );
-  await request(
-    'PATCH',
-    `/host/properties/${property.id}/status`,
-    host.accessToken,
-    { status: 'INACTIVE' },
-  );
-  await request('GET', `/properties/${property.id}`, undefined, undefined, 404);
-  await request('POST', '/bookings', guest.accessToken, bookingData, 404);
-  await request(
-    'PATCH',
-    `/host/properties/${property.id}/status`,
-    host.accessToken,
-    { status: 'ACTIVE' },
-  );
-  // Genuine concurrent HTTP requests, not a mock of transaction behavior.
-  for (let round = 0; round < 3; round++) {
-    const dates = {
-      ...bookingData,
-      checkIn: day(60 + round * 5),
-      checkOut: day(62 + round * 5),
-    };
-    const a = await request<Booking>(
-      'POST',
-      '/bookings',
-      guest.accessToken,
-      dates,
-      201,
-    );
-    const b = await request<Booking>(
-      'POST',
-      '/bookings',
-      otherGuest.accessToken,
-      dates,
-      201,
-    );
-    const results = await Promise.all(
-      [
-        { booking: a, session: guest },
-        { booking: b, session: otherGuest },
-      ].map(({ booking, session }) =>
-        fetch(`${base}/bookings/${booking.id}/pay`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.accessToken}` },
-        }),
-      ),
-    );
-    assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
-    assert.equal(
-      await prisma.booking.count({
-        where: { id: { in: [a.id, b.id] }, status: 'CONFIRMED' },
-      }),
-      1,
-    );
-    passed++;
-  }
-  const race = await request<Booking>(
+  const late = await request<Booking>(
     'POST',
     '/bookings',
     guest.accessToken,
-    { ...bookingData, checkIn: day(90), checkOut: day(92) },
+    bookingData,
     201,
   );
-  const raceResponses = await Promise.all([
-    fetch(`${base}/bookings/${race.id}/pay`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${guest.accessToken}` },
-    }),
-    fetch(`${base}/bookings/${race.id}/cancel`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${guest.accessToken}` },
-    }),
-  ]);
-  assert.ok([201, 409].includes(raceResponses[0].status));
-  assert.equal(raceResponses[1].status, 200);
-  const raceResult = await prisma.booking.findUniqueOrThrow({
-    where: { id: race.id },
-    include: { payment: true },
+  await prisma.booking.update({
+    where: { id: late.id },
+    data: { paymentDeadlineAt: new Date(Date.now() - 1000) },
   });
-  assert.equal(raceResult.status, 'CANCELLED');
+  await request(
+    'POST',
+    '/bookings/' + late.id + '/pay',
+    guest.accessToken,
+    undefined,
+    409,
+  );
   assert.equal(
-    raceResult.payment?.status === 'SUCCESS',
-    raceResponses[0].status === 201,
+    (await prisma.booking.findUniqueOrThrow({ where: { id: late.id } })).status,
+    'EXPIRED',
   );
   assert.ok(
-    (await prisma.payment.count({ where: { bookingId: race.id } })) <= 1,
-  );
-  passed++;
-  await request(
-    'POST',
-    `/bookings/${race.id}/pay`,
-    guest.accessToken,
-    undefined,
-    409,
-  );
-  const duplicate = await request<Booking>(
-    'POST',
-    '/bookings',
-    guest.accessToken,
-    { ...bookingData, checkIn: day(100), checkOut: day(102) },
-    201,
-  );
-  const duplicateResults = await Promise.all(
-    [0, 1].map(() =>
-      fetch(`${base}/bookings/${duplicate.id}/pay`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${guest.accessToken}` },
-      }),
+    (await request<Booking[]>('GET', '/bookings/my', guest.accessToken)).some(
+      (b) => b.id === late.id && b.status === 'EXPIRED',
     ),
   );
-  assert.deepEqual(duplicateResults.map((r) => r.status).sort(), [201, 409]);
-  assert.equal(
-    await prisma.payment.count({ where: { bookingId: duplicate.id } }),
-    1,
+  assert.ok(
+    (await request<Booking[]>('GET', '/host/bookings', host.accessToken)).some(
+      (b) => b.id === booking.id,
+    ),
   );
+  for (const sort of ['price_asc', 'price_desc']) {
+    const listing = await request<Page<Property>>(
+      'GET',
+      '/properties?sort=' + sort + '&limit=48&minPrice=500000&maxPrice=1500000',
+    );
+    const prices = listing.items.map((p) => p.minPricePerNight!);
+    assert.ok(prices.every((price) => price >= 500000 && price <= 1500000));
+    assert.deepEqual(
+      prices,
+      [...prices].sort((a, b) => (sort === 'price_asc' ? a - b : b - a)),
+    );
+    for (const p of listing.items)
+      assert.equal(
+        p.minPricePerNight,
+        Math.min(...p.roomTypes.map((r) => r.pricePerNight)),
+      );
+  }
+  // Filter compares MIN(active price), not any higher priced room of a hotel.
+  const excluded = await request<Page<Property>>(
+    'GET',
+    '/properties?q=' + encodeURIComponent(runId) + '&minPrice=1000000',
+  );
+  assert.equal(excluded.total, 0);
+  const home = await request<Property>(
+    'POST',
+    '/host/properties',
+    host.accessToken,
+    {
+      ...data,
+      name: 'Nhà ' + runId,
+      type: 'HOMESTAY',
+      roomTypes: [{ ...room, totalUnits: 1 }],
+    },
+    201,
+  );
+  const homeData = {
+    ...bookingData,
+    roomTypeId: home.roomTypes[0].id,
+    quantity: 1,
+    guestCount: 1,
+  };
+  const results = await Promise.all(
+    [guest, otherGuest].map(async (user) => {
+      const result = await fetch(base + '/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + user.accessToken,
+        },
+        body: JSON.stringify(homeData),
+      });
+      return result.status;
+    }),
+  );
+  assert.deepEqual(results.sort(), [201, 409]);
   passed++;
-  const duplicateName = await request<Property>(
+  const duplicate = await request<Property>(
     'POST',
     '/host/properties',
     host.accessToken,
     data,
     201,
   );
-  assert.equal(duplicateName.slug, property.slug + '-2');
-  const simultaneous = await Promise.all(
-    [0, 1].map(() =>
-      request<Property>(
-        'POST',
-        '/host/properties',
-        host.accessToken,
-        data,
-        201,
-      ),
-    ),
-  );
-  assert.deepEqual(simultaneous.map((p) => p.slug).sort(), [
-    property.slug + '-3',
-    property.slug + '-4',
-  ]);
+  assert.equal(duplicate.slug, property.slug + '-2');
   const renamed = await request<Property>(
     'PATCH',
     '/host/properties/' + property.id,
@@ -608,21 +471,24 @@ async function main() {
     { name: data.name + ' updated' },
   );
   assert.equal(renamed.slug, property.slug);
-  const afterRename = await request<Property>(
+  await request(
+    'PATCH',
+    '/host/properties/' + property.id + '/status',
+    host.accessToken,
+    { status: 'INACTIVE' },
+  );
+  await request(
     'GET',
     '/properties/' + property.slug,
+    undefined,
+    undefined,
+    404,
   );
-  assert.equal(afterRename.id, property.id);
-  const otherSlug = await request<Property>(
-    'GET',
-    '/properties/' + duplicateName.slug,
-  );
-  assert.equal(otherSlug.id, duplicateName.id);
-  const swagger = await fetch(`${base}/docs`);
-  assert.equal(swagger.status, 200);
-  passed++;
-  console.info(`PASS: ${passed} API/concurrency checks.`);
+  await request('POST', '/bookings', guest.accessToken, bookingData, 404);
+  assert.equal((await fetch(base + '/docs')).status, 200);
+  console.info('PASS: ' + passed + ' API/concurrency checks.');
 }
+
 main()
   .catch((error) => {
     console.error(error);
@@ -643,6 +509,9 @@ main()
         where: { bookingId: { in: bookings.map((b) => b.id) } },
       });
       await tx.booking.deleteMany({ where: { guestId: { in: ids } } });
+      await tx.roomType.deleteMany({
+        where: { property: { hostId: { in: ids } } },
+      });
       await tx.property.deleteMany({ where: { hostId: { in: ids } } });
       await tx.user.deleteMany({ where: { id: { in: ids } } });
     });

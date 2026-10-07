@@ -1,22 +1,16 @@
-import { ApiProperty } from '@nestjs/swagger';
+﻿import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsInt, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
-export class CreateBookingDto {
-  @ApiProperty() @IsUUID() propertyId!: string;
-  @ApiProperty({ example: '2027-10-10' })
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
-    message: 'Ngày nhận phòng phải có định dạng YYYY-MM-DD.',
-  })
-  checkIn!: string;
-  @ApiProperty({ example: '2027-10-13' })
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
-    message: 'Ngày trả phòng phải có định dạng YYYY-MM-DD.',
-  })
-  checkOut!: string;
-  @ApiProperty({ minimum: 1, maximum: 50 })
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  guestCount!: number;
+export class AvailabilityQueryDto {
+  @ApiProperty() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) checkIn!: string;
+  @ApiProperty() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) checkOut!: string;
+}
+export class QuoteQueryDto extends AvailabilityQueryDto {
+  @ApiProperty() @Type(() => Number) @IsInt() @Min(1) @Max(100) quantity = 1;
+  @ApiProperty() @Type(() => Number) @IsInt() @Min(1) @Max(5000) guestCount = 1;
+}
+export class CreateBookingDto extends AvailabilityQueryDto {
+  @ApiProperty() @IsUUID() roomTypeId!: string;
+  @ApiProperty() @IsInt() @Min(1) @Max(100) quantity!: number;
+  @ApiProperty() @IsInt() @Min(1) @Max(5000) guestCount!: number;
 }

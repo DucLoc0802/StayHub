@@ -2,14 +2,13 @@ import { test, expect } from '@playwright/test';
 import type { Property } from '../src/lib/types';
 import { propertyPath } from '../src/lib/property-url';
 
+const apiUrl = process.env.TEST_API_URL ?? 'http://localhost:4000/api';
 const id = '10000000-0000-4000-8000-000000000038';
 test('listing cards and direct links use the short property URL', async ({
   page,
   request,
 }) => {
-  const response = await request.get(
-    `http://localhost:4000/api/properties/${id}`,
-  );
+  const response = await request.get(`${apiUrl}/properties/${id}`);
   expect(response.ok()).toBe(true);
   const property = (await response.json()) as Property;
   expect(property.slug).toBe('loi-hoa-family-home');
@@ -35,9 +34,7 @@ test('legacy long URLs and IDs open the correct listing and become short URLs', 
   page,
   request,
 }) => {
-  const response = await request.get(
-    `http://localhost:4000/api/properties/${id}`,
-  );
+  const response = await request.get(`${apiUrl}/properties/${id}`);
   const property = (await response.json()) as Property;
   for (const old of [`loi-hoa-family-home--${id}`, id]) {
     await page.goto(`/properties/${old}?ref=shared#main`);

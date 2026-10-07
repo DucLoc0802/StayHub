@@ -6,6 +6,7 @@ import { validate } from 'class-validator';
 import { LoginDto, RegisterDto } from '../src/auth/auth.dto';
 import {
   CreatePropertyDto,
+  RoomTypeDto,
   SearchPropertyDto,
   UpdatePropertyDto,
 } from '../src/properties/property.dto';
@@ -20,10 +21,8 @@ test('partial updates allow omitted values but reject explicit null', async () =
   );
   assert.ok(
     (
-      await validate(
-        plainToInstance(UpdatePropertyDto, { pricePerNight: null }),
-      )
-    ).some((e) => e.property === 'pricePerNight'),
+      await validate(plainToInstance(UpdatePropertyDto, { roomTypes: null }))
+    ).some((e) => e.property === 'roomTypes'),
   );
 });
 test('public registration rejects ADMIN and normalizes email', async () => {
@@ -91,14 +90,7 @@ test('property requires image, amenity, valid integer price/capacity/deposit', a
     amenityIds: [],
   });
   const keys = (await validate(data)).map((e) => e.property);
-  for (const field of [
-    'pricePerNight',
-    'depositPercent',
-    'maxGuests',
-    'beds',
-    'images',
-    'amenityIds',
-  ])
+  for (const field of ['roomTypes', 'depositPercent', 'images', 'amenityIds'])
     assert.ok(keys.includes(field));
 });
 test('search parses numbers and comma-separated amenity ids', async () => {
@@ -141,4 +133,26 @@ test('host times require valid HH:mm and partial edits keep omitted times', asyn
   const edit = plainToInstance(UpdatePropertyDto, { name: 'Tên chỗ nghỉ mới' });
   assert.equal(edit.checkInTime, undefined);
   assert.equal(edit.checkOutTime, undefined);
+});
+
+test('room inventory and controlled payment windows reject invalid input', async () => {
+  for (const value of [0, -1, 1.5, null]) {
+    const errors = await validate(
+      plainToInstance(RoomTypeDto, {
+        totalUnits: value,
+        maxGuests: value,
+        pricePerNight: value,
+      }),
+    );
+    for (const field of ['totalUnits', 'maxGuests', 'pricePerNight'])
+      assert.ok(errors.some((e) => e.property === field));
+  }
+  for (const value of [0, 2, 48, null])
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(UpdatePropertyDto, { paymentWindowHours: value }),
+        )
+      ).length,
+    );
 });

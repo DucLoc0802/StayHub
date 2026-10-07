@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { InventoryService } from '../src/bookings/inventory.service';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Prisma } from '@prisma/client';
@@ -127,7 +128,7 @@ test('startup assigns unique slugs to all old records and preserves existing pat
       },
     },
   } as unknown as PrismaService;
-  const service = new PropertiesService(prisma);
+  const service = new PropertiesService(prisma, new InventoryService(prisma));
   await service.onModuleInit();
   assert.deepEqual(
     rows.map((p) => p.slug),

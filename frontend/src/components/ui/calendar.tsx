@@ -7,6 +7,8 @@ export function Calendar(props: React.ComponentProps<typeof DayPicker>) {
     <DayPicker
       locale={vi}
       showOutsideDays
+      fixedWeeks
+      animate
       className="stayhub-calendar"
       labels={{
         labelNext: () => 'Tháng sau',

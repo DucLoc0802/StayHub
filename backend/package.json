@@ -9,7 +9,7 @@
     "start": "node dist/main.js",
     "lint": "eslint src prisma test",
     "typecheck": "tsc -p tsconfig.test.json",
-    "test": "tsx --test test/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
     "test:e2e": "tsx test/e2e.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
@@ -17,7 +17,7 @@
     "prisma:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
-    "seed": "node dist/seed/seed.js"
+    "seed": "node dist/seed/prisma/seed.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
@@ -32,6 +32,7 @@
     "dotenv": "^17.2.2",
     "mysql2": "^3.24.4",
     "prisma": "6.19.2",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
@@ -40,6 +41,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
+    "@types/qrcode": "^1.5.6",
     "eslint": "^9.36.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",

@@ -29,6 +29,7 @@ enum BookingStatus {
   PENDING_PAYMENT
   CONFIRMED
   CANCELLED
+  EXPIRED
 }
 enum PaymentStatus {
   SUCCESS
@@ -40,14 +41,18 @@ enum PaymentMethod {
 model User {
   id           String @id @default(uuid()) @db.Char(36)
   fullName     String @db.VarChar(100)
+  phoneNumber  String? @db.VarChar(20)
   email        String @unique @db.VarChar(191)
   passwordHash String @db.VarChar(100)
   role         Role
   status       AccountStatus
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  bookingBlockedUntil DateTime?
+  expirationStrikeResetAt DateTime?
   properties   Property[]
   bookings     Booking[]
+  feedback     Feedback[]
   @@index([role, status])
 }
 model Property {
@@ -60,12 +65,8 @@ model Property {
   description    String @db.Text
   district       String @db.VarChar(80)
   address        String @db.VarChar(250)
-  pricePerNight  Int
   depositPercent Int
-  maxGuests      Int
-  bedrooms       Int
-  beds           Int
-  bathrooms      Int
+  paymentWindowHours Int @default(6)
   checkInTime    String @default("14:00") @db.Char(5)
   checkOutTime   String @default("12:00") @db.Char(5)
   status         PropertyStatus @default(ACTIVE)
@@ -73,10 +74,28 @@ model Property {
   updatedAt      DateTime @updatedAt
   images         PropertyImage[]
   amenities      PropertyAmenity[]
-  bookings       Booking[]
+  roomTypes      RoomType[]
+  feedback       Feedback[]
   @@index([hostId])
   @@index([status, district])
-  @@index([status, pricePerNight])
+}
+model RoomType {
+  id            String @id @default(uuid()) @db.Char(36)
+  propertyId    String @db.Char(36)
+  property      Property @relation(fields: [propertyId], references: [id])
+  name          String @db.VarChar(100)
+  description   String @db.Text
+  pricePerNight Int
+  totalUnits    Int
+  maxGuests     Int
+  bedrooms      Int
+  beds          Int
+  bathrooms     Int
+  status        PropertyStatus @default(ACTIVE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  bookings      Booking[]
+  @@index([propertyId, status, pricePerNight])
 }
 model PropertyImage {
   id         String @id @default(uuid()) @db.Char(36)
@@ -90,6 +109,7 @@ model Amenity {
   id         String @id @default(uuid()) @db.Char(36)
   code       String @unique @db.VarChar(50)
   nameVi     String @db.VarChar(100)
+  active     Boolean @default(true)
   properties PropertyAmenity[]
 }
 model PropertyAmenity {
@@ -102,10 +122,21 @@ model PropertyAmenity {
 }
 model Booking {
   id                     String @id @default(uuid()) @db.Char(36)
+  bookingCode            String @unique @db.VarChar(40)
+  customerNameSnapshot   String @default("") @db.VarChar(100)
+  customerPhoneSnapshot  String @default("") @db.VarChar(20)
+  customerEmailSnapshot  String @default("") @db.VarChar(191)
+  propertyNameSnapshot   String @default("") @db.VarChar(150)
+  propertyAddressSnapshot String @default("") @db.VarChar(250)
   guestId                String @db.Char(36)
-  propertyId             String @db.Char(36)
+  roomTypeId             String @db.Char(36)
   guest                  User @relation(fields: [guestId], references: [id])
-  property               Property @relation(fields: [propertyId], references: [id])
+  roomType               RoomType @relation(fields: [roomTypeId], references: [id])
+  roomTypeNameSnapshot   String @db.VarChar(100)
+  quantity               Int
+  paymentDeadlineAt      DateTime
+  expiredAt              DateTime?
+  cancelledAt            DateTime?
   checkIn                DateTime @db.Date
   checkOut               DateTime @db.Date
   checkInTimeSnapshot    String @default("14:00") @db.Char(5)
@@ -121,8 +152,26 @@ model Booking {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   payment                Payment?
+  feedback               Feedback?
   @@index([guestId, createdAt])
-  @@index([propertyId, status, checkIn, checkOut])
+  @@index([roomTypeId, status, checkIn, checkOut])
+  @@index([status, paymentDeadlineAt])
+  @@index([guestId, status, expiredAt])
+}
+model Feedback {
+  id         String @id @default(uuid()) @db.Char(36)
+  bookingId  String @unique @db.Char(36)
+  guestId    String @db.Char(36)
+  propertyId String @db.Char(36)
+  booking    Booking @relation(fields: [bookingId], references: [id])
+  guest      User @relation(fields: [guestId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+  rating     Int
+  content    String @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([propertyId, createdAt])
+  @@index([guestId])
 }
 model Payment {
   id        String @id @default(uuid()) @db.Char(36)

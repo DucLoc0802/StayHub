@@ -45,6 +45,7 @@ export const roleLabel = {
   ADMIN: 'Quản trị viên',
 };
 export const statusLabel = {
+  EXPIRED: 'Hết hạn thanh toán',
   ACTIVE: 'Đang hoạt động',
   INACTIVE: 'Tạm ngưng',
   PENDING: 'Chờ phê duyệt',
@@ -53,3 +54,13 @@ export const statusLabel = {
   CONFIRMED: 'Đã xác nhận',
   CANCELLED: 'Đã hủy',
 };
+
+export function timestampLabel(value: string) {
+  return (
+    new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date(value)) + ' (UTC+7)'
+  );
+}

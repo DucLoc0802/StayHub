@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
 import {
   ArrowUpRight,
@@ -16,11 +17,25 @@ import { Button } from './ui/button';
 export function Header() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const update = () => {
+      const element = headerRef.current;
+      const scrolled = String(window.scrollY > 8);
+      if (element && element.dataset.scrolled !== scrolled)
+        element.dataset.scrolled = scrolled;
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
   const itemClass =
     'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-none focus:bg-accent cursor-pointer';
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur-md">
+    <header
+      ref={headerRef}
+      className="motion-header sticky top-0 z-40 border-b bg-white/95 backdrop-blur-md"
+    >
       <div className="container-shell flex h-20 items-center justify-between gap-4">
         <Link
           href="/"
@@ -36,13 +51,15 @@ export function Header() {
           aria-label="Điều hướng chính"
           className="hidden items-center gap-8 text-sm md:flex"
         >
+          <Link className="motion-link" href="/booking-lookup">Tra cứu booking</Link>
         </nav>
         <div className="flex items-center gap-3">
+          <Link className="motion-link text-xs font-medium md:hidden" href="/booking-lookup">Tra cứu booking</Link>
           {!user && (
             <>
               <Link
                 href="/register?role=HOST"
-                className="hidden items-center gap-1 text-xs font-medium lg:flex"
+                className="motion-link hidden items-center gap-1 text-xs font-medium lg:flex"
               >
                 Trở thành người cho thuê
                 <ArrowUpRight size={15} />
@@ -79,8 +96,11 @@ export function Header() {
               <Dropdown.Content
                 align="end"
                 sideOffset={10}
-                className="z-50 min-w-56 rounded-xl border bg-white p-2 shadow-lg"
+                className="motion-dropdown z-50 min-w-56 rounded-xl border bg-white p-2 shadow-lg"
               >
+                <Dropdown.Item asChild>
+                  <Link className={itemClass} href="/booking-lookup">Tra cứu booking</Link>
+                </Dropdown.Item>
                 <Dropdown.Item asChild>
                   <Link className={itemClass} href="/properties">
                     <Search size={16} />
@@ -94,13 +114,11 @@ export function Header() {
                         Tài khoản
                       </Link>
                     </Dropdown.Item>
-                    {user.role === 'GUEST' && (
-                      <Dropdown.Item asChild>
+                    <Dropdown.Item asChild>
                         <Link className={itemClass} href="/bookings">
                           Đặt phòng của tôi
                         </Link>
-                      </Dropdown.Item>
-                    )}
+                    </Dropdown.Item>
                     {user.role === 'HOST' && user.status === 'ACTIVE' && (
                       <Dropdown.Item asChild>
                         <Link className={itemClass} href="/host">

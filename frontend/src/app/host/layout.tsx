@@ -14,11 +14,14 @@ export default function HostLayout({
           aria-label="Quản lý chỗ nghỉ"
           className="my-7 flex gap-6 border-b pb-4 text-sm font-medium"
         >
-          <Link className="hover:text-secondary-foreground" href="/host">
+          <Link
+            className="motion-link hover:text-secondary-foreground"
+            href="/host"
+          >
             Chỗ nghỉ của tôi
           </Link>
           <Link
-            className="hover:text-secondary-foreground"
+            className="motion-link hover:text-secondary-foreground"
             href="/host/bookings"
           >
             Đặt phòng

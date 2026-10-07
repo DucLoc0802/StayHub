@@ -12,7 +12,9 @@ import {
 import { api, errorMessage } from '@/lib/api';
 import { SearchBox } from '@/components/search-box';
 import { PropertyCard } from '@/components/property-card';
-import { Empty, ErrorState, Loading } from '@/components/ui/states';
+import { PropertyImage } from '@/components/property-image';
+import { Empty, ErrorState, PropertySkeletons } from '@/components/ui/states';
+import { SectionReveal } from '@/components/ui/section-reveal';
 export default function HomePage() {
   const properties = useQuery({
     queryKey: ['properties', 'featured'],
@@ -26,16 +28,16 @@ export default function HomePage() {
             <div className="py-4 md:py-9">
               <p className="eyebrow flex items-center gap-2">
                 <Sun size={16} />
-                PENTABUG XIN CHÀO BẠN.
+                PENTABUG XIN CHÀO BẠN
               </p>
-              <h1 className="mt-6 text-[clamp(2.4rem,4.6vw,4.15rem)] font-semibold leading-[1.22] tracking-[-0.055em]">
+              <h1 className="motion-enter mt-6 text-[clamp(2.4rem,4.6vw,4.15rem)] font-semibold leading-[1.22] tracking-[-0.055em]">
                 Chỗ nghỉ vừa ý,
                 <br />
                 <span className="text-secondary-foreground">
-                  chuyến đi trọn vẹn.
+                  chuyến đi trọn vẹn
                 </span>
               </h1>
-              <p className="mt-6 max-w-md text-sm leading-7 text-muted-foreground md:text-base">
+              <p className="motion-enter motion-delay-1 mt-6 max-w-md text-sm leading-7 text-muted-foreground md:text-base">
                 Một căn phòng ngập nắng, một góc nhỏ thân quen.{' '}
                 <br className="hidden sm:block" />
                 Tìm nơi dừng chân của riêng bạn giữa lòng Sài Gòn.
@@ -56,8 +58,7 @@ export default function HomePage() {
             </div>
             <div className="relative hidden pb-6 pl-6 md:block">
               <div className="absolute bottom-0 left-0 right-6 top-6 rounded-[2rem] border border-primary/25" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <PropertyImage
                 src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85"
                 alt="Không gian nghỉ dưỡng ấm áp với nội thất gỗ và ánh nắng tự nhiên"
                 className="relative h-[360px] w-full rounded-[2rem] object-cover lg:h-[405px]"
@@ -81,12 +82,12 @@ export default function HomePage() {
               </span>
             </div>
           </div>
-          <div className="relative mt-6">
+          <div className="motion-enter motion-delay-2 relative mt-6">
             <SearchBox />
           </div>
         </div>
       </section>
-      <section className="container-shell py-14">
+      <SectionReveal as="section" className="container-shell py-14">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="eyebrow">MỘT NƠI ĐỂ BẮT ĐẦU</p>
@@ -94,35 +95,38 @@ export default function HomePage() {
               Chỗ nghỉ dành cho bạn
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              Những không gian mới, sẵn sàng đón bạn.
+              Những không gian mới, sẵn sàng đón bạn
             </p>
           </div>
           <Link
             href="/properties"
-            className="flex items-center gap-2 text-sm font-semibold text-secondary-foreground"
+            className="motion-link flex items-center gap-2 text-sm font-semibold text-secondary-foreground"
           >
             Khám phá tất cả
             <ArrowRight size={17} />
           </Link>
         </div>
         {properties.isPending ? (
-          <Loading />
+          <PropertySkeletons
+            count={4}
+            className="sm:grid-cols-2 lg:grid-cols-4"
+          />
         ) : properties.isError ? (
           <ErrorState
             message={errorMessage(properties.error)}
             retry={() => void properties.refetch()}
           />
         ) : properties.data.items.length ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="motion-list grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {properties.data.items.map((property) => (
               <PropertyCard key={property.id} property={property} />
             ))}
           </div>
         ) : (
-          <Empty>Chưa có chỗ nghỉ đang hoạt động. Hãy quay lại sau nhé.</Empty>
+          <Empty>Chưa có chỗ nghỉ đang hoạt động. Hãy quay lại sau nhé</Empty>
         )}
-      </section>
-      <section className="container-shell pb-16">
+      </SectionReveal>
+      <SectionReveal as="section" className="container-shell pb-16">
         <div className="rounded-3xl border bg-cream px-6 py-9 md:px-10">
           <div className="grid gap-7 md:grid-cols-[1.2fr_2fr]">
             <div>
@@ -130,7 +134,7 @@ export default function HomePage() {
               <h2 className="mt-3 text-2xl font-semibold leading-snug tracking-tight">
                 Mỗi khu phố,
                 <br />
-                một Sài Gòn khác.
+                một Sài Gòn khác
               </h2>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -143,7 +147,7 @@ export default function HomePage() {
                 <Link
                   key={district}
                   href={`/properties?district=${encodeURIComponent(district)}`}
-                  className="rounded-xl border bg-white p-4 transition-colors hover:border-primary"
+                  className="motion-card rounded-xl border bg-white p-4 hover:border-primary"
                 >
                   <MapPin
                     size={20}
@@ -162,7 +166,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </SectionReveal>
     </>
   );
 }

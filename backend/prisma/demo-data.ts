@@ -711,3 +711,81 @@ export const legacySeedProperties = [
     sortOrder,
   })),
 }));
+
+// Pricing/capacity above are input fixtures only; persisted inventory lives on RoomType.
+export const demoAccommodations = demoProperties.map((source) => {
+  const { pricePerNight, maxGuests, bedrooms, beds, bathrooms, ...property } =
+    source;
+  const base = {
+    propertyId: source.id,
+    status: 'ACTIVE' as const,
+    bedrooms,
+    beds,
+    bathrooms,
+  };
+  const roomTypes =
+    source.type === 'HOMESTAY'
+      ? [
+          {
+            ...base,
+            id: source.id,
+            name: 'Nguyên căn homestay',
+            description: 'Toàn bộ chỗ ở riêng dành cho nhóm của bạn.',
+            pricePerNight,
+            maxGuests,
+            totalUnits: 1,
+          },
+        ]
+      : [
+          {
+            ...base,
+            id: source.id,
+            name: 'Phòng đôi tiêu chuẩn',
+            description: 'Phòng riêng thoáng sáng với một giường đôi.',
+            pricePerNight,
+            maxGuests: 2,
+            bedrooms: 1,
+            beds: 1,
+            bathrooms: 1,
+            totalUnits: 10,
+          },
+          {
+            ...base,
+            id: source.id.replace('10000000', '30000000'),
+            name: 'Phòng đôi cao cấp',
+            description:
+              'Không gian rộng hơn, góc ngồi thư giãn và cửa sổ lớn.',
+            pricePerNight: Math.round((pricePerNight * 1.4) / 10000) * 10000,
+            maxGuests: 2,
+            bedrooms: 1,
+            beds: 1,
+            bathrooms: 1,
+            totalUnits: 6,
+          },
+          {
+            ...base,
+            id: source.id.replace('10000000', '40000000'),
+            name: 'Phòng gia đình',
+            description:
+              'Hai giường đôi cho chuyến đi cùng gia đình hoặc bạn bè.',
+            pricePerNight: Math.round((pricePerNight * 1.9) / 10000) * 10000,
+            maxGuests: 4,
+            bedrooms: 1,
+            beds: 2,
+            bathrooms: 1,
+            totalUnits: 3,
+          },
+        ];
+  return {
+    ...property,
+    name:
+      source.type === 'HOTEL'
+        ? property.name.split(' · Phòng')[0]
+        : property.name,
+    description:
+      source.type === 'HOTEL'
+        ? `Khách sạn tại ${property.district} với phòng đôi tiêu chuẩn, phòng đôi cao cấp và phòng gia đình. Khách chọn loại phòng và số lượng phù hợp cho chuyến đi; các tiện ích chung được liệt kê bên dưới. Nhận phòng từ 14:00, trả phòng trước 12:00; giữ yên tĩnh sau 22:00. Chỗ nghỉ, địa chỉ và giá là dữ liệu tổng hợp cho demo StayHub, không phải cơ sở lưu trú thật.`
+        : property.description,
+    roomTypes,
+  };
+});

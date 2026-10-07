@@ -21,6 +21,11 @@
   --success: #24724a;
   --warning: #8b5a0a;
   --cream: #fff8f2;
+  --motion-fast: 150ms;
+  --motion-normal: 220ms;
+  --motion-enter: 320ms;
+  --motion-overlay: 240ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 @theme inline {
   --color-background: var(--background);
@@ -221,6 +226,305 @@ summary {
   background-color: var(--primary);
   color: var(--primary-foreground);
 }
+
+/* Shared motion language. Color feedback also applies to native selects/buttons. */
+a,
+button,
+input,
+select,
+textarea,
+summary,
+label:has(input[type='radio']),
+label:has(input[type='checkbox']) {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
+}
+input:not([type='range']):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--accent);
+}
+.motion-button {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity, transform;
+}
+.motion-button:not(:disabled):not([aria-disabled='true']):active {
+  transform: scale(0.98);
+}
+.motion-button-primary:hover {
+  box-shadow: 0 3px 10px rgb(85 54 35 / 10%);
+}
+.search-box {
+  transition:
+    border-color var(--motion-normal) var(--motion-ease),
+    box-shadow var(--motion-normal) var(--motion-ease);
+}
+.search-box:focus-within {
+  border-color: var(--ring);
+  box-shadow:
+    0 8px 35px rgb(85 54 35 / 9%),
+    0 0 0 3px var(--accent);
+}
+.motion-header {
+  transition:
+    background-color var(--motion-normal) var(--motion-ease),
+    box-shadow var(--motion-normal) var(--motion-ease);
+}
+.motion-header[data-scrolled='true'] {
+  box-shadow: 0 4px 16px rgb(85 54 35 / 6%);
+}
+.motion-link {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 5px;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    text-decoration-color var(--motion-fast) var(--motion-ease);
+}
+.motion-link:hover,
+.motion-link:focus-visible {
+  text-decoration-color: currentColor;
+}
+.property-card,
+.motion-card {
+  transition:
+    transform var(--motion-normal) var(--motion-ease),
+    border-color var(--motion-normal) var(--motion-ease),
+    box-shadow var(--motion-normal) var(--motion-ease);
+}
+.property-card-image,
+.gallery-image {
+  transition: transform var(--motion-enter) var(--motion-ease);
+}
+.property-card-cta {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-normal) var(--motion-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .property-card:hover,
+  .motion-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgb(85 54 35 / 10%);
+  }
+  .property-card:hover .property-card-image,
+  .gallery-trigger:hover .gallery-image {
+    transform: scale(1.03);
+  }
+  .property-card:hover .property-card-cta {
+    transform: translate(1px, -1px);
+  }
+}
+.property-card:focus-visible .property-card-image,
+.gallery-trigger:focus-visible .gallery-image {
+  transform: scale(1.03);
+}
+.property-card:focus-visible .property-card-cta {
+  background-color: var(--primary);
+}
+.gallery-trigger:focus-visible {
+  outline-offset: -4px;
+}
+.motion-enter,
+.page-title,
+.motion-content,
+.section-reveal[data-revealed='true'] {
+  animation: stayhub-enter var(--motion-enter) var(--motion-ease) backwards;
+}
+.motion-delay-1 {
+  animation-delay: 50ms;
+}
+.motion-delay-2 {
+  animation-delay: 100ms;
+}
+.motion-list > :nth-child(-n + 6) {
+  animation: stayhub-enter var(--motion-enter) var(--motion-ease) backwards;
+}
+.motion-list > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.motion-list > :nth-child(3) {
+  animation-delay: 80ms;
+}
+.motion-list > :nth-child(4) {
+  animation-delay: 120ms;
+}
+.motion-list > :nth-child(5) {
+  animation-delay: 160ms;
+}
+.motion-list > :nth-child(6) {
+  animation-delay: 200ms;
+}
+.motion-feedback,
+.field-error:not(:empty),
+[role='alert'] {
+  /* Important booking totals/errors remain visible throughout the transition. */
+  animation: stayhub-feedback var(--motion-normal) var(--motion-ease);
+}
+.motion-status {
+  transition:
+    color var(--motion-normal) var(--motion-ease),
+    background-color var(--motion-normal) var(--motion-ease);
+}
+details[open] > :not(summary) {
+  animation: stayhub-feedback var(--motion-normal) var(--motion-ease);
+}
+.motion-backdrop[data-state='open'] {
+  animation: stayhub-fade var(--motion-overlay) ease-out;
+}
+.motion-backdrop[data-state='closed'] {
+  animation: stayhub-fade var(--motion-normal) ease-in reverse;
+}
+.motion-dialog[data-state='open'],
+.motion-dropdown[data-state='open'] {
+  animation: stayhub-overlay var(--motion-overlay) var(--motion-ease);
+}
+.motion-dialog[data-state='closed'],
+.motion-dropdown[data-state='closed'] {
+  animation: stayhub-overlay var(--motion-normal) ease-in reverse;
+}
+.motion-dropdown {
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+}
+.motion-dropdown[data-state] {
+  animation-duration: var(--motion-normal);
+}
+.stayhub-calendar.rdp-root {
+  --rdp-animation_duration: var(--motion-normal);
+  --rdp-animation_timing: var(--motion-ease);
+}
+.stayhub-calendar .rdp-day,
+.stayhub-calendar .rdp-day_button {
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease);
+}
+.stayhub-calendar .rdp-day_button:not(:disabled):hover {
+  background-color: var(--accent);
+}
+.stayhub-calendar .rdp-selected:not(.rdp-range_middle) .rdp-day_button:hover {
+  background-color: var(--primary-hover);
+}
+/* Reuse DayPicker's navigation lifecycle, with a fade rather than a full slide. */
+.stayhub-calendar [class*='rdp-weeks_'][class*='_enter'] {
+  animation-name: stayhub-feedback;
+}
+.stayhub-calendar [class*='rdp-weeks_'][class*='_exit'] {
+  animation-name: stayhub-feedback;
+  animation-direction: reverse;
+}
+.skeleton {
+  background-color: var(--muted);
+  animation: stayhub-skeleton 1600ms ease-in-out infinite alternate;
+}
+[data-sonner-toaster].stayhub-toaster {
+  font-family: var(--font-be-vietnam), Arial, sans-serif;
+}
+[data-sonner-toaster].stayhub-toaster [data-sonner-toast] {
+  transition-duration: var(--motion-overlay);
+  transition-timing-function: var(--motion-ease);
+}
+@keyframes stayhub-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes stayhub-feedback {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes stayhub-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes stayhub-overlay {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes stayhub-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes stayhub-skeleton {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 640px) {
+  .motion-sheet[data-state] {
+    animation-name: stayhub-sheet;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  .motion-enter,
+  .page-title,
+  .motion-content,
+  .section-reveal,
+  .motion-list > :nth-child(-n + 6),
+  .motion-feedback,
+  .field-error,
+  [role='alert'],
+  details[open] > :not(summary),
+  .skeleton,
+  .animate-spin {
+    animation: none !important;
+  }
+  .property-card,
+  .motion-card,
+  .property-card-image,
+  .gallery-image,
+  .property-card-cta,
+  .motion-button {
+    transform: none !important;
+  }
+  .stayhub-calendar.rdp-root {
+    --rdp-animation_duration: 0.01ms;
+  }
+}
 @media (max-width: 640px) {
   .container-shell {
     width: calc(100% - 2rem);
@@ -235,5 +539,53 @@ summary {
   }
   .stayhub-calendar .rdp-caption_label {
     font-size: 1rem;
+  }
+}
+.stayhub-calendar .calendar-price.inventory-green {
+  color: #14532d;
+}
+.stayhub-calendar .calendar-price.inventory-yellow {
+  color: #713f12;
+}
+.stayhub-calendar .calendar-price.inventory-red {
+  color: #7f1d1d;
+}
+.stayhub-calendar .calendar-price.inventory-sold-out {
+  color: #6b7280;
+}
+.stayhub-calendar .rdp-selected .rdp-day_button {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .invoice-content,
+  .invoice-content * {
+    visibility: visible;
+  }
+  .invoice-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    color: #000;
+    background: #fff;
+  }
+  .invoice-content dl > div {
+    break-inside: avoid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .invoice-actions {
+    display: none;
   }
 }

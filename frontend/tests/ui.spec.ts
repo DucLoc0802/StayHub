@@ -11,7 +11,7 @@ test('public pages render without horizontal overflow on desktop, tablet and mob
     await page.setViewportSize({ width, height: 1000 });
     for (const route of ['/', '/properties', '/login', '/register']) {
       await page.goto(route);
-      await expect(page.locator('h1')).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expect
         .poll(() =>
           page.evaluate(
@@ -23,15 +23,14 @@ test('public pages render without horizontal overflow on desktop, tablet and mob
     await page.goto('/');
     await expect(
       page.getByRole('heading', {
-        name: 'Chỗ nghỉ vừa ý, chuyến đi trọn vẹn.',
+        name: /Chỗ nghỉ vừa ý,\s*chuyến đi trọn vẹn/,
       }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Nắng Sài Gòn · Căn hộ ban công' }),
-    ).toBeVisible();
+    await expect(page.locator('.property-card').first()).toBeVisible();
     await page.screenshot({
       path: `../docs/screenshots/home-${width}.png`,
       fullPage: true,
+      animations: 'disabled',
     });
   }
   expect(errors).toEqual([]);
@@ -44,7 +43,10 @@ test('search and mobile filter navigation', async ({ page }) => {
   await expect(page).toHaveURL(/q=/);
   await page.getByRole('button', { name: 'Bộ lọc' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('dialog').getByLabel('Từ (₫)').fill('500000');
+  await page
+    .getByRole('dialog')
+    .locator('input[name="minPrice"]')
+    .fill('500000');
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Áp dụng bộ lọc' })
@@ -62,19 +64,23 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
   await expect(page).toHaveURL('/');
   await page.goto('/properties/10000000-0000-4000-8000-000000000001');
   await expect(
-    page.getByRole('heading', { name: 'Nắng Sài Gòn · Căn hộ ban công' }),
+    page.getByRole('heading', { name: 'Cam Giấy · Căn hộ ban công' }),
   ).toBeVisible();
+  await expect(page).toHaveURL(/\/properties\/cam-giay/);
+  await expect(page.locator('.gallery-image')).toHaveCount(3);
   await expect
     .poll(
       () =>
         page
           .locator('main img')
-          .evaluateAll((images) =>
-            images.every(
-              (image) =>
-                (image as HTMLImageElement).complete &&
-                (image as HTMLImageElement).naturalWidth > 0,
-            ),
+          .evaluateAll(
+            (images) =>
+              images.length >= 3 &&
+              images.every(
+                (image) =>
+                  (image as HTMLImageElement).complete &&
+                  (image as HTMLImageElement).naturalWidth > 0,
+              ),
           ),
       { timeout: 30000 },
     )
@@ -89,19 +95,50 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
     await page.screenshot({
       path: `../docs/screenshots/detail-${width}.png`,
       fullPage: true,
+      animations: 'disabled',
     });
   }
   await page.getByRole('button', { name: 'Tháng sau' }).click();
-  const days = page.locator('.rdp-day_button:not([disabled])');
-  await days.filter({ hasText: /^10$/ }).first().click();
-  await days.filter({ hasText: /^13$/ }).first().click();
+  const nextMonth = new Date();
+  nextMonth.setDate(1);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const month = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+  const roomTypeId = await page
+    .getByLabel(
+      'Lo' +
+        String.fromCharCode(0x1ea1) +
+        'i ph' +
+        String.fromCharCode(0xf2) +
+        'ng / ch' +
+        String.fromCharCode(0x1ed7) +
+        ' ' +
+        String.fromCharCode(0x1edf),
+    )
+    .inputValue();
+  const availability = await page.request.get(
+    `${process.env.TEST_API_URL ?? 'http://localhost:4000/api'}/room-types/${roomTypeId}/availability?checkIn=${month}-01&checkOut=${month}-28`,
+  );
+  expect(availability.ok()).toBe(true);
+  const { days }: { days: { date: string; availableUnits: number }[] } =
+    await availability.json();
+  const start = days.findIndex(
+    (_, i) =>
+      days.slice(i, i + 4).length === 4 &&
+      days.slice(i, i + 4).every((day) => day.availableUnits > 0),
+  );
+  expect(start).toBeGreaterThanOrEqual(0);
+  for (const date of [days[start].date, days[start + 3].date]) {
+    await page
+      .locator(`[data-day="${date}"]:not(.rdp-outside) .rdp-day_button`)
+      .click();
+  }
   await page.getByRole('button', { name: 'Đặt chỗ ngay' }).click();
   await expect(page).toHaveURL('/bookings');
   const card = page.locator('article').first();
   await expect(card.getByText('Chờ thanh toán', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Thanh toán cọc' }).click();
   await expect(page.getByRole('dialog')).toContainText('không thu tiền thật');
-  await page.getByRole('button', { name: 'Xác nhận thanh toán' }).click();
+  await page.getByRole('button', { name: 'Tôi đã thanh toán' }).click();
   await expect(card.getByText('Đã xác nhận', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('mất khoản tiền cọc');

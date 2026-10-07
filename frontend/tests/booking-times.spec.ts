@@ -12,12 +12,24 @@ const property: Property = {
   type: 'HOMESTAY',
   district: 'Quận 1',
   address: '18 Nguyễn Văn Thủ',
-  pricePerNight: 850000,
+  minPricePerNight: 850000,
+  paymentWindowHours: 6,
+  roomTypes: [
+    {
+      id: '10000000-0000-4000-8000-000000000001',
+      propertyId: '10000000-0000-4000-8000-000000000001',
+      name: 'Nguyên căn homestay',
+      description: 'Toàn bộ chỗ ở',
+      pricePerNight: 850000,
+      totalUnits: 1,
+      maxGuests: 3,
+      bedrooms: 1,
+      beds: 2,
+      bathrooms: 1,
+      status: 'ACTIVE',
+    },
+  ],
   depositPercent: 30,
-  maxGuests: 2,
-  bedrooms: 1,
-  beds: 1,
-  bathrooms: 1,
   status: 'ACTIVE',
   checkInTime: '14:00',
   checkOutTime: '11:30',
@@ -28,11 +40,11 @@ const property: Property = {
       amenity: {
         id: '20000000-0000-4000-8000-000000000001',
         code: 'WIFI',
+        active: true,
         nameVi: 'Wi-Fi',
       },
     },
   ],
-  unavailableDates: [],
 };
 const path = `/properties/${property.slug}`;
 
@@ -48,13 +60,59 @@ async function mockApi(page: Page, role: 'HOST' | 'GUEST' = 'GUEST') {
         id: role.toLowerCase(),
         fullName: 'Tài khoản kiểm thử',
         email: 'test@example.com',
+        phoneNumber: '0901234567',
         role,
         status: 'ACTIVE',
         createdAt: '2026-10-01T00:00:00Z',
       };
-    else if (url.pathname.endsWith('/amenities'))
+    else if (url.pathname.endsWith('/bookings/policy'))
+      json = {
+        minimumLeadTimeHours: 2,
+        paymentWindowOptions: [1, 3, 6, 12, 24],
+        defaultPaymentWindowHours: 6,
+        maxActiveUnpaidBookings: 2,
+        lastMinuteThresholdHours: 24,
+        lastMinutePaymentWindowHours: 1,
+      };
+    else if (url.pathname.endsWith('/bookings/eligibility'))
+      json = {
+        canBook: true,
+        activeUnpaidBookings: 0,
+        maxActiveUnpaidBookings: 2,
+        bookingBlockedUntil: null,
+      };
+    else if (url.pathname.endsWith('/calendar')) json = { serverNow: new Date().toISOString(), days: [] };
+    else if (url.pathname.endsWith('/availability'))
+      json = {
+        roomTypeId: property.roomTypes[0].id,
+        availableUnits: 1,
+        totalUnits: 1,
+        days: [],
+        serverNow: new Date().toISOString(),
+      };
+    else if (url.pathname.endsWith('/quote')) {
+      const nights =
+        (Date.parse(url.searchParams.get('checkOut')!) -
+          Date.parse(url.searchParams.get('checkIn')!)) /
+        86400000;
+      json = {
+        roomTypeId: property.roomTypes[0].id,
+        quantity: 1,
+        totalNights: nights,
+        nightlyPriceSnapshot: 850000,
+        totalAmount: nights * 850000,
+        depositPercentSnapshot: 30,
+        depositAmount: nights * 255000,
+        remainingAmount: nights * 595000,
+        availableUnits: 1,
+        paymentDeadlineAt: new Date(Date.now() + 3600000).toISOString(),
+        serverNow: new Date().toISOString(),
+      };
+    } else if (url.pathname.endsWith('/amenities'))
       json = property.amenities.map((a) => a.amenity);
     else if (url.pathname.endsWith('/host/properties')) json = [property];
+    else if (url.pathname.endsWith('/feedback'))
+      json = { averageRating: null, count: 0, items: [] };
     else if (url.pathname.includes('/properties/')) json = property;
     else if (url.pathname.endsWith('/bookings/my')) json = [];
     else
@@ -69,9 +127,10 @@ const day = (page: Page, value: string) =>
 test('guests see host times and today becomes dimmed and disabled when the selected stay expires', async ({
   page,
 }) => {
-  await page.clock.install({ time: new Date('2026-10-04T06:50:00Z') });
+  await page.clock.install({ time: new Date('2026-10-04T04:50:00Z') });
   await mockApi(page);
   await page.goto(path);
+  await page.getByLabel('Loại phòng / chỗ ở').selectOption(property.roomTypes[0].id);
   const card = page.locator('aside');
   await expect(card.getByText('14:00', { exact: true })).toBeVisible();
   await expect(card.getByText('11:30', { exact: true })).toBeVisible();
@@ -86,7 +145,7 @@ test('guests see host times and today becomes dimmed and disabled when the selec
   await expect(
     page.getByRole('button', { name: 'Đặt chỗ ngay' }),
   ).toBeEnabled();
-  await page.clock.pauseAt(new Date('2026-10-04T06:59:56Z'));
+  await page.clock.pauseAt(new Date('2026-10-04T04:59:56Z'));
   await page.clock.fastForward(5000);
   await page.clock.resume();
   await expect(day(page, '2026-10-04')).toBeVisible();
@@ -98,7 +157,9 @@ test('guests see host times and today becomes dimmed and disabled when the selec
   await expect(
     page.getByRole('button', { name: 'Đặt chỗ ngay' }),
   ).toBeDisabled();
-  await expect(card.getByRole('alert')).toContainText('Đã quá giờ nhận phòng');
+  await expect(card.getByRole('alert')).toContainText(
+    'Thời gian nhận phòng quá gần',
+  );
   await day(page, '2026-10-05').click();
   await day(page, '2026-10-06').click();
   await expect(

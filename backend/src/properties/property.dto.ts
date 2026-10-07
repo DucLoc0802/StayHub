@@ -16,11 +16,35 @@ import {
   MaxLength,
   Matches,
   Min,
+  ValidateNested,
+  ValidateIf,
 } from 'class-validator';
+import { bookingPolicy } from '../bookings/booking-policy';
 import { districts } from '../common/domain';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
+export class RoomTypeDto {
+  @ApiPropertyOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsUUID()
+  id?: string;
+  @ApiProperty() @Transform(trim) @IsString() @Length(2, 100) name!: string;
+  @ApiProperty()
+  @Transform(trim)
+  @IsString()
+  @Length(0, 5000)
+  description!: string;
+  @ApiProperty() @IsInt() @Min(1) @Max(50000000) pricePerNight!: number;
+  @ApiProperty() @IsInt() @Min(1) @Max(100) totalUnits!: number;
+  @ApiProperty() @IsInt() @Min(1) @Max(50) maxGuests!: number;
+  @ApiProperty() @IsInt() @Min(0) @Max(50) bedrooms!: number;
+  @ApiProperty() @IsInt() @Min(1) @Max(50) beds!: number;
+  @ApiProperty() @IsInt() @Min(1) @Max(50) bathrooms!: number;
+  @ApiProperty({ enum: ['ACTIVE', 'INACTIVE'] })
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status!: 'ACTIVE' | 'INACTIVE';
+}
 export class CreatePropertyDto {
   @ApiProperty({ enum: ['HOMESTAY', 'HOTEL'] })
   @IsIn(['HOMESTAY', 'HOTEL'], { message: 'Loại chỗ nghỉ không hợp lệ.' })
@@ -43,36 +67,22 @@ export class CreatePropertyDto {
   @IsString()
   @Length(5, 250, { message: 'Địa chỉ phải có 5–250 ký tự.' })
   address!: string;
-  @ApiProperty({ minimum: 1, maximum: 50000000 })
+  @ApiProperty() @IsInt() @Min(1) @Max(100) depositPercent!: number;
+  @ApiPropertyOptional({
+    enum: [...bookingPolicy.paymentWindowOptions],
+    default: bookingPolicy.defaultPaymentWindowHours,
+  })
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsInt()
-  @Min(1)
-  @Max(50000000)
-  pricePerNight!: number;
-  @ApiProperty({ minimum: 1, maximum: 100 })
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  depositPercent!: number;
-  @ApiProperty({ minimum: 1, maximum: 50 })
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  maxGuests!: number;
-  @ApiProperty({ minimum: 0, maximum: 50 })
-  @IsInt()
-  @Min(0)
-  @Max(50)
-  bedrooms!: number;
-  @ApiProperty({ minimum: 1, maximum: 50 })
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  beds!: number;
-  @ApiProperty({ minimum: 1, maximum: 50 })
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  bathrooms!: number;
+  @IsIn(bookingPolicy.paymentWindowOptions)
+  paymentWindowHours?: number;
+  @ApiProperty({ type: () => [RoomTypeDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => RoomTypeDto)
+  roomTypes!: RoomTypeDto[];
   @ApiProperty({ example: '14:00', description: 'Giờ nhận phòng (UTC+7)' })
   @IsString()
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {

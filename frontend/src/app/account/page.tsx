@@ -6,6 +6,7 @@ import { RequireAuth } from '@/components/require-auth';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/states';
 import { roleLabel } from '@/lib/utils';
+import { ProfileEditor } from '@/components/profile-editor';
 function Account() {
   const { user, retry } = useAuth();
   if (!user) return null;
@@ -14,7 +15,7 @@ function Account() {
       <div className="mx-auto max-w-2xl">
         <p className="eyebrow">GÓC CỦA BẠN</p>
         <h1 className="page-title mb-8 mt-3">Tài khoản của tôi</h1>
-        <div className="panel p-7">
+        <div className="motion-content panel p-7">
           <div className="mb-6 flex items-center gap-4">
             <span className="rounded-full bg-accent p-4">
               <UserRound size={28} />
@@ -40,6 +41,7 @@ function Account() {
               </dd>
             </div>
           </dl>
+          <ProfileEditor />
         </div>
         {user.role === 'HOST' && user.status !== 'ACTIVE' && (
           <div className="mt-5 rounded-2xl border bg-cream p-6">

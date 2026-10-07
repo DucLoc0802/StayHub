@@ -9,9 +9,17 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { publicUser, SessionUser } from '../common/security';
 import { LoginDto, RegisterDto } from './auth.dto';
+import { ProfileDto } from './profile.dto';
 
 @Injectable()
 export class AuthService {
+  updateProfile(id: string, dto: ProfileDto) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { fullName: dto.fullName, phoneNumber: dto.phoneNumber },
+      select: publicUser,
+    });
+  }
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,

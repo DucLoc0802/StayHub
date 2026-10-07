@@ -10,20 +10,31 @@ import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from './providers';
 import { Button } from './ui/button';
-const schema = (register: boolean) => z.object({
-  email: register
-    ? z.email('Email không hợp lệ.').max(191, 'Email tối đa 191 ký tự.')
-    : z.string().trim().toLowerCase().max(191, 'Tài khoản tối đa 191 ký tự.').refine(
-        (value) => ['admin', 'host', 'guest'].includes(value) || z.email().safeParse(value).success,
-        'Nhập email hoặc tài khoản demo admin, host, guest.',
-      ),
-  password: z
-    .string()
-    .min(register ? 8 : 1, register ? 'Mật khẩu cần ít nhất 8 ký tự.' : 'Vui lòng nhập mật khẩu.')
-    .max(72, 'Mật khẩu tối đa 72 ký tự.'),
-  fullName: z.string().optional(),
-  role: z.enum(['GUEST', 'HOST']),
-});
+const schema = (register: boolean) =>
+  z.object({
+    email: register
+      ? z.email('Email không hợp lệ.').max(191, 'Email tối đa 191 ký tự.')
+      : z
+          .string()
+          .trim()
+          .toLowerCase()
+          .max(191, 'Tài khoản tối đa 191 ký tự.')
+          .refine(
+            (value) =>
+              ['admin', 'host', 'guest'].includes(value) ||
+              z.email().safeParse(value).success,
+            'Nhập email hoặc tài khoản demo admin, host, guest.',
+          ),
+    password: z
+      .string()
+      .min(
+        register ? 8 : 1,
+        register ? 'Mật khẩu cần ít nhất 8 ký tự.' : 'Vui lòng nhập mật khẩu.',
+      )
+      .max(72, 'Mật khẩu tối đa 72 ký tự.'),
+    fullName: z.string().optional(),
+    role: z.enum(['GUEST', 'HOST']),
+  });
 type Values = z.infer<ReturnType<typeof schema>>;
 export function AuthForm({ register = false }: { register?: boolean }) {
   const router = useRouter();
@@ -94,7 +105,7 @@ export function AuthForm({ register = false }: { register?: boolean }) {
             : 'Đăng nhập để tiếp tục hành trình của bạn.'}
         </p>
         <form
-          className="space-y-5"
+          className="motion-content space-y-5"
           onSubmit={form.handleSubmit((data) => {
             if (
               register &&
@@ -149,12 +160,16 @@ export function AuthForm({ register = false }: { register?: boolean }) {
             </>
           )}
           <div className="field">
-            <label htmlFor="email">{register ? 'Email' : 'Tài khoản hoặc email'}</label>
+            <label htmlFor="email">
+              {register ? 'Email' : 'Tài khoản hoặc email'}
+            </label>
             <input
               id="email"
               type={register ? 'email' : 'text'}
               autoComplete={register ? 'email' : 'username'}
-              placeholder={register ? 'ban@example.com' : 'Nhập vào tài khoản email'}
+              placeholder={
+                register ? 'ban@example.com' : 'Nhập vào tài khoản email'
+              }
               {...form.register('email')}
             />
             <p className="field-error">

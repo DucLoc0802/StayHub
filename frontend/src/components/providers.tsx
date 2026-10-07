@@ -97,6 +97,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         {children}
         <Toaster
+          className="stayhub-toaster"
           richColors
           position="top-right"
           containerAriaLabel="Thông báo"

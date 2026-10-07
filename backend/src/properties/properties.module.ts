@@ -17,6 +17,7 @@ import {
   SearchPropertyDto,
   UpdatePropertyDto,
 } from './property.dto';
+import { InventoryModule } from '../bookings/inventory.module';
 import { PropertiesService } from './properties.service';
 @ApiTags('Chỗ nghỉ')
 @Public()
@@ -67,6 +68,7 @@ class HostPropertiesController {
   }
 }
 @Module({
+  imports: [InventoryModule],
   controllers: [PropertiesController, HostPropertiesController],
   providers: [PropertiesService],
 })

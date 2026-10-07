@@ -51,7 +51,7 @@ export default function HostPage() {
       ) : !properties.data.length ? (
         <Empty>Bạn chưa có chỗ nghỉ nào. Hãy tạo chỗ nghỉ đầu tiên.</Empty>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="motion-content grid gap-5 md:grid-cols-2">
           {properties.data.map((p) => (
             <article key={p.id} className="panel overflow-hidden">
               <div className="flex gap-4 p-5">
@@ -71,7 +71,7 @@ export default function HostPage() {
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t p-5">
                 <p className="text-sm">
-                  <strong>{money(p.pricePerNight)}</strong> / đêm
+                  <strong>Từ {money(p.minPricePerNight ?? 0)}</strong> / đêm
                   <br />
                   <span className="text-xs text-muted-foreground">
                     Đặt cọc {p.depositPercent}%

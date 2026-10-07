@@ -18,9 +18,9 @@ services:
       - ./backend/.env
     depends_on:
       mysql:
-        condition: "service_healthy"
+        condition: 'service_healthy'
     command: >
-      sh -c "prisma db push && node dist/seed/seed.js && exec node dist/main.js"
+      sh -c "prisma migrate deploy && node dist/seed/prisma/seed.js && exec node dist/main.js"
 
   mysql:
     image: mysql:8.0
@@ -34,7 +34,11 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -pstayhub || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'mysqladmin ping -h 127.0.0.1 -u root -p"$$MYSQL_ROOT_PASSWORD" || exit 1',
+        ]
       interval: 3s
       timeout: 3s
       retries: 20

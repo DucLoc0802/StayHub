@@ -8,7 +8,7 @@ export function PropertyCard({ property }: { property: Property }) {
   return (
     <Link
       href={propertyPath(property)}
-      className="group block overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-lg"
+      className="property-card group block overflow-hidden rounded-2xl border bg-white"
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {/* External host images are rendered in the browser, never fetched by the server. */}
@@ -16,7 +16,7 @@ export function PropertyCard({ property }: { property: Property }) {
           src={property.images[0]?.url ?? '/room-placeholder.svg'}
           alt={property.name}
           loading="lazy"
-          className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="property-card-image size-full object-cover"
         />
         <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider">
           {property.type === 'HOTEL' ? 'Khách sạn' : 'Homestay'}
@@ -32,7 +32,7 @@ export function PropertyCard({ property }: { property: Property }) {
         </h3>
         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
           <Users size={13} />
-          {property.maxGuests} khách<span>·</span>
+          {property.roomTypes.length} loại phòng<span>·</span>
           {property.amenities
             .slice(0, 2)
             .map((a) => a.amenity.nameVi)
@@ -40,10 +40,12 @@ export function PropertyCard({ property }: { property: Property }) {
         </div>
         <div className="mt-5 flex items-center justify-between border-t pt-4">
           <p>
-            <strong className="text-lg">{money(property.pricePerNight)}</strong>
+            <strong className="text-lg">
+              Từ {money(property.minPricePerNight ?? 0)}
+            </strong>
             <span className="ml-1 text-xs text-muted-foreground">/ đêm</span>
           </p>
-          <span className="rounded-full bg-accent p-2 text-secondary-foreground">
+          <span className="property-card-cta rounded-full bg-accent p-2 text-secondary-foreground">
             <ArrowUpRight size={17} />
           </span>
         </div>

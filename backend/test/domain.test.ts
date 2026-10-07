@@ -37,13 +37,14 @@ test('deposit snapshot charges only host-defined percent, rounds up whole dong',
   assert.equal(priceSnapshot(850000, 100, 2).remainingAmount, 0);
   assert.throws(() => priceSnapshot(50000000, 100, 365));
 });
-test('overlap predicate excludes pending bookings and allows adjacent stays', () => {
+test('overlap predicate includes unexpired pending bookings and allows adjacent stays', () => {
   const start = new Date('2026-10-10'),
     end = new Date('2026-10-15');
   const predicate = overlap('property', start, end);
   const matches = (a: string, b: string) =>
     new Date(a) < predicate.checkIn.lt && new Date(b) > predicate.checkOut.gt;
-  assert.equal(predicate.status, 'CONFIRMED');
+  assert.equal(predicate.OR[0].status, 'CONFIRMED');
+  assert.equal(predicate.OR[1].status, 'PENDING_PAYMENT');
   assert.equal(matches('2026-10-15', '2026-10-18'), false);
   assert.equal(matches('2026-10-08', '2026-10-10'), false);
   assert.equal(matches('2026-10-14', '2026-10-18'), true);

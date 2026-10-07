@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './ui/dialog';
-import { Empty, ErrorState, Loading } from './ui/states';
+import { Empty, ErrorState, Loading, PropertySkeletons } from './ui/states';
 const PRICE_LIMIT = 5000000;
 const PRICE_STEP = 50000;
 
@@ -268,7 +268,7 @@ export function PropertyList() {
                     Bộ lọc
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent motion="sheet">
                   <DialogTitle className="mb-2 text-lg font-semibold">
                     Lọc chỗ nghỉ
                   </DialogTitle>
@@ -297,7 +297,7 @@ export function PropertyList() {
             </div>
           </div>
           {properties.isPending ? (
-            <Loading />
+            <PropertySkeletons />
           ) : properties.isError ? (
             <ErrorState
               message={errorMessage(properties.error)}
@@ -305,7 +305,10 @@ export function PropertyList() {
             />
           ) : properties.data.items.length ? (
             <>
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div
+                key={params.toString()}
+                className="motion-list grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+              >
                 {properties.data.items.map((p) => (
                   <PropertyCard key={p.id} property={p} />
                 ))}

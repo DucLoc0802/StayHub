@@ -13,7 +13,7 @@ export function SearchBox({ initial = '' }: { initial?: string }) {
           `/properties?q=${encodeURIComponent(String(data.get('q') ?? ''))}`,
         );
       }}
-      className="flex flex-col gap-4 rounded-2xl border bg-white p-4 shadow-[0_8px_35px_rgba(85,54,35,0.06)] sm:flex-row sm:items-center sm:p-5"
+      className="search-box flex flex-col gap-4 rounded-2xl border bg-white p-4 shadow-[0_8px_35px_rgba(85,54,35,0.06)] sm:flex-row sm:items-center sm:p-5"
     >
       <MapPin
         className="hidden shrink-0 text-secondary-foreground sm:block"

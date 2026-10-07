@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export const publicUser = {
   id: true,
   fullName: true,
+  phoneNumber: true,
   email: true,
   role: true,
   status: true,
@@ -25,11 +26,14 @@ export type SessionUser = {
   id: string;
   fullName: string;
   email: string;
+  phoneNumber?: string | null;
   role: Role;
   status: 'ACTIVE' | 'PENDING' | 'REJECTED';
 };
 export const Public = () => SetMetadata('public', true);
 export const Roles = (...roles: Role[]) => SetMetadata('roles', roles);
+// Only personal booking routes may admit a pending Host; ownership remains server-scoped.
+export const PersonalBookings = () => SetMetadata('personalBookings', true);
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): SessionUser =>
     ctx.switchToHttp().getRequest().user,
@@ -74,7 +78,9 @@ export class AuthGuard implements CanActivate {
       ctx.getHandler(),
       ctx.getClass(),
     ]);
-    if (roles && (!roles.includes(user.role) || user.status !== 'ACTIVE')) {
+    const personalBookings = this.reflector.getAllAndOverride<boolean>('personalBookings', [ctx.getHandler(), ctx.getClass()]);
+    const pendingOwner = personalBookings && user.role === 'HOST' && user.status === 'PENDING';
+    if (roles && (!roles.includes(user.role) || (user.status !== 'ACTIVE' && !pendingOwner))) {
       throw new ForbiddenException(
         'Bạn không có quyền thực hiện thao tác này hoặc tài khoản chưa được phê duyệt.',
       );

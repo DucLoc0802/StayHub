@@ -67,11 +67,12 @@ export function priceSnapshot(
   nightlyPriceSnapshot: number,
   depositPercentSnapshot: number,
   totalNights: number,
+  quantity = 1,
 ) {
-  const totalAmount = nightlyPriceSnapshot * totalNights;
+  const totalAmount = nightlyPriceSnapshot * totalNights * quantity;
   if (!Number.isSafeInteger(totalAmount) || totalAmount > 2147483647)
     throw new BadRequestException(
-      'Tổng tiền vượt giới hạn cho phép. Vui lòng giảm số đêm.',
+      'Tổng tiền vượt giới hạn cho phép. Vui lòng giảm số đêm hoặc số phòng.',
     );
   const depositAmount = Math.ceil((totalAmount * depositPercentSnapshot) / 100);
   return {
@@ -83,10 +84,18 @@ export function priceSnapshot(
     remainingAmount: totalAmount - depositAmount,
   };
 }
-export function overlap(propertyId: string, checkIn: Date, checkOut: Date) {
+export function overlap(
+  roomTypeId: string,
+  checkIn: Date,
+  checkOut: Date,
+  now = new Date(),
+) {
   return {
-    propertyId,
-    status: 'CONFIRMED' as const,
+    roomTypeId,
+    OR: [
+      { status: 'CONFIRMED' as const },
+      { status: 'PENDING_PAYMENT' as const, paymentDeadlineAt: { gt: now } },
+    ],
     checkIn: { lt: checkOut },
     checkOut: { gt: checkIn },
   };
