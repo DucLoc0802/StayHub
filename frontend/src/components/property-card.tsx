@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { MapPin } from 'lucide-react';
 import type { Property } from '@/lib/types';
-import { money } from '@/lib/utils';
+import { cn, money } from '@/lib/utils';
 import { propertyPath } from '@/lib/property-url';
 import { PropertyImage } from './property-image';
 export function PropertyCard({
@@ -10,10 +10,11 @@ export function PropertyCard({
   comparisonProperties = [],
 }: {
   property: Property;
-  variant?: 'default' | 'discovery';
+  variant?: 'default' | 'discovery' | 'homepage';
   comparisonProperties?: Property[];
 }) {
-  if (variant === 'discovery') {
+  if (variant === 'discovery' || variant === 'homepage') {
+    const isHomepage = variant === 'homepage';
     const distinguishingAmenities = property.amenities
       .filter(({ amenityId }) =>
         comparisonProperties.some(
@@ -26,9 +27,19 @@ export function PropertyCard({
     return (
       <Link
         href={propertyPath(property)}
-        className="property-card discovery-property group grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] overflow-hidden rounded-lg border bg-white sm:flex sm:flex-col"
+        className={cn(
+          'property-card group min-w-0',
+          isHomepage
+            ? 'home-property flex flex-col rounded-xl'
+            : 'discovery-property grid grid-cols-[7rem_minmax(0,1fr)] overflow-hidden rounded-lg border bg-white sm:flex sm:flex-col',
+        )}
       >
-        <div className="relative overflow-hidden bg-muted sm:aspect-[3/2]">
+        <div
+          className={cn(
+            'relative overflow-hidden bg-muted',
+            isHomepage ? 'aspect-[3/2] rounded-xl' : 'sm:aspect-[3/2]',
+          )}
+        >
           <PropertyImage
             src={property.images[0]?.url ?? '/room-placeholder.svg'}
             alt={property.name}
@@ -36,15 +47,32 @@ export function PropertyCard({
             className="property-card-image absolute inset-0 size-full object-cover"
           />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3 sm:p-4">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-5 group-hover:text-secondary-foreground sm:min-h-12 sm:text-base sm:leading-6">
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col gap-1.5',
+            isHomepage ? 'pt-4' : 'p-3 sm:p-4',
+          )}
+        >
+          <h3
+            className={cn(
+              'line-clamp-2 font-semibold group-hover:text-secondary-foreground',
+              isHomepage
+                ? 'text-base leading-6'
+                : 'text-sm leading-5 sm:min-h-12 sm:text-base sm:leading-6',
+            )}
+          >
             {property.name}
           </h3>
           <p
             className="line-clamp-2 text-xs leading-5 text-muted-foreground sm:line-clamp-1"
-            title={`${property.district} · ${property.address}`}
+            title={
+              isHomepage
+                ? property.district
+                : `${property.district} · ${property.address}`
+            }
           >
-            {property.district} · {property.address}
+            {property.district}
+            {!isHomepage && ` · ${property.address}`}
           </p>
           <p className="text-xs leading-5 text-muted-foreground">
             {property.type === 'HOTEL' ? 'Khách sạn' : 'Homestay'}
@@ -56,13 +84,22 @@ export function PropertyCard({
               {distinguishingAmenities.join(' · ')}
             </p>
           )}
-          <p className="mt-auto border-t pt-2 leading-6">
+          <p
+            className={cn('mt-auto pt-2 leading-6', !isHomepage && 'border-t')}
+          >
             {property.minPricePerNight === null ? (
-              <span className="text-sm font-medium">Xem giá theo loại phòng</span>
+              <span className="text-sm font-medium">
+                Xem giá theo loại phòng
+              </span>
             ) : (
               <>
                 <span className="mr-1 text-xs text-muted-foreground">Từ</span>
-                <strong className="text-base font-semibold tabular-nums sm:text-lg">
+                <strong
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    isHomepage ? 'text-lg' : 'text-base sm:text-lg',
+                  )}
+                >
                   {money(property.minPricePerNight)}
                 </strong>
                 <span className="ml-1 whitespace-nowrap text-xs text-muted-foreground">
@@ -108,14 +145,18 @@ export function PropertyCard({
         <div className="mt-3 border-t pt-3">
           <p>
             {property.minPricePerNight === null ? (
-              <span className="text-sm font-medium">Xem giá theo loại phòng</span>
+              <span className="text-sm font-medium">
+                Xem giá theo loại phòng
+              </span>
             ) : (
               <>
                 <span className="mr-1 text-xs text-muted-foreground">Từ</span>
                 <strong className="text-lg font-semibold tabular-nums">
                   {money(property.minPricePerNight)}
                 </strong>
-                <span className="ml-1 text-xs text-muted-foreground">/ đêm</span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  / đêm
+                </span>
               </>
             )}
           </p>

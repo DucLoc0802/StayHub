@@ -190,6 +190,214 @@ summary {
   color: var(--destructive);
   font-size: 0.75rem;
 }
+
+/* Homepage: real accommodation imagery and one clear search action. */
+.home-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 540px;
+  align-items: center;
+  overflow: hidden;
+  background: #24372f;
+  color: #fff;
+}
+.home-hero-image {
+  z-index: -2;
+  object-position: center 52%;
+}
+.home-hero-overlay {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(15 26 24 / 40%),
+    rgb(15 26 24 / 52%) 55%,
+    rgb(15 26 24 / 38%)
+  );
+}
+.home-hero-content {
+  padding-block: 64px;
+  text-align: center;
+}
+.home-hero-title {
+  max-width: 850px;
+  margin-inline: auto;
+  font-size: clamp(2rem, 3.6vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.home-hero-description {
+  max-width: 600px;
+  margin: 18px auto 0;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #fff;
+  text-wrap: pretty;
+}
+.home-hero-search {
+  max-width: 900px;
+  margin: 30px auto 0;
+}
+.homepage-search {
+  box-shadow: 0 12px 36px rgb(15 26 24 / 16%);
+}
+.homepage-search
+  input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  border-color: transparent;
+  padding-left: 2.75rem;
+  font-size: 1rem;
+  caret-color: var(--secondary-foreground);
+}
+.homepage-search input:focus-visible {
+  outline-offset: 0;
+}
+.home-popular-locations {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 18px;
+  font-size: 0.8125rem;
+}
+.home-popular-label {
+  margin-right: 2px;
+}
+.home-popular-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding-inline: 12px;
+  border: 1px solid rgb(255 255 255 / 50%);
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 500;
+}
+.home-popular-link:hover {
+  background: rgb(255 255 255 / 12%);
+}
+.home-popular-link:focus-visible {
+  outline-color: #fff;
+}
+.home-stays {
+  padding-block: 56px 64px;
+  background: var(--card);
+}
+.home-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.home-section-title {
+  font-size: clamp(1.5rem, 2.1vw, 1.875rem);
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.home-property > div:last-child {
+  min-height: 158px;
+}
+.home-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 24px;
+  border-radius: 12px;
+  background: var(--muted);
+  text-align: center;
+}
+.home-locations {
+  border-top: 1px solid var(--border);
+  padding-block: 52px 60px;
+  background: var(--cream);
+  scroll-margin-top: 88px;
+}
+.home-locations-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: 56px;
+}
+.home-location-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 28px;
+}
+.home-location-link {
+  display: flex;
+  min-height: 64px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-block: 16px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.home-location-link:hover,
+.home-location-link:focus-visible {
+  color: var(--secondary-foreground);
+  border-bottom-color: var(--ring);
+}
+@media (max-width: 1023px) {
+  .home-locations-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+@media (max-width: 639px) {
+  .home-hero {
+    min-height: 560px;
+  }
+  .home-hero-content {
+    padding-block: 40px;
+  }
+  .home-hero-description {
+    margin-top: 16px;
+    font-size: 0.875rem;
+    line-height: 1.8;
+  }
+  .home-hero-search {
+    margin-top: 24px;
+  }
+  .home-popular-locations {
+    column-gap: 8px;
+    row-gap: 8px;
+    margin-top: 20px;
+  }
+  .home-popular-label {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+  .home-popular-link {
+    min-height: 44px;
+    padding-inline: 10px;
+    font-size: 0.75rem;
+  }
+  .home-stays {
+    padding-block: 36px 40px;
+  }
+  .home-section-heading {
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .home-locations {
+    padding-block: 36px 40px;
+  }
+  .home-location-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+}
 .stayhub-calendar.rdp-root {
   --rdp-accent-color: var(--ring);
   --rdp-accent-background-color: var(--accent);

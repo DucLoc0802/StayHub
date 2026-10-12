@@ -23,7 +23,7 @@ export function PropertySkeletons({
 }: {
   count?: number;
   className?: string;
-  variant?: 'default' | 'discovery';
+  variant?: 'default' | 'discovery' | 'homepage';
 }) {
   return (
     <div role="status" aria-label="Đang tải chỗ nghỉ">
@@ -31,12 +31,26 @@ export function PropertySkeletons({
       <div
         aria-hidden="true"
         className={cn(
-          variant === 'discovery' ? 'grid gap-3 sm:gap-4' : 'grid gap-5',
+          variant === 'homepage'
+            ? 'grid gap-x-6 gap-y-8'
+            : variant === 'discovery'
+              ? 'grid gap-3 sm:gap-4'
+              : 'grid gap-5',
           className,
         )}
       >
         {Array.from({ length: count }, (_, i) =>
-          variant === 'discovery' ? (
+          variant === 'homepage' ? (
+            <div key={i} className="flex min-w-0 flex-col">
+              <div className="skeleton aspect-[3/2] rounded-xl" />
+              <div className="flex min-h-[158px] flex-col gap-1.5 pt-4">
+                <div className="skeleton h-6 w-4/5 rounded" />
+                <div className="skeleton h-5 w-1/2 rounded" />
+                <div className="skeleton h-5 w-2/3 rounded" />
+                <div className="skeleton mt-auto h-7 w-3/4 rounded" />
+              </div>
+            </div>
+          ) : variant === 'discovery' ? (
             <div
               key={i}
               className="grid grid-cols-[7rem_minmax(0,1fr)] overflow-hidden rounded-lg border bg-white sm:flex sm:flex-col"
@@ -52,10 +66,7 @@ export function PropertySkeletons({
               </div>
             </div>
           ) : (
-            <div
-              key={i}
-              className="overflow-hidden rounded-lg border bg-white"
-            >
+            <div key={i} className="overflow-hidden rounded-lg border bg-white">
               <div className="skeleton aspect-[4/3]" />
               <div className="p-4">
                 <div className="skeleton h-4 w-2/3 rounded" />
@@ -87,7 +98,11 @@ export function ErrorState({
       role="alert"
       className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm"
     >
-      <AlertCircle aria-hidden="true" size={18} className="shrink-0 text-destructive" />
+      <AlertCircle
+        aria-hidden="true"
+        size={18}
+        className="shrink-0 text-destructive"
+      />
       <p className="min-w-0 flex-1 break-words">{message}</p>
       {retry && (
         <Button variant="outline" onClick={retry}>

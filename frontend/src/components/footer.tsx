@@ -4,15 +4,20 @@ import { SectionReveal } from './ui/section-reveal';
 export function Footer() {
   return (
     <footer className="border-t bg-white">
-      <SectionReveal className="container-shell grid gap-5 py-6 md:grid-cols-[1fr_2fr] md:gap-8">
+      <SectionReveal className="container-shell grid gap-6 py-9 md:grid-cols-[1fr_2fr] md:items-center md:gap-8 md:py-10">
         <div>
           <Link className="flex items-center gap-2 text-xl font-bold" href="/">
             <House className="text-secondary-foreground" />
             StayHub
           </Link>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">TP. Hồ Chí Minh, Việt Nam</p>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            TP. Hồ Chí Minh, Việt Nam
+          </p>
         </div>
-        <nav aria-label="Liên kết cuối trang" className="flex flex-wrap items-start gap-x-6 gap-y-1 text-sm md:justify-end">
+        <nav
+          aria-label="Liên kết cuối trang"
+          className="flex flex-wrap items-start gap-x-6 gap-y-1 text-sm md:justify-end"
+        >
           <Link
             className="motion-link inline-flex min-h-11 items-center text-muted-foreground"
             href="/properties"

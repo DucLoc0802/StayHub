@@ -4,7 +4,9 @@ Frontend: https://pentabug2-stayhub.vercel.app
 
 Backend API: https://pentabug-stayhub.vercel.app/api
 
-Cấu hình đã được kiểm tra: frontend/backend build thành công, 5 migration đã áp dụng lên Aiven `defaultdb`, API `/api/amenities` và `/api/properties` trả HTTP 200 khi chạy backend với database này, preflight đăng nhập trả HTTP 204 với đúng CORS origin frontend. Database đã có schema và chưa có dữ liệu mẫu. Các thay đổi trong repository cần được đưa lên Vercel cùng biến môi trường mới.
+Cấu hình đã được kiểm tra: frontend/backend build thành công, 5 migration đã áp dụng lên Aiven `defaultdb`, API `/api/amenities` và `/api/properties` trả HTTP 200, preflight đăng nhập trả HTTP 204 với đúng CORS origin frontend. Theo yêu cầu demo, đã nạp bộ dữ liệu Prisma: 38 chỗ nghỉ (12 khách sạn, 26 homestay), 62 loại phòng, 14 tiện ích và 8 đơn minh họa. API Vercel đã trả dữ liệu và cả ba tài khoản demo đăng nhập thành công.
+
+Tài khoản demo: `admin` / `admin`, `host` / `host`, `guest` / `guest` (tên đăng nhập / mật khẩu). Tiến trình seed chạy riêng một lần với chế độ development; biến môi trường và ứng dụng Vercel vẫn giữ production. Sau khi nạp dữ liệu, tải lại frontend; không cần redeploy chỉ để hiển thị dữ liệu mới.
 
 ## 1. Tạo database MySQL trước
 

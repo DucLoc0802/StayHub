@@ -37,7 +37,7 @@ export function Header() {
       ref={headerRef}
       className="motion-header sticky top-0 z-40 border-b bg-white"
     >
-      <div className="container-shell flex h-16 items-center justify-between gap-3">
+      <div className="container-shell flex h-16 items-center justify-between gap-3 md:h-18">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 text-xl font-bold tracking-tight"
@@ -50,11 +50,13 @@ export function Header() {
         </Link>
         <nav
           aria-label="Điều hướng chính"
-          className="hidden items-center gap-5 text-sm md:flex"
+          className="hidden items-center gap-6 text-sm md:flex lg:gap-8"
         >
           <Link
             className="motion-link inline-flex min-h-11 items-center"
-            aria-current={pathname.startsWith('/properties') ? 'page' : undefined}
+            aria-current={
+              pathname.startsWith('/properties') ? 'page' : undefined
+            }
             href="/properties"
           >
             Tìm chỗ nghỉ
@@ -87,7 +89,11 @@ export function Header() {
               <Button asChild variant="ghost" className="hidden sm:inline-flex">
                 <Link href="/login">Đăng nhập</Link>
               </Button>
-              <Button asChild variant="outline" className="hidden sm:inline-flex">
+              <Button
+                asChild
+                variant="outline"
+                className="hidden sm:inline-flex"
+              >
                 <Link href="/register">Đăng ký</Link>
               </Button>
             </>
@@ -119,7 +125,9 @@ export function Header() {
                 className="motion-dropdown z-50 min-w-56 rounded-xl border bg-white p-2 shadow-lg"
               >
                 <Dropdown.Item asChild>
-                  <Link className={itemClass} href="/booking-lookup">Tra cứu đặt phòng</Link>
+                  <Link className={itemClass} href="/booking-lookup">
+                    Tra cứu đặt phòng
+                  </Link>
                 </Dropdown.Item>
                 <Dropdown.Item asChild>
                   <Link className={itemClass} href="/properties">
@@ -135,9 +143,9 @@ export function Header() {
                       </Link>
                     </Dropdown.Item>
                     <Dropdown.Item asChild>
-                        <Link className={itemClass} href="/bookings">
-                          Đặt phòng của tôi
-                        </Link>
+                      <Link className={itemClass} href="/bookings">
+                        Đặt phòng của tôi
+                      </Link>
                     </Dropdown.Item>
                     {user.role === 'HOST' && user.status === 'ACTIVE' && (
                       <Dropdown.Item asChild>
