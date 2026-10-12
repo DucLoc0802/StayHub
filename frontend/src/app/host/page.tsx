@@ -51,53 +51,54 @@ export default function HostPage() {
       ) : !properties.data.length ? (
         <Empty>Bạn chưa có chỗ nghỉ nào. Hãy tạo chỗ nghỉ đầu tiên.</Empty>
       ) : (
-        <div className="motion-content grid gap-5 md:grid-cols-2">
+        <div className="motion-content divide-y border-y">
           {properties.data.map((p) => (
-            <article key={p.id} className="panel overflow-hidden">
-              <div className="flex gap-4 p-5">
+            <article
+              key={p.id}
+              className="grid gap-4 py-4 lg:grid-cols-[minmax(0,1fr)_180px_240px] lg:items-center lg:gap-6"
+            >
+              <div className="flex min-w-0 gap-3">
                 <PropertyImage
                   src={p.images[0]?.url}
                   alt={p.name}
-                  className="size-24 rounded-xl object-cover"
+                  className="size-16 shrink-0 rounded-lg object-cover"
                 />
                 <div className="min-w-0">
+                  <h3 className="mb-2 break-words font-semibold">{p.name}</h3>
                   <StatusBadge status={p.status} />
-                  <h3 className="mb-1 mt-3 font-semibold">{p.name}</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
                     {p.district} ·{' '}
                     {p.type === 'HOTEL' ? 'Khách sạn' : 'Homestay'}
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t p-5">
-                <p className="text-sm">
-                  <strong>Từ {money(p.minPricePerNight ?? 0)}</strong> / đêm
-                  <br />
-                  <span className="text-xs text-muted-foreground">
-                    Đặt cọc {p.depositPercent}%
-                  </span>
-                </p>
-                <div className="flex gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/host/properties/${p.id}/edit`}>
-                      <Pencil size={14} />
-                      Sửa
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={mutation.isPending}
-                    onClick={() =>
-                      mutation.mutate({
-                        id: p.id,
-                        status: p.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
-                      })
-                    }
-                  >
-                    {p.status === 'ACTIVE' ? 'Tạm ngưng' : 'Kích hoạt'}
-                  </Button>
-                </div>
+              <p className="text-sm leading-6 lg:text-right">
+                <strong>Từ {money(p.minPricePerNight ?? 0)}</strong> / đêm
+                <br />
+                <span className="text-xs text-muted-foreground">
+                  Đặt cọc {p.depositPercent}%
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/host/properties/${p.id}/edit`}>
+                    <Pencil size={14} />
+                    Sửa
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={mutation.isPending}
+                  onClick={() =>
+                    mutation.mutate({
+                      id: p.id,
+                      status: p.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+                    })
+                  }
+                >
+                  {p.status === 'ACTIVE' ? 'Tạm ngưng' : 'Kích hoạt'}
+                </Button>
               </div>
             </article>
           ))}

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nestjs",
+  "buildCommand": "npm run build:vercel",
+  "env": {
+    "NODE_ENV": "production",
+    "FRONTEND_URL": "https://pentabug2-stayhub.vercel.app"
+  }
+}

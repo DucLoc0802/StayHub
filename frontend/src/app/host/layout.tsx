@@ -1,27 +1,34 @@
+'use client';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { RequireAuth } from '@/components/require-auth';
 export default function HostLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const bookingsActive = pathname.startsWith('/host/bookings');
   return (
     <RequireAuth role="HOST">
-      <div className="container-shell page-section">
-        <p className="eyebrow">KHÔNG GIAN NGƯỜI CHO THUÊ</p>
-        <h1 className="page-title mt-3">Cùng đón những chuyến đi mới.</h1>
+      <div className="container-shell py-6 md:py-8">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Quản lý chỗ nghỉ
+        </h1>
         <nav
           aria-label="Quản lý chỗ nghỉ"
-          className="my-7 flex gap-6 border-b pb-4 text-sm font-medium"
+          className="mb-6 mt-4 flex gap-6 border-b text-sm font-medium"
         >
           <Link
-            className="motion-link hover:text-secondary-foreground"
+            aria-current={!bookingsActive ? 'page' : undefined}
+            className={`min-h-11 border-b-2 py-3 ${!bookingsActive ? '!border-primary font-semibold text-secondary-foreground' : '!border-transparent text-muted-foreground hover:text-foreground'}`}
             href="/host"
           >
             Chỗ nghỉ của tôi
           </Link>
           <Link
-            className="motion-link hover:text-secondary-foreground"
+            aria-current={bookingsActive ? 'page' : undefined}
+            className={`min-h-11 border-b-2 py-3 ${bookingsActive ? '!border-primary font-semibold text-secondary-foreground' : '!border-transparent text-muted-foreground hover:text-foreground'}`}
             href="/host/bookings"
           >
             Đặt phòng

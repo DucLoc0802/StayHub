@@ -4,11 +4,90 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
-import { dateLabel, money, roleLabel } from '@/lib/utils';
-import type { Amenity, User } from '@/lib/types';
+import {
+  dateLabel,
+  money,
+  roleLabel,
+  statusLabel,
+  timestampLabel,
+} from '@/lib/utils';
+import type { Amenity, Booking, User } from '@/lib/types';
 import { Button } from './ui/button';
 import { ErrorState, Loading, StatusBadge } from './ui/states';
-import { BookingSummary } from './booking-extras';
+function AdminBookingRecord({ booking: b }: { booking: Booking }) {
+  return (
+    <article className="grid gap-3 py-3 text-sm sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,.9fr)_auto] lg:gap-5">
+      <div className="min-w-0 space-y-1 sm:col-span-2 lg:col-span-1">
+        <p className="text-xs text-muted-foreground">{b.bookingCode}</p>
+        <h2 className="font-semibold">
+          {b.propertyNameSnapshot || b.property.name}
+        </h2>
+        <p>
+          {b.roomTypeNameSnapshot} · {b.quantity}{' '}
+          {b.property.type === 'HOTEL' ? 'phòng' : 'căn'} · {b.guestCount} khách
+        </p>
+        {b.guest && (
+          <p className="break-words text-muted-foreground">
+            {b.guest.fullName} · {b.guest.email}
+          </p>
+        )}
+      </div>
+      <div className="space-y-2">
+        <StatusBadge status={b.status} />
+        <p>
+          <span className="text-muted-foreground">Nhận: </span>
+          {dateLabel(b.checkIn)} {b.checkInTimeSnapshot}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Trả: </span>
+          {dateLabel(b.checkOut)} {b.checkOutTimeSnapshot}{' '}
+          <span className="text-xs text-muted-foreground">(UTC+7)</span>
+        </p>
+        <p className="text-xs">
+          {b.payment
+            ? b.payment.status === 'SUCCESS'
+              ? 'Cọc thanh toán thành công'
+              : 'Thanh toán cọc thất bại'
+            : 'Chưa ghi nhận thanh toán cọc'}
+        </p>
+        {b.status === 'PENDING_PAYMENT' && (
+          <p className="text-xs">
+            Hạn cọc: {timestampLabel(b.paymentDeadlineAt)}
+          </p>
+        )}
+      </div>
+      <dl className="grid grid-cols-[1fr_auto] content-start gap-x-3 gap-y-1 tabular-nums">
+        <dt>Tổng tiền</dt>
+        <dd className="text-right font-semibold">{money(b.totalAmount)}</dd>
+        <dt>Tiền cọc</dt>
+        <dd className="text-right">{money(b.depositAmount)}</dd>
+        <dt>Còn lại</dt>
+        <dd className="text-right">{money(b.remainingAmount)}</dd>
+      </dl>
+      <Link
+        href={`/bookings/${b.id}`}
+        aria-label={`Xem đơn đặt phòng ${b.bookingCode}`}
+        className="inline-flex min-h-11 items-center justify-self-start self-start underline underline-offset-4 sm:col-span-2 lg:col-span-1"
+      >
+        Xem đơn
+      </Link>
+    </article>
+  );
+}
+
+function BookingColumns() {
+  return (
+    <div
+      aria-hidden="true"
+      className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,.9fr)_auto] gap-5 border-b py-2 text-xs font-semibold text-muted-foreground lg:grid"
+    >
+      <span>Chỗ nghỉ / Khách</span>
+      <span>Lưu trú / Thanh toán</span>
+      <span>Số tiền</span>
+      <span className="w-[3.5rem]">Thao tác</span>
+    </div>
+  );
+}
 
 function Pager({
   page,
@@ -24,7 +103,7 @@ function Pager({
   return (
     <nav
       aria-label="Phân trang quản trị"
-      className="mt-6 flex flex-wrap items-center justify-center gap-4"
+      className="mt-4 flex flex-wrap items-center justify-center gap-3 border-t pt-4"
     >
       <Button
         variant="outline"
@@ -55,27 +134,55 @@ export function AdminDashboard() {
   if (query.isError) return <ErrorState message={errorMessage(query.error)} />;
   const s = query.data;
   return (
-    <div className="container-shell page-section">
-      <h1 className="page-title mb-7">Thống kê StayHub</h1>
-      <div className="motion-content grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          ['Khách thuê', s.guests],
-          ['Người cho thuê', s.hosts],
-          ['Cơ sở lưu trú', s.properties],
-          ['Loại phòng', s.roomTypes],
-          ['Tổng đặt phòng', s.totalBookings],
-          ['Đã xác nhận', s.confirmed],
-          ['Chờ thanh toán', s.pending],
-          ['Hết hạn', s.expired],
-          ['Đã hủy', s.cancelled],
-          ['Tổng cọc thanh toán thành công', money(s.successfulDepositAmount)],
-        ].map(([label, value]) => (
-          <article className="panel p-5" key={label}>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="mt-3 break-words text-2xl font-semibold">{value}</p>
-          </article>
-        ))}
+    <div className="container-shell py-6 sm:py-8">
+      <h1 className="mb-5 text-2xl font-semibold">Thống kê StayHub</h1>
+      <div className="grid gap-6 sm:grid-cols-[1.2fr_1fr]">
+        <section>
+          <h2 className="mb-3 font-semibold">Đặt phòng</h2>
+          <dl className="divide-y border-y tabular-nums">
+            {[
+              ['Tổng đặt phòng', s.totalBookings],
+              ['Đã xác nhận', s.confirmed],
+              ['Chờ thanh toán', s.pending],
+              ['Hết hạn', s.expired],
+              ['Đã hủy', s.cancelled],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className={`flex items-center justify-between gap-4 px-2 py-2 ${label === 'Chờ thanh toán' ? 'bg-accent font-semibold' : ''}`}
+              >
+                <dt className="text-sm">{label}</dt>
+                <dd className="text-lg font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+        <section>
+          <h2 className="mb-3 font-semibold">Tài khoản & chỗ nghỉ</h2>
+          <dl className="divide-y border-y tabular-nums">
+            {[
+              ['Khách thuê', s.guests],
+              ['Người cho thuê', s.hosts],
+              ['Cơ sở lưu trú', s.properties],
+              ['Loại phòng', s.roomTypes],
+            ].map(([label, value]) => (
+              <div
+                className="flex items-center justify-between gap-4 py-2"
+                key={label}
+              >
+                <dt className="text-sm text-muted-foreground">{label}</dt>
+                <dd className="text-lg font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       </div>
+      <dl className="mt-6 flex flex-wrap items-baseline justify-between gap-2 border-b pb-4">
+        <dt className="text-sm">Tổng cọc thanh toán thành công</dt>
+        <dd className="text-xl font-semibold tabular-nums">
+          {money(s.successfulDepositAmount)}
+        </dd>
+      </dl>
       <p className="mt-5 text-sm text-muted-foreground">
         Số liệu từ cơ sở dữ liệu. Tổng cọc bao gồm cọc giữ lại khi khách hủy,
         không phải tổng doanh thu lưu trú.
@@ -128,10 +235,10 @@ export function AdminUsers() {
       mutation.mutate({ id: user.id, body });
   };
   return (
-    <div className="container-shell page-section">
-      <h1 className="page-title mb-6">Người dùng & phân quyền</h1>
-      <div className="panel mb-6 grid gap-3 p-5 md:grid-cols-3">
-        <div className="field">
+    <div className="container-shell py-6 sm:py-8">
+      <h1 className="mb-5 text-2xl font-semibold">Người dùng & phân quyền</h1>
+      <div className="mb-4 grid grid-cols-2 gap-3 border-b pb-4 sm:grid-cols-3">
+        <div className="field col-span-2 sm:col-span-1">
           <label htmlFor="user-search">Tên hoặc email</label>
           <input
             id="user-search"
@@ -155,7 +262,9 @@ export function AdminUsers() {
           >
             <option value="">Tất cả</option>
             {['GUEST', 'HOST', 'ADMIN'].map((r) => (
-              <option key={r}>{r}</option>
+              <option key={r} value={r}>
+                {roleLabel[r as keyof typeof roleLabel]}
+              </option>
             ))}
           </select>
         </div>
@@ -171,7 +280,9 @@ export function AdminUsers() {
           >
             <option value="">Tất cả</option>
             {['ACTIVE', 'PENDING', 'REJECTED'].map((r) => (
-              <option key={r}>{r}</option>
+              <option key={r} value={r}>
+                {statusLabel[r as keyof typeof statusLabel]}
+              </option>
             ))}
           </select>
         </div>
@@ -189,21 +300,36 @@ export function AdminUsers() {
         <ErrorState message={errorMessage(query.error)} />
       ) : (
         <>
-          <div className="motion-content grid gap-4 md:grid-cols-2">
+          <div className="divide-y border-y">
+            <div
+              aria-hidden="true"
+              className="hidden grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,1.4fr)] gap-6 py-2 text-xs font-semibold text-muted-foreground lg:grid"
+            >
+              <span>Người dùng / Liên hệ</span>
+              <span>Vai trò / Trạng thái</span>
+              <span>Thao tác</span>
+            </div>
             {query.data.items.map((user) => (
-              <article className="panel space-y-3 p-5" key={user.id}>
-                <h2 className="font-semibold">{user.fullName}</h2>
-                <p className="break-all text-sm">{user.email}</p>
-                <p className="text-sm">
-                  {user.phoneNumber || 'Chưa có số điện thoại'} ·{' '}
-                  {roleLabel[user.role]}
-                </p>
-                <StatusBadge status={user.status} />
-                <p className="text-xs text-muted-foreground">
-                  Tạo ngày {dateLabel(user.createdAt)}
-                </p>
+              <article
+                className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,1.4fr)] lg:gap-6"
+                key={user.id}
+              >
+                <div className="min-w-0 space-y-1">
+                  <h2 className="font-semibold">{user.fullName}</h2>
+                  <p className="break-all text-sm">{user.email}</p>
+                  <p className="text-sm">
+                    {user.phoneNumber || 'Chưa có số điện thoại'}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm">{roleLabel[user.role]}</p>
+                  <StatusBadge status={user.status} />
+                  <p className="text-xs text-muted-foreground">
+                    Tạo ngày {dateLabel(user.createdAt)}
+                  </p>
+                </div>
                 {user.role === 'GUEST' && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap content-start items-start gap-2 sm:col-span-2 lg:col-span-1">
                     <Button asChild variant="outline" size="sm">
                       <Link href={`/admin/customers/${user.id}`}>
                         Lịch sử khách hàng
@@ -262,9 +388,9 @@ export function AdminBookings() {
     queryFn: () => api.adminBookings(params),
   });
   return (
-    <div className="container-shell page-section">
-      <h1 className="page-title mb-6">Tra cứu đặt phòng</h1>
-      <div className="panel mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="container-shell py-6 sm:py-8">
+      <h1 className="mb-5 text-2xl font-semibold">Tra cứu đặt phòng</h1>
+      <div className="mb-4 grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="field">
           <label htmlFor="admin-booking-q">
             Mã, khách, cơ sở hoặc loại phòng
@@ -292,7 +418,9 @@ export function AdminBookings() {
             <option value="">Tất cả</option>
             {['PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'EXPIRED'].map(
               (s) => (
-                <option key={s}>{s}</option>
+                <option key={s} value={s}>
+                  {statusLabel[s as keyof typeof statusLabel]}
+                </option>
               ),
             )}
           </select>
@@ -328,20 +456,10 @@ export function AdminBookings() {
         <ErrorState message={errorMessage(query.error)} />
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="divide-y border-y">
+            <BookingColumns />
             {query.data.items.map((b) => (
-              <article className="panel p-5" key={b.id}>
-                <BookingSummary booking={b} />
-                <p className="mt-3 break-all text-sm">
-                  {b.guest?.fullName} · {b.guest?.email}
-                </p>
-                <Link
-                  href={`/bookings/${b.id}`}
-                  className="mt-4 inline-block text-sm underline"
-                >
-                  Xem đơn đặt phòng
-                </Link>
-              </article>
+              <AdminBookingRecord key={b.id} booking={b} />
             ))}
           </div>
           {!query.data.items.length && <p>Không có đặt phòng phù hợp.</p>}
@@ -360,14 +478,16 @@ export function AdminCustomer({ id }: { id: string }) {
   if (query.isError) return <ErrorState message={errorMessage(query.error)} />;
   const s = query.data;
   return (
-    <div className="container-shell page-section">
-      <h1 className="page-title mb-6">Lịch sử khách hàng</h1>
-      <section className="panel space-y-3 p-6">
-        <h2 className="text-lg font-semibold">{s.user.fullName}</h2>
-        <p className="break-all">{s.user.email}</p>
-        <p>{s.user.phoneNumber || 'Chưa có số điện thoại'}</p>
-        <StatusBadge status={s.user.status} />
-        <dl className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="container-shell py-6 sm:py-8">
+      <h1 className="mb-5 text-2xl font-semibold">Lịch sử khách hàng</h1>
+      <section className="grid gap-4 border-y py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">{s.user.fullName}</h2>
+          <p className="break-all">{s.user.email}</p>
+          <p>{s.user.phoneNumber || 'Chưa có số điện thoại'}</p>
+          <StatusBadge status={s.user.status} />
+        </div>
+        <dl className="grid grid-cols-2 gap-3 border-t pt-4 sm:grid-cols-3 lg:border-t-0 lg:pt-0">
           {[
             ['Tổng đơn', s.totalBookings],
             ['Đã xác nhận', s.confirmed],
@@ -378,23 +498,16 @@ export function AdminCustomer({ id }: { id: string }) {
           ].map(([label, value]) => (
             <div key={label}>
               <dt className="text-sm text-muted-foreground">{label}</dt>
-              <dd className="mt-2 font-semibold">{value}</dd>
+              <dd className="mt-1 font-semibold">{value}</dd>
             </div>
           ))}
         </dl>
       </section>
       <h2 className="my-6 text-xl font-semibold">20 đặt phòng gần nhất</h2>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="divide-y border-y">
+        <BookingColumns />
         {s.recentBookings.map((b) => (
-          <article key={b.id} className="panel p-5">
-            <BookingSummary booking={b} />
-            <Link
-              className="mt-4 inline-block text-sm underline"
-              href={`/bookings/${b.id}`}
-            >
-              Xem đơn đặt phòng
-            </Link>
-          </article>
+          <AdminBookingRecord key={b.id} booking={b} />
         ))}
       </div>
     </div>
@@ -432,10 +545,10 @@ export function AdminAmenities() {
     },
   });
   return (
-    <div className="container-shell page-section">
-      <h1 className="page-title mb-6">Quản lý tiện ích</h1>
+    <div className="container-shell py-6 sm:py-8">
+      <h1 className="mb-5 text-2xl font-semibold">Quản lý tiện ích</h1>
       <form
-        className="panel mb-6 grid items-end gap-4 p-5 sm:grid-cols-3"
+        className="mb-4 grid items-end gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-3"
         onSubmit={(e) => {
           e.preventDefault();
           mutation.mutate({
@@ -498,14 +611,31 @@ export function AdminAmenities() {
       ) : query.isError ? (
         <ErrorState message={errorMessage(query.error)} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="divide-y border-y">
+          <div
+            aria-hidden="true"
+            className="hidden grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,1fr)_auto] gap-3 py-2 text-xs font-semibold text-muted-foreground sm:grid"
+          >
+            <span>Tiện ích</span>
+            <span>Mã</span>
+            <span>Trạng thái</span>
+            <span className="w-[14rem]">Thao tác</span>
+          </div>
           {query.data.map((a) => (
-            <article className="panel p-5" key={a.id}>
-              <h2 className="font-semibold">{a.nameVi}</h2>
-              <p className="mt-2 break-all text-xs">
-                {a.code} · {a.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+            <article
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,1fr)_auto] sm:gap-3"
+              key={a.id}
+            >
+              <h2 className="col-span-2 break-words font-semibold sm:col-span-1">
+                {a.nameVi}
+              </h2>
+              <p className="break-all text-xs text-muted-foreground">
+                {a.code}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <p className="text-sm">
+                {a.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+              </p>
+              <div className="col-span-2 flex flex-wrap gap-2 sm:col-span-1 sm:w-[14rem]">
                 <Button
                   size="sm"
                   variant="outline"
@@ -546,23 +676,28 @@ export function AdminFeedback() {
     queryFn: api.adminFeedback,
   });
   return (
-    <div className="container-shell page-section">
-      <h1 className="page-title mb-6">Đánh giá của khách</h1>
+    <div className="container-shell py-6 sm:py-8">
+      <h1 className="mb-5 text-2xl font-semibold">Đánh giá của khách</h1>
       {query.isPending ? (
         <Loading />
       ) : query.isError ? (
         <ErrorState message={errorMessage(query.error)} />
       ) : (
-        <div className="space-y-4">
+        <div className="divide-y border-y">
           {query.data.map((f) => (
-            <article className="panel p-5" key={f.id}>
-              <h2 className="font-semibold">
-                {f.property.name} · {f.rating}/5
-              </h2>
-              <p className="mt-2 text-sm">
-                {f.guest.fullName} · {dateLabel(f.createdAt)}
-              </p>
-              <p className="mt-3 whitespace-pre-line break-words text-sm">
+            <article
+              className="grid gap-2 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-x-6"
+              key={f.id}
+            >
+              <div className="min-w-0 space-y-1">
+                <h2 className="font-semibold">
+                  {f.property.name} · {f.rating}/5
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {f.guest.fullName} · {dateLabel(f.createdAt)}
+                </p>
+              </div>
+              <p className="whitespace-pre-line break-words text-sm">
                 {f.content}
               </p>
             </article>

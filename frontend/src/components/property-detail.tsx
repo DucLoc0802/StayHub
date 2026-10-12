@@ -53,22 +53,22 @@ export function PropertyDetail({ id }: { id: string }) {
     <div className="container-shell page-section">
       <Link
         href="/properties"
-        className="mb-6 flex items-center gap-1 text-sm text-muted-foreground"
+        className="mb-4 flex min-h-11 items-center gap-1 text-sm text-muted-foreground"
       >
         <ChevronLeft size={16} />
         Khám phá chỗ nghỉ
       </Link>
       <div className="mb-6">
-        <span className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-secondary-foreground">
+        <span className="text-sm text-muted-foreground">
           {p.type === 'HOTEL' ? 'Khách sạn' : 'Homestay'}
         </span>
-        <h1 className="page-title mb-3 mt-4">{p.name}</h1>
-        <p className="flex items-center gap-1 text-sm text-muted-foreground">
-          <MapPin size={16} />
+        <h1 className="page-title mb-2 mt-1">{p.name}</h1>
+        <p className="flex items-start gap-1 text-sm leading-6 text-muted-foreground">
+          <MapPin size={16} className="mt-1 shrink-0" />
           {p.address} · {p.district}
         </p>
       </div>
-      <div className="mb-10 grid h-[260px] gap-3 overflow-hidden rounded-2xl sm:h-[400px] sm:grid-cols-[2fr_1fr]">
+      <div className="mb-6 grid h-[220px] gap-2 overflow-hidden rounded-lg sm:h-[340px] sm:grid-cols-[2fr_1fr]">
         {p.images.slice(0, 3).map((image, i) => (
           <button
             key={image.id}
@@ -130,62 +130,77 @@ export function PropertyDetail({ id }: { id: string }) {
           )}
         </DialogContent>
       </Dialog>
-      <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
+      <a
+        href="#property-booking"
+        className="mb-6 inline-flex min-h-11 items-center text-sm font-semibold text-secondary-foreground underline underline-offset-4 lg:hidden"
+      >
+        Chọn phòng và ngày lưu trú
+      </a>
+      <div className="grid gap-8 lg:grid-cols-[1fr_380px] lg:gap-10">
         <SectionReveal>
-          <p className="eyebrow">KHÔNG GIAN RIÊNG CHO BẠN</p>
-          <h2 className="mt-3 text-2xl font-semibold">
-            Một nơi để tận hưởng chuyến đi
-          </h2>
-          <section className="my-7 space-y-3">
-            <h2 className="text-xl font-semibold">Loại phòng và chỗ ở</h2>
-            {p.roomTypes.map((room) => (
-              <article key={room.id} className="rounded-xl border bg-white p-4">
-                <h3 className="font-semibold">{room.name}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {room.description}
-                </p>
-                <p className="mt-2 text-sm">
-                  {room.maxGuests} khách /{' '}
-                  {p.type === 'HOTEL' ? 'phòng' : 'căn'} · {room.bedrooms} phòng
-                  ngủ · {room.beds} giường · {room.bathrooms} phòng tắm
-                </p>
-                <p className="mt-3 font-semibold">
-                  {money(room.pricePerNight)} / đêm
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  <RoomAvailabilityLabel
-                    id={room.id}
-                    dates={dates}
-                    homestay={p.type === 'HOMESTAY'}
-                  />
-                </p>
-              </article>
-            ))}
+          <section className="pb-6">
+            <h2 className="mb-4 text-xl font-semibold">Loại phòng và chỗ ở</h2>
+            <div className="divide-y border-y">
+              {p.roomTypes.map((room) => (
+                <article
+                  key={room.id}
+                  className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-5 sm:py-5"
+                >
+                  <div className="min-w-0">
+                    <h3 className="font-semibold leading-6">{room.name}</h3>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {room.description}
+                    </p>
+                    <p className="mt-2 text-sm font-medium">
+                      {room.maxGuests} khách /{' '}
+                      {p.type === 'HOTEL' ? 'phòng' : 'căn'}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {room.bedrooms} phòng ngủ · {room.beds} giường ·{' '}
+                      {room.bathrooms} phòng tắm
+                    </p>
+                  </div>
+                  <div className="sm:max-w-48 sm:text-right">
+                    <p className="font-semibold tabular-nums">
+                      {money(room.pricePerNight)}{' '}
+                      <span className="whitespace-nowrap text-xs font-normal text-muted-foreground">
+                        / đêm
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      <RoomAvailabilityLabel
+                        id={room.id}
+                        dates={dates}
+                        homestay={p.type === 'HOMESTAY'}
+                      />
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
           </section>
           <section className="border-t py-7">
             <h2 className="mb-4 text-xl font-semibold">Về chỗ nghỉ này</h2>
-            <p className="whitespace-pre-line text-sm leading-8 text-muted-foreground">
+            <p className="max-w-[72ch] whitespace-pre-line text-sm leading-7 text-muted-foreground">
               {p.description}
             </p>
           </section>
           <section className="border-t py-7">
-            <h2 className="mb-5 text-xl font-semibold">
-              Tiện nghi dành cho bạn
-            </h2>
-            <ul className="grid grid-cols-2 gap-5">
+            <h2 className="mb-4 text-xl font-semibold">Tiện nghi</h2>
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-3 sm:gap-x-6">
               {p.amenities.map((a) => (
                 <li
                   key={a.amenityId}
-                  className="flex items-center gap-3 text-sm"
+                  className="flex items-start gap-2 text-sm leading-6"
                 >
-                  <Check size={18} className="text-success" />
+                  <Check size={18} className="mt-1 shrink-0 text-success" />
                   {a.amenity.nameVi}
                 </li>
               ))}
             </ul>
           </section>
-          <section className="rounded-2xl border bg-cream p-6">
-            <h2 className="font-semibold">Một số lưu ý</h2>
+          <section className="border-t py-6">
+            <h2 className="text-xl font-semibold">Chính sách lưu trú</h2>
             <ul className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
               <li>
                 Nhận phòng: {p.checkInTime} · Trả phòng: {p.checkOutTime} (giờ
@@ -202,7 +217,9 @@ export function PropertyDetail({ id }: { id: string }) {
             </ul>
           </section>
         </SectionReveal>
-        <BookingCard property={p} onDatesChange={setDates} />
+        <div id="property-booking" className="scroll-mt-24 lg:contents">
+          <BookingCard property={p} onDatesChange={setDates} />
+        </div>
       </div>
       <PropertyFeedback id={p.id} />
     </div>

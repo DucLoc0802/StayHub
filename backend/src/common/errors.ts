@@ -45,7 +45,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
     if (status === 500)
       this.logger.error(
-        error instanceof Error ? error.message : 'Unknown error',
+        { event: 'unexpected_server_error', type: error instanceof Error ? error.constructor.name : 'UnknownError' },
       );
     host
       .switchToHttp()

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test:config": "node --test tests/api-config.test.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

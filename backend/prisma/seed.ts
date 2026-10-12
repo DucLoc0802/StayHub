@@ -16,6 +16,8 @@ import {
 
 const prisma = new PrismaClient();
 async function main() {
+  if (process.env.NODE_ENV === 'production')
+    throw new Error('Demo seeding is disabled in production.');
   const defaultPasswordHash = await bcrypt.hash('StayHub123!', 12);
   const users = new Map<string, { id: string; role: string; status: string }>();
   for (const [email, fullName, role, status] of demoAccounts) {

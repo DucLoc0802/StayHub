@@ -236,6 +236,17 @@ test('home, listing, detail, auth and role areas remain usable at desktop, table
       await expect(page.locator('h1')).toBeVisible();
       if (route === '/properties')
         await expect(page.locator('.property-card').first()).toBeVisible();
+      if (route === '/' || route === '/properties') {
+        await expect(page.locator('.property-card').first()).toBeVisible();
+        await expect
+          .poll(() =>
+            page.locator('.property-card img').first().evaluate((image) => {
+              const element = image as HTMLImageElement;
+              return element.complete && element.naturalWidth > 0;
+            }),
+          )
+          .toBe(true);
+      }
       if (route === propertyPath)
         await expect(page.locator('.stayhub-calendar')).toBeVisible();
       await noOverflow(page);
@@ -549,7 +560,7 @@ for (const role of ['HOST', 'ADMIN'] as const) {
     page,
   }, testInfo) => {
     await mockApi(page, role);
-    for (const width of [1440, 375]) {
+    for (const width of [1440, 768, 375]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(role === 'HOST' ? '/host' : '/admin/hosts');
       await expect(page.locator('article')).toBeVisible();
@@ -580,3 +591,32 @@ for (const role of ['HOST', 'ADMIN'] as const) {
     }
   });
 }
+
+test('discovery keeps long locations readable and does not present a missing price as free', async ({
+  page,
+}) => {
+  await mockApi(page);
+  const listing = {
+    ...property,
+    name: 'Căn hộ gia đình có hai phòng ngủ và khu vực sinh hoạt chung',
+    address: 'Tầng 12, tòa nhà tại đường Nguyễn Văn Thủ, phường Đa Kao',
+    minPricePerNight: null,
+  };
+  await page.route(/\/api\/properties(?:\?.*)?$/, (route) =>
+    route.fulfill({
+      json: { items: [listing], total: 1, page: 1, limit: 12, totalPages: 1 },
+    }),
+  );
+  for (const width of [1440, 768, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto('/properties');
+    const card = page.locator('.discovery-property');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(listing.name);
+    await expect(card).toContainText(`${listing.district} · ${listing.address}`);
+    await expect(card).toContainText('Xem giá theo loại phòng');
+    await expect(card).not.toContainText(/Từ\s*0/);
+    await expect(card).toHaveAttribute('href', propertyPath);
+    await noOverflow(page);
+  }
+});

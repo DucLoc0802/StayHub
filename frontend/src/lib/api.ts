@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { resolveApiUrl } from './api-config';
 import type {
   Amenity,
   Availability,
@@ -21,7 +22,10 @@ import type {
 } from './types';
 export const tokenKey = 'stayhub.accessToken';
 const client = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api',
+  baseURL: resolveApiUrl(
+    process.env.NEXT_PUBLIC_API_URL,
+    process.env.NODE_ENV === 'production',
+  ),
   timeout: 15000,
 });
 client.interceptors.request.use((config) => {

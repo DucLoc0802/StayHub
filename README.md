@@ -4,6 +4,8 @@
 
 **Property là cơ sở lưu trú; RoomType là loại phòng/chỗ ở có thể đặt.** Hotel có nhiều loại phòng và số lượng tồn; homestay có một loại nguyên căn với số lượng 1. [Mô hình, quy tắc, API và migration](docs/booking-model.md).
 
+Triển khai frontend và backend trên Vercel: [cấu hình domain, biến môi trường và MySQL](VERCEL_DEPLOYMENT.md).
+
 ## Chức năng
 
 - Guest đăng ký hoạt động ngay; Host đăng ký chờ Admin duyệt. Host chỉ quản lý cơ sở và đơn thuộc sở hữu.

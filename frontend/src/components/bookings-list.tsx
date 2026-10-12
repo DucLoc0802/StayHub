@@ -101,16 +101,50 @@ export function BookingsList({ host = false }: { host?: boolean }) {
           )}
         </Empty>
       ) : (
-        <div ref={listRef} tabIndex={-1} className="motion-content space-y-5">
+        <div
+          ref={listRef}
+          tabIndex={-1}
+          className={
+            host
+              ? 'motion-content divide-y border-y'
+              : 'motion-content space-y-5'
+          }
+        >
           {bookings.data.map((b) => (
-            <article key={b.id} className="panel p-5 md:p-6">
+            <article key={b.id} className={host ? 'py-4' : 'panel p-5 md:p-6'}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {host && b.guest && (
+                    <p className="mb-1 break-words text-sm font-semibold">
+                      {b.guest.fullName}{' '}
+                      <span className="font-normal text-muted-foreground">
+                        · {b.guest.email}
+                      </span>
+                    </p>
+                  )}
+                  <p
+                    className={
+                      host
+                        ? 'mb-1 text-xs text-muted-foreground'
+                        : 'mb-2 text-xs text-muted-foreground'
+                    }
+                  >
                     Mã đặt chỗ · {b.bookingCode}
                   </p>
-                  <h2 className="text-lg font-semibold">{b.property.name}</h2>
-                  <p className="mt-2 text-sm font-medium">
+                  <h2
+                    className={
+                      host ? 'text-base font-semibold' : 'text-lg font-semibold'
+                    }
+                  >
+                    {b.property.name}
+                  </h2>
+                  <p
+                    className={
+                      host
+                        ? 'mt-1 text-sm font-medium'
+                        : 'mt-2 text-sm font-medium'
+                    }
+                  >
                     {b.roomTypeNameSnapshot} · {b.quantity}{' '}
                     {b.property.type === 'HOTEL' ? 'phòng' : 'căn'}
                   </p>
@@ -120,9 +154,15 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                 </div>
                 <StatusBadge status={b.status} />
               </div>
-              <div className="my-5 flex flex-wrap gap-5 text-sm">
-                <span className="flex items-center gap-2">
-                  <CalendarDays size={16} />
+              <div
+                className={
+                  host
+                    ? 'my-3 flex flex-wrap gap-x-5 gap-y-2 text-sm'
+                    : 'my-4 flex flex-wrap gap-x-5 gap-y-2 text-sm'
+                }
+              >
+                <span className="flex items-start gap-2 leading-6">
+                  <CalendarDays size={16} className="mt-1 shrink-0" />
                   {dateLabel(b.checkIn)} lúc {b.checkInTimeSnapshot} →{' '}
                   {dateLabel(b.checkOut)} lúc {b.checkOutTimeSnapshot} (UTC+7) ·{' '}
                   {b.totalNights} đêm
@@ -132,12 +172,13 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                   {b.guestCount} khách
                 </span>
               </div>
-              {host && b.guest && (
-                <p className="mb-4 break-all text-sm">
-                  Khách thuê: {b.guest.fullName} · {b.guest.email}
-                </p>
-              )}
-              <dl className="grid grid-cols-2 gap-4 rounded-xl bg-muted p-4 md:grid-cols-4">
+              <dl
+                className={
+                  host
+                    ? 'grid grid-cols-2 gap-3 border-t pt-3 sm:grid-cols-4'
+                    : 'grid grid-cols-2 gap-4 border-y py-4 md:grid-cols-4'
+                }
+              >
                 {[
                   ['Giá mỗi đêm khi đặt', money(b.nightlyPriceSnapshot)],
                   ['Tổng tiền', money(b.totalAmount)],
@@ -151,7 +192,7 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                     <dt className="text-xs leading-5 text-muted-foreground">
                       {label}
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold">{value}</dd>
+                    <dd className="mt-1 text-sm font-semibold tabular-nums">{value}</dd>
                   </div>
                 ))}
               </dl>
@@ -198,7 +239,8 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                     </div>
                   )}
                 </div>
-                {!host && user?.role === 'GUEST' &&
+                {!host &&
+                  user?.role === 'GUEST' &&
                   (b.status === 'CONFIRMED' ||
                     (b.status === 'PENDING_PAYMENT' &&
                       new Date(b.paymentDeadlineAt).getTime() > now)) && (

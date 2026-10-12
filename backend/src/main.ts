@@ -6,20 +6,20 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ApiExceptionFilter } from './common/errors';
 import { validationException } from './common/validation';
+import { RuntimeConfigError, validateRuntimeConfig } from './common/runtime-config';
+import { ProductionLogger } from './common/production-logger';
 
 async function bootstrap() {
-  if (
-    !process.env.JWT_SECRET ||
-    process.env.JWT_SECRET.length < 32 ||
-    process.env.JWT_SECRET.startsWith('replace-')
-  )
-    throw new Error(
-      'Set JWT_SECRET to a random secret of at least 32 characters.',
-    );
-  const app = await NestFactory.create(AppModule);
+  const runtime = validateRuntimeConfig(process.env);
+  const app = await NestFactory.create(AppModule, {
+    abortOnError: false,
+    ...(process.env.NODE_ENV === 'production' ? { logger: new ProductionLogger() } : {}),
+  });
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: runtime.origin,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.useGlobalPipes(
     new ValidationPipe({
@@ -46,4 +46,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
   await app.listen(Number(process.env.PORT ?? 4000));
 }
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  // Startup exceptions can include database connection strings; do not emit them.
+  console.error(error instanceof RuntimeConfigError ? error.message : 'StayHub startup failed. Check database availability and runtime configuration.');
+  process.exitCode = 1;
+});

@@ -81,11 +81,16 @@ select,
 textarea {
   width: 100%;
   border: 1px solid var(--input);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   padding: 0.75rem 0.875rem;
   background: white;
   color: var(--foreground);
   font-size: 0.875rem;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
 }
 input[type='checkbox'],
 input[type='radio'] {
@@ -157,12 +162,12 @@ summary {
   margin-inline: auto;
 }
 .page-section {
-  padding-block: 3rem 4.5rem;
+  padding-block: 1.75rem 2.5rem;
 }
 .page-title {
   font-size: clamp(1.65rem, 3vw, 2.25rem);
-  font-weight: 700;
-  letter-spacing: -0.045em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
   line-height: 1.35;
 }
 .eyebrow {
@@ -174,7 +179,7 @@ summary {
 }
 .panel {
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
+  border-radius: 0.75rem;
   background: white;
 }
 .field {
@@ -254,9 +259,6 @@ textarea:focus-visible {
 .motion-button:not(:disabled):not([aria-disabled='true']):active {
   transform: scale(0.98);
 }
-.motion-button-primary:hover {
-  box-shadow: 0 3px 10px rgb(85 54 35 / 10%);
-}
 .search-box {
   transition:
     border-color var(--motion-normal) var(--motion-ease),
@@ -264,9 +266,6 @@ textarea:focus-visible {
 }
 .search-box:focus-within {
   border-color: var(--ring);
-  box-shadow:
-    0 8px 35px rgb(85 54 35 / 9%),
-    0 0 0 3px var(--accent);
 }
 .motion-header {
   transition:
@@ -288,6 +287,11 @@ textarea:focus-visible {
 .motion-link:focus-visible {
   text-decoration-color: currentColor;
 }
+header a[aria-current='page'] {
+  color: var(--secondary-foreground);
+  font-weight: 600;
+  text-decoration-color: currentColor;
+}
 .property-card,
 .motion-card {
   transition:
@@ -299,32 +303,19 @@ textarea:focus-visible {
 .gallery-image {
   transition: transform var(--motion-enter) var(--motion-ease);
 }
-.property-card-cta {
-  transition:
-    background-color var(--motion-fast) var(--motion-ease),
-    transform var(--motion-normal) var(--motion-ease);
-}
 @media (hover: hover) and (pointer: fine) {
   .property-card:hover,
   .motion-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--primary);
-    box-shadow: 0 8px 24px rgb(85 54 35 / 10%);
+    border-color: var(--ring);
   }
   .property-card:hover .property-card-image,
   .gallery-trigger:hover .gallery-image {
     transform: scale(1.03);
   }
-  .property-card:hover .property-card-cta {
-    transform: translate(1px, -1px);
-  }
 }
 .property-card:focus-visible .property-card-image,
 .gallery-trigger:focus-visible .gallery-image {
   transform: scale(1.03);
-}
-.property-card:focus-visible .property-card-cta {
-  background-color: var(--primary);
 }
 .gallery-trigger:focus-visible {
   outline-offset: -4px;
@@ -517,7 +508,6 @@ details[open] > :not(summary) {
   .motion-card,
   .property-card-image,
   .gallery-image,
-  .property-card-cta,
   .motion-button {
     transform: none !important;
   }
@@ -530,7 +520,12 @@ details[open] > :not(summary) {
     width: calc(100% - 2rem);
   }
   .page-section {
-    padding-block: 2rem 3rem;
+    padding-block: 1.25rem 2rem;
+  }
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 1rem;
   }
   .stayhub-calendar.rdp-root {
     --rdp-day-height: 36px;

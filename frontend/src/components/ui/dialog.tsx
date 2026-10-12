@@ -28,7 +28,7 @@ export function DialogContent({
       >
         {children}
         <DialogPrimitive.Close
-          className="absolute right-4 top-4 rounded-md p-1 hover:bg-accent"
+          className="absolute right-2 top-2 inline-flex size-11 items-center justify-center rounded-md hover:bg-accent"
           aria-label="Đóng"
         >
           <X size={20} />

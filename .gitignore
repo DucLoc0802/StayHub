@@ -4,7 +4,13 @@ dist/
 coverage/
 .env
 .env.local
+.env.production
+*.sql.gz
+backups/
 *.tsbuildinfo
 *.log
 .local/
 test-results/
+docs/
+.agents/
+.codex/

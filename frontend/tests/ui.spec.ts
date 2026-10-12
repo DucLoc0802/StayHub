@@ -1,6 +1,103 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+
+test('authentication validation exposes field descriptions and clears invalid states', async ({
+  page,
+}) => {
+  const calls: { path: string; body: unknown }[] = [];
+  await page.route('**/api/auth/*', async (route) => {
+    calls.push({
+      path: new URL(route.request().url()).pathname,
+      body: route.request().postDataJSON(),
+    });
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Thông tin tài khoản không hợp lệ.' }),
+    });
+  });
+  for (const register of [false, true]) {
+    await page.goto(register ? '/register' : '/login');
+    const email = page.locator('#email');
+    const password = page.locator('#password');
+    const submit = page.locator('form button[type="submit"]');
+    for (const input of [email, password]) {
+      await expect(input).toHaveAttribute('aria-invalid', 'false');
+      await expect(input).not.toHaveAttribute('aria-describedby');
+    }
+    const before = calls.length;
+    await submit.click();
+    await expect(email).toBeFocused();
+    await expect(email).toHaveAttribute('aria-invalid', 'true');
+    await expect(password).toHaveAttribute('aria-invalid', 'true');
+    await expect(email).toHaveAccessibleDescription(
+      register
+        ? 'Email không hợp lệ.'
+        : 'Nhập email hoặc tài khoản demo admin, host, guest.',
+    );
+    await expect(password).toHaveAccessibleDescription(
+      register ? 'Mật khẩu cần ít nhất 8 ký tự.' : 'Vui lòng nhập mật khẩu.',
+    );
+    const emailErrorId = await email.getAttribute('aria-describedby');
+    const passwordErrorId = await password.getAttribute('aria-describedby');
+    expect(emailErrorId).not.toBe(passwordErrorId);
+    expect(
+      await page.locator('[id]').evaluateAll((nodes) => {
+        const ids = nodes.map((node) => node.id);
+        return new Set(ids).size === ids.length;
+      }),
+    ).toBe(true);
+    expect(calls.length).toBe(before);
+    await page.keyboard.press('Tab');
+    await expect(password).toBeFocused();
+    await email.fill('guest@example.com');
+    await password.fill('password123');
+    if (register) {
+      await submit.click();
+      const name = page.locator('#fullName');
+      await expect(name).toHaveAttribute('aria-invalid', 'true');
+      await expect(name).toHaveAccessibleDescription(
+        'Họ tên cần từ 2 đến 100 ký tự.',
+      );
+      const nameErrorId = await name.getAttribute('aria-describedby');
+      expect([emailErrorId, passwordErrorId]).not.toContain(nameErrorId);
+      await expect(
+        page.locator('.field-error[aria-live="polite"]'),
+      ).toHaveCount(1);
+      expect(calls.length).toBe(before);
+      await name.fill('Guest Example');
+      await expect(name).toHaveAttribute('aria-invalid', 'false');
+      await expect(name).not.toHaveAttribute('aria-describedby');
+    }
+    for (const input of [email, password]) {
+      await expect(input).toHaveAttribute('aria-invalid', 'false');
+      await expect(input).not.toHaveAttribute('aria-describedby');
+    }
+    await expect(page.locator('.field-error[role="alert"]')).toHaveCount(0);
+    await submit.click();
+    await expect(page.locator('form [role="alert"]')).toHaveText(
+      'Thông tin tài khoản không hợp lệ.',
+    );
+    await expect(page.locator('form [role="alert"]')).toHaveCount(1);
+    expect(calls.at(-1)?.body).toEqual(
+      register
+        ? {
+            email: 'guest@example.com',
+            password: 'password123',
+            fullName: 'Guest Example',
+            role: 'GUEST',
+          }
+        : { email: 'guest@example.com', password: 'password123' },
+    );
+    expect(
+      await page
+        .locator('.field-error[id]')
+        .evaluateAll((nodes) => nodes.map((node) => node.id)),
+    ).toContain(emailErrorId);
+  }
+});
+
 test('public pages render without horizontal overflow on desktop, tablet and mobile', async ({
   page,
 }) => {
@@ -23,7 +120,7 @@ test('public pages render without horizontal overflow on desktop, tablet and mob
     await page.goto('/');
     await expect(
       page.getByRole('heading', {
-        name: /Chỗ nghỉ vừa ý,\s*chuyến đi trọn vẹn/,
+        name: 'Tìm chỗ nghỉ tại TP. Hồ Chí Minh',
       }),
     ).toBeVisible();
     await expect(page.locator('.property-card').first()).toBeVisible();

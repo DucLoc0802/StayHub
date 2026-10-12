@@ -59,7 +59,7 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
     onApply?.();
   }
   return (
-    <form onSubmit={apply} className="space-y-6">
+    <form onSubmit={apply} className="space-y-4">
       <div className="field">
         <label htmlFor={`${formId}-district`}>Khu vực</label>
         <select
@@ -85,7 +85,7 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
           <option value="HOTEL">Khách sạn</option>
         </select>
       </div>
-      <fieldset>
+      <fieldset className="border-t pt-4">
         <legend className="mb-3 text-sm font-semibold">
           Ngân sách mỗi đêm
         </legend>
@@ -167,8 +167,8 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
           </div>
         </div>
       </fieldset>
-      <fieldset>
-        <legend className="mb-3 text-sm font-semibold">Tiện ích</legend>
+      <fieldset className="border-t pt-4">
+        <legend className="mb-3 text-sm font-semibold">Tiện nghi</legend>
         {amenities.isPending ? (
           <Loading />
         ) : amenities.isError ? (
@@ -177,11 +177,11 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
             retry={() => void amenities.refetch()}
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-1">
             {amenities.data.map((a) => (
               <label
                 key={a.id}
-                className="flex items-center gap-3 !font-normal"
+                className="flex min-h-9 items-center gap-2 !font-normal has-[:checked]:text-secondary-foreground"
               >
                 <input
                   type="checkbox"
@@ -197,7 +197,7 @@ function FilterForm({ onApply }: { onApply?: () => void }) {
           </div>
         )}
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          Chỗ nghỉ cần có đủ các tiện ích bạn chọn.
+          Chỗ nghỉ cần có đủ các tiện nghi bạn chọn.
         </p>
       </fieldset>
       <Button type="submit" className="w-full">
@@ -234,33 +234,70 @@ export function PropertyList() {
     router.push(`/properties?${query}`);
   }
   return (
-    <div className="container-shell page-section">
-      <p className="eyebrow">KHÁM PHÁ SÀI GÒN</p>
-      <h1 className="page-title mb-7 mt-3">Tìm một nơi bạn muốn ở lại.</h1>
-      <SearchBox key={params.get('q')} initial={params.get('q') ?? ''} />
-      <div className="mt-9 grid gap-8 lg:grid-cols-[240px_1fr]">
-        <aside className="hidden self-start rounded-2xl border bg-white p-5 lg:block">
-          <h2 className="mb-6 flex items-center gap-2 font-semibold">
+    <div className="container-shell py-6 md:py-8">
+      <h1 className="mb-4 text-xl font-semibold leading-snug tracking-tight md:text-2xl">
+        Chỗ nghỉ tại {params.get('district') || 'TP. Hồ Chí Minh'}
+      </h1>
+      <SearchBox
+        key={params.get('q')}
+        initial={params.get('q') ?? ''}
+        variant="homepage"
+      />
+      {params.get('q') && (
+        <p className="mt-3 break-words text-sm text-muted-foreground">
+          Kết quả tìm kiếm cho:{' '}
+          <span className="font-medium text-foreground">{params.get('q')}</span>
+        </p>
+      )}
+      {(params.get('type') ||
+        params.get('minPrice') ||
+        params.get('maxPrice') ||
+        params.get('amenities')) && (
+        <p
+          className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs leading-5 text-muted-foreground"
+          aria-label="Bộ lọc đang áp dụng"
+        >
+          {params.get('type') && (
+            <span>
+              {params.get('type') === 'HOTEL' ? 'Khách sạn' : 'Homestay'}
+            </span>
+          )}
+          {params.get('minPrice') && (
+            <span>Từ {money(Number(params.get('minPrice')))} / đêm</span>
+          )}
+          {params.get('maxPrice') && (
+            <span>Đến {money(Number(params.get('maxPrice')))} / đêm</span>
+          )}
+          {params.get('amenities') && (
+            <span>
+              {params.get('amenities')!.split(',').length} tiện nghi đã chọn
+            </span>
+          )}
+        </p>
+      )}
+      <div className="mt-6 grid gap-6 border-t pt-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-8">
+        <aside className="hidden self-start border-r pr-6 lg:block">
+          <h2 className="mb-4 flex items-center gap-2 font-semibold">
             <SlidersHorizontal size={18} />
             Lọc chỗ nghỉ
           </h2>
           <FilterForm key={params.toString()} />
         </aside>
         <div className="min-w-0">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               {properties.data ? (
                 <>
                   <strong className="text-foreground">
                     {properties.data.total}
                   </strong>{' '}
-                  chỗ nghỉ tại TP. Hồ Chí Minh
+                  chỗ nghỉ
                 </>
               ) : (
-                'Chỗ nghỉ tại TP. Hồ Chí Minh'
+                'Đang tìm chỗ nghỉ…'
               )}
             </p>
-            <div className="flex gap-2">
+            <div className="flex max-w-full flex-wrap items-center gap-2">
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="lg:hidden">
@@ -273,7 +310,7 @@ export function PropertyList() {
                     Lọc chỗ nghỉ
                   </DialogTitle>
                   <DialogDescription className="mb-6 text-sm text-muted-foreground">
-                    Chọn khu vực, loại chỗ nghỉ, ngân sách và tiện ích phù hợp.
+                    Chọn khu vực, loại chỗ nghỉ, ngân sách và tiện nghi.
                   </DialogDescription>
                   <FilterForm
                     key={params.toString()}
@@ -281,7 +318,7 @@ export function PropertyList() {
                   />
                 </DialogContent>
               </Dialog>
-              <label className="sr-only" htmlFor="sort">
+              <label className="sr-only sm:not-sr-only sm:text-xs sm:text-muted-foreground" htmlFor="sort">
                 Sắp xếp
               </label>
               <select
@@ -297,7 +334,7 @@ export function PropertyList() {
             </div>
           </div>
           {properties.isPending ? (
-            <PropertySkeletons />
+            <PropertySkeletons variant="discovery" />
           ) : properties.isError ? (
             <ErrorState
               message={errorMessage(properties.error)}
@@ -307,15 +344,20 @@ export function PropertyList() {
             <>
               <div
                 key={params.toString()}
-                className="motion-list grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                className="motion-list grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3"
               >
                 {properties.data.items.map((p) => (
-                  <PropertyCard key={p.id} property={p} />
+                  <PropertyCard
+                    key={p.id}
+                    property={p}
+                    variant="discovery"
+                    comparisonProperties={properties.data.items}
+                  />
                 ))}
               </div>
               <nav
                 aria-label="Phân trang"
-                className="mt-8 flex items-center justify-center gap-4"
+                className="mt-6 flex items-center justify-center gap-3 border-t pt-5"
               >
                 <Button
                   variant="outline"

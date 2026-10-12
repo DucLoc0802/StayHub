@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
 import { DayButton, type DateRange } from 'react-day-picker';
-import { CalendarDays, ShieldCheck } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
 import { money, timestampLabel } from '@/lib/utils';
@@ -163,7 +163,7 @@ export function BookingCard({
     );
   const q = quote.data;
   return (
-    <aside className="motion-content panel self-start p-5 shadow-sm lg:sticky lg:top-26 xl:p-6">
+    <aside className="motion-content panel self-start p-4 lg:sticky lg:top-20 xl:p-5">
       <div className="field mb-4">
         <label htmlFor="roomType">Loại phòng / chỗ ở</label>
         <select
@@ -229,17 +229,17 @@ export function BookingCard({
             {errorMessage(availability.error ?? propertyCalendar.error)}
           </p>
         )}
-        <div className="mt-4 grid grid-cols-2 divide-x rounded-xl border bg-cream p-3 text-center">
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t pt-3">
           <div>
             <p className="text-xs text-muted-foreground">Nhận phòng</p>
-            <p className="mt-1 text-sm">
+            <p className="mt-1 text-sm font-medium tabular-nums">
               {range?.from ? format(range.from, 'dd/MM/yyyy') : 'Chọn ngày'}
             </p>
             <p className="text-xs">{property.checkInTime}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Trả phòng</p>
-            <p className="mt-1 text-sm">
+            <p className="mt-1 text-sm font-medium tabular-nums">
               {range?.to ? format(range.to, 'dd/MM/yyyy') : 'Chọn ngày'}
             </p>
             <p className="text-xs">{property.checkOutTime}</p>
@@ -404,14 +404,10 @@ export function BookingCard({
           {mutation.isPending ? 'Đang tạo đặt chỗ…' : 'Đặt chỗ ngay'}
         </Button>
       )}
-      <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+      <p className="mt-3 text-xs leading-5 text-muted-foreground">
         Phòng được giữ tạm ngay khi đặt. Thanh toán cọc trước hạn để xác nhận;
         quá hạn phòng tự động được giải phóng.
       </p>
-      <div className="mt-5 flex items-center justify-center gap-2 border-t pt-4 text-xs text-muted-foreground">
-        <ShieldCheck size={16} />
-        Thông tin giá minh bạch
-      </div>
     </aside>
   );
 }

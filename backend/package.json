@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "build:vercel": "prisma generate && nest build",
     "build:seed": "tsc -p tsconfig.seed.json",
     "start": "node dist/main.js",
     "lint": "eslint src prisma test",
@@ -14,6 +15,7 @@
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate deploy",
+    "check:database": "node --env-file=.env.production scripts/check-database.mjs",
     "prisma:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
@@ -35,6 +37,10 @@
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
+  },
+  "overrides": {
+    "@nestjs/swagger": { "js-yaml": "5.4.3" },
+    "@prisma/config": { "effect": "3.20.0" }
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",

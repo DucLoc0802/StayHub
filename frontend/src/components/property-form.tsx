@@ -146,7 +146,7 @@ function Editor({ property }: { property?: Property }) {
     );
   return (
     <form
-      className="motion-content mx-auto max-w-3xl space-y-7"
+      className="motion-content max-w-4xl space-y-6"
       onSubmit={form.handleSubmit((values) => {
         if (
           values.type === 'HOMESTAY' &&
@@ -190,7 +190,7 @@ function Editor({ property }: { property?: Property }) {
       <h2 className="text-xl font-semibold">
         {property ? 'Cập nhật chỗ nghỉ' : 'Thêm chỗ nghỉ mới'}
       </h2>
-      <div className="panel space-y-5 p-6">
+      <div className="space-y-4 border-t pt-5">
         <h3 className="font-semibold">Thông tin cơ bản</h3>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="field">
@@ -234,7 +234,7 @@ function Editor({ property }: { property?: Property }) {
           {error('description')}
         </div>
       </div>
-      <div className="panel p-6">
+      <div className="border-t pt-5">
         <h3 className="mb-5 font-semibold">Chính sách đặt cọc</h3>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="field">
@@ -271,14 +271,14 @@ function Editor({ property }: { property?: Property }) {
           {policy.data?.minimumLeadTimeHours ?? '…'} giờ.
         </p>
       </div>
-      <section className="panel space-y-5 p-6">
+      <section className="space-y-5 border-t pt-5">
         <h3 className="font-semibold">Loại phòng / chỗ ở có thể đặt</h3>
         {rooms.fields.map((room, i) => (
           <fieldset
             key={room.fieldKey}
-            className="space-y-4 rounded-xl border p-4"
+            className="space-y-4 border-t pb-2 pt-4"
           >
-            <legend className="px-2 font-medium">
+            <legend className="pr-3 font-medium">
               {roomValues[i]?.name || 'Loại phòng mới'}
             </legend>
             <div className="field">
@@ -374,7 +374,7 @@ function Editor({ property }: { property?: Property }) {
           </p>
         )}
       </section>
-      <div className="panel p-6">
+      <div className="border-t pt-5">
         <h3 className="mb-5 font-semibold">Giờ nhận và trả phòng</h3>
         <div className="grid gap-5 sm:grid-cols-2">
           {(
@@ -395,7 +395,7 @@ function Editor({ property }: { property?: Property }) {
           bị trước nhận phòng.
         </p>
       </div>
-      <div className="panel p-6">
+      <div className="border-t pt-5">
         <fieldset>
           <legend className="mb-5 font-semibold">Tiện ích</legend>
           {amenities.isPending ? (
@@ -423,7 +423,7 @@ function Editor({ property }: { property?: Property }) {
           {error('amenityIds')}
         </fieldset>
       </div>
-      <div className="panel p-6">
+      <div className="border-t pt-5">
         <div className="field">
           <label htmlFor="imagesText">Ảnh chỗ nghỉ</label>
           <p className="text-xs leading-6 text-muted-foreground">

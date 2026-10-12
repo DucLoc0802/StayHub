@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
 import {
   ArrowUpRight,
@@ -17,6 +17,7 @@ import { Button } from './ui/button';
 export function Header() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const update = () => {
@@ -34,27 +35,46 @@ export function Header() {
   return (
     <header
       ref={headerRef}
-      className="motion-header sticky top-0 z-40 border-b bg-white/95 backdrop-blur-md"
+      className="motion-header sticky top-0 z-40 border-b bg-white"
     >
-      <div className="container-shell flex h-20 items-center justify-between gap-4">
+      <div className="container-shell flex h-16 items-center justify-between gap-3">
         <Link
           href="/"
-          className="flex items-center gap-2.5 text-2xl font-bold tracking-tight"
+          className="flex shrink-0 items-center gap-2 text-xl font-bold tracking-tight"
           aria-label="StayHub — Trang chủ"
         >
-          <span className="flex size-10 items-center justify-center rounded-xl bg-primary">
-            <House size={23} strokeWidth={2} />
+          <span className="flex size-8 items-center justify-center rounded-lg bg-primary">
+            <House size={20} strokeWidth={2} />
           </span>
-          StayHub<span className="text-primary-hover"></span>
+          StayHub
         </Link>
         <nav
           aria-label="Điều hướng chính"
-          className="hidden items-center gap-8 text-sm md:flex"
+          className="hidden items-center gap-5 text-sm md:flex"
         >
-          <Link className="motion-link" href="/booking-lookup">Tra cứu booking</Link>
+          <Link
+            className="motion-link inline-flex min-h-11 items-center"
+            aria-current={pathname.startsWith('/properties') ? 'page' : undefined}
+            href="/properties"
+          >
+            Tìm chỗ nghỉ
+          </Link>
+          <Link
+            className="motion-link inline-flex min-h-11 items-center"
+            aria-current={pathname === '/booking-lookup' ? 'page' : undefined}
+            href="/booking-lookup"
+          >
+            Tra cứu đặt phòng
+          </Link>
         </nav>
         <div className="flex items-center gap-3">
-          <Link className="motion-link text-xs font-medium md:hidden" href="/booking-lookup">Tra cứu booking</Link>
+          <Link
+            className="motion-link inline-flex min-h-11 items-center text-xs font-medium md:hidden"
+            aria-label="Tra cứu đặt phòng"
+            href="/booking-lookup"
+          >
+            Tra cứu
+          </Link>
           {!user && (
             <>
               <Link
@@ -67,7 +87,7 @@ export function Header() {
               <Button asChild variant="ghost" className="hidden sm:inline-flex">
                 <Link href="/login">Đăng nhập</Link>
               </Button>
-              <Button asChild className="hidden sm:inline-flex">
+              <Button asChild variant="outline" className="hidden sm:inline-flex">
                 <Link href="/register">Đăng ký</Link>
               </Button>
             </>
@@ -99,7 +119,7 @@ export function Header() {
                 className="motion-dropdown z-50 min-w-56 rounded-xl border bg-white p-2 shadow-lg"
               >
                 <Dropdown.Item asChild>
-                  <Link className={itemClass} href="/booking-lookup">Tra cứu booking</Link>
+                  <Link className={itemClass} href="/booking-lookup">Tra cứu đặt phòng</Link>
                 </Dropdown.Item>
                 <Dropdown.Item asChild>
                   <Link className={itemClass} href="/properties">

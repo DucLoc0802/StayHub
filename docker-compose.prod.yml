@@ -1,0 +1,113 @@
+name: stayhub-production
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PRODUCTION_DOMAIN: ${PRODUCTION_DOMAIN:?Set PRODUCTION_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [app]
+    depends_on:
+      frontend: { condition: service_healthy }
+      server: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+
+  frontend:
+    image: stayhub-frontend:${RELEASE_TAG:-production}
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL to /api before build}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    networks: [app]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *logging
+
+  server:
+    image: stayhub-server:${RELEASE_TAG:-production}
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL to the exact HTTPS origin}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+    command: [node, dist/main.js]
+    networks: [app, database]
+    depends_on:
+      mysql: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:4000/api/properties?limit=1').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 30s
+    logging: *logging
+
+  migrate:
+    image: stayhub-server:${RELEASE_TAG:-production}
+    profiles: [tools]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+    command: [prisma, migrate, deploy]
+    networks: [database]
+    depends_on:
+      mysql: { condition: service_healthy }
+    logging: *logging
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE:?Set DB_DATABASE}
+      MYSQL_USER: ${DB_USER:?Set DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks: [database]
+    healthcheck:
+      test: [CMD, mysqladmin, ping, -h, 127.0.0.1, --silent]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    stop_grace_period: 60s
+    logging: *logging
+
+networks:
+  app:
+  database:
+    internal: true
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:
