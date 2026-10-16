@@ -15,9 +15,22 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Empty, ErrorState, Loading, StatusBadge } from './ui/states';
-import { DemoQr, BookingLookup, FeedbackForm } from './booking-extras';
+import { BookingLookup, FeedbackForm } from './booking-extras';
 import { useAuth } from './providers';
-export function BookingsList({ host = false }: { host?: boolean }) {
+import { useHostProperty } from './host-property-scope';
+export function BookingsList({
+  host = false,
+  pending = false,
+}: {
+  host?: boolean;
+  pending?: boolean;
+}) {
+  const selected = useHostProperty();
+  const queryName = host
+    ? 'host-bookings'
+    : pending
+      ? 'pending-payments'
+      : 'bookings';
   const { user } = useAuth();
   const client = useQueryClient();
   const [now, setNow] = useState(() => Date.now());
@@ -30,12 +43,17 @@ export function BookingsList({ host = false }: { host?: boolean }) {
       void client.invalidateQueries({ queryKey: [key] });
   };
   const bookings = useQuery({
-    queryKey: [host ? 'host-bookings' : 'bookings'],
-    queryFn: host ? api.hostBookings : api.bookings,
+    queryKey: [queryName, host ? selected : undefined],
+    queryFn: () =>
+      host
+        ? api.hostBookings(selected)
+        : pending
+          ? api.pendingPayments()
+          : api.bookings(),
     refetchInterval: 10000,
   });
   const [action, setAction] = useState<{
-    kind: 'pay' | 'cancel';
+    kind: 'cancel';
     booking: Booking;
   } | null>(null);
   // Keep presentation intact during exit; the active action still clears immediately.
@@ -43,17 +61,14 @@ export function BookingsList({ host = false }: { host?: boolean }) {
   const dialogTrigger = useRef<HTMLButtonElement | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const mutation = useMutation({
-    mutationFn: ({ kind, booking }: NonNullable<typeof action>) =>
-      api[kind](booking.id),
-    onSuccess: (_data, variables) => {
-      toast.success(
-        variables.kind === 'pay'
-          ? 'Đã thanh toán cọc. Đặt phòng được xác nhận.'
-          : 'Đã hủy đặt chỗ.',
-      );
+    mutationFn: ({ booking }: NonNullable<typeof action>) =>
+      api.cancel(booking.id),
+    onSuccess: () => {
+      toast.success('Đã hủy đặt chỗ.');
       setAction(null);
       refreshInventory();
       void client.invalidateQueries({ queryKey: ['bookings'] });
+      void client.invalidateQueries({ queryKey: ['pending-payments'] });
       void client.invalidateQueries({ queryKey: ['host-bookings'] });
       void client.invalidateQueries({ queryKey: ['property'] });
     },
@@ -71,11 +86,11 @@ export function BookingsList({ host = false }: { host?: boolean }) {
   useEffect(() => {
     if (!due) return;
     void client.invalidateQueries({
-      queryKey: [host ? 'host-bookings' : 'bookings'],
+      queryKey: [queryName],
     });
     for (const key of ['availability', 'quote', 'eligibility'])
       void client.invalidateQueries({ queryKey: [key] });
-  }, [due, client, host]);
+  }, [due, client, queryName]);
   if (bookings.isPending) return <Loading />;
   if (bookings.isError)
     return (
@@ -86,14 +101,18 @@ export function BookingsList({ host = false }: { host?: boolean }) {
     );
   return (
     <>
-      <BookingLookup />
+      {!host && !pending && <BookingLookup />}
       {!bookings.data.length ? (
         <Empty>
           {host ? (
             'Chưa có đặt chỗ nào cho chỗ nghỉ của bạn.'
           ) : (
             <>
-              <p>Bạn chưa có đặt phòng nào.</p>
+              <p>
+                {pending
+                  ? 'Không có đơn giữ phòng nào đang chờ thanh toán.'
+                  : 'Bạn chưa có đặt phòng đã thanh toán nào.'}
+              </p>
               <Button asChild className="mt-5">
                 <Link href="/properties">Khám phá chỗ nghỉ</Link>
               </Button>
@@ -192,7 +211,9 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                     <dt className="text-xs leading-5 text-muted-foreground">
                       {label}
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold tabular-nums">{value}</dd>
+                    <dd className="mt-1 text-sm font-semibold tabular-nums">
+                      {value}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -257,15 +278,10 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                         Hủy đặt chỗ
                       </Button>
                       {b.status === 'PENDING_PAYMENT' && (
-                        <Button
-                          onClick={(event) => {
-                            dialogTrigger.current = event.currentTarget;
-                            mutation.reset();
-                            setDisplayAction({ kind: 'pay', booking: b });
-                            setAction({ kind: 'pay', booking: b });
-                          }}
-                        >
-                          Thanh toán cọc
+                        <Button asChild>
+                          <Link href={`/bookings/${b.id}/payment`}>
+                            Tiếp tục thanh toán
+                          </Link>
                         </Button>
                       )}
                     </div>
@@ -276,6 +292,9 @@ export function BookingsList({ host = false }: { host?: boolean }) {
                   <Link href={`/bookings/${b.id}/invoice`}>Xem hóa đơn</Link>
                 </Button>
               )}
+              <Button asChild variant="outline" className="mt-4 ml-2">
+                <Link href={`/bookings/${b.id}`}>Chi tiết đặt phòng</Link>
+              </Button>
               {!host &&
                 b.status === 'CONFIRMED' &&
                 !b.feedback &&
@@ -307,18 +326,13 @@ export function BookingsList({ host = false }: { host?: boolean }) {
           }}
         >
           <DialogTitle className="pr-6 text-xl font-semibold">
-            {displayAction?.kind === 'pay'
-              ? 'Thanh toán tiền cọc giả lập'
-              : 'Hủy đặt chỗ'}
+            Hủy đặt chỗ
           </DialogTitle>
           <DialogDescription className="mt-4 text-sm leading-7 text-muted-foreground">
-            {displayAction?.kind === 'pay'
-              ? `Bạn sẽ thanh toán tiền cọc ${money(displayAction.booking.depositAmount)}. Đây là thanh toán giả lập, không thu tiền thật. Phần còn lại ${money(displayAction.booking.remainingAmount)} trả tại chỗ nghỉ. Phòng đang được giữ cho bạn đến hạn thanh toán.`
-              : displayAction?.booking.status === 'CONFIRMED'
-                ? 'Đặt phòng này đã được xác nhận. Nếu hủy, bạn sẽ mất khoản tiền cọc. Bạn có chắc chắn muốn tiếp tục?'
-                : 'Bạn có chắc muốn hủy đặt chỗ này? Bạn chưa thanh toán nên không mất tiền cọc.'}
+            {displayAction?.booking.status === 'CONFIRMED'
+              ? 'Đặt phòng này đã được xác nhận. Nếu hủy, bạn sẽ mất khoản tiền cọc. Bạn có chắc chắn muốn tiếp tục?'
+              : 'Bạn có chắc muốn hủy đặt chỗ này? Bạn chưa thanh toán nên không mất tiền cọc.'}
           </DialogDescription>
-          {action?.kind === 'pay' && <DemoQr id={action.booking.id} />}
           {mutation.isError && (
             <p role="alert" className="mt-3 text-sm text-destructive">
               {errorMessage(mutation.error)}
@@ -333,23 +347,13 @@ export function BookingsList({ host = false }: { host?: boolean }) {
               Quay lại
             </Button>
             <Button
-              variant={
-                displayAction?.kind === 'cancel' ? 'destructive' : 'default'
-              }
-              disabled={
-                mutation.isPending ||
-                (action?.kind === 'pay' &&
-                  new Date(action.booking.paymentDeadlineAt).getTime() <= now)
-              }
+              variant="destructive"
+              disabled={mutation.isPending}
               onClick={() => {
                 if (action) mutation.mutate(action);
               }}
             >
-              {mutation.isPending
-                ? 'Đang xử lý…'
-                : displayAction?.kind === 'pay'
-                  ? 'Tôi đã thanh toán'
-                  : 'Xác nhận hủy'}
+              {mutation.isPending ? 'Đang xử lý…' : 'Xác nhận hủy'}
             </Button>
           </div>
         </DialogContent>

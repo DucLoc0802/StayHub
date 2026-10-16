@@ -10,18 +10,30 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CurrentUser, PersonalBookings, Public, Roles, SessionUser } from '../common/security';
+import {
+  CurrentUser,
+  PersonalBookings,
+  Public,
+  Roles,
+  SessionUser,
+} from '../common/security';
 import { PaymentsService } from '../payments/payments.service';
 import {
   AvailabilityQueryDto,
   CreateBookingDto,
+  DemoPayDto,
+  HostBookingQueryDto,
   QuoteQueryDto,
 } from './booking.dto';
 import { InventoryModule } from './inventory.module';
 import { publicBookingPolicy } from './booking-policy';
 import { BookingsService } from './bookings.service';
 import { BookingAccessService } from './booking-access.service';
-import { LookupRateLimit, PublicLookupController, PublicLookupService } from './public-lookup';
+import {
+  LookupRateLimit,
+  PublicLookupController,
+  PublicLookupService,
+} from './public-lookup';
 @ApiTags('Đặt chỗ')
 @ApiBearerAuth()
 @Roles('GUEST')
@@ -43,20 +55,26 @@ class BookingsController {
   ) {
     return this.bookings.create(user.id, dto);
   }
-  @PersonalBookings() @Roles('GUEST', 'HOST', 'ADMIN') @Get('my') mine(@CurrentUser() user: SessionUser) {
+  @PersonalBookings() @Roles('GUEST', 'HOST', 'ADMIN') @Get('my') mine(
+    @CurrentUser() user: SessionUser,
+  ) {
     return this.bookings.mine(user.id);
   }
   @Post(':id/pay') pay(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: SessionUser,
+    @Body() dto: DemoPayDto,
   ) {
-    return this.payments.pay(id, user.id);
+    return this.payments.pay(id, user.id, dto?.outcome);
   }
   @Patch(':id/cancel') cancel(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: SessionUser,
   ) {
     return this.bookings.cancel(id, user.id);
+  }
+  @Get('pending-payments') pending(@CurrentUser() user: SessionUser) {
+    return this.bookings.pending(user.id);
   }
 }
 @ApiTags('Đặt chỗ thuộc chỗ nghỉ của tôi')
@@ -65,8 +83,11 @@ class BookingsController {
 @Controller('host/bookings')
 class HostBookingsController {
   constructor(private readonly bookings: BookingsService) {}
-  @Get() list(@CurrentUser() user: SessionUser) {
-    return this.bookings.host(user.id);
+  @Get() list(
+    @CurrentUser() user: SessionUser,
+    @Query() dto: HostBookingQueryDto,
+  ) {
+    return this.bookings.host(user.id, dto.propertyId);
   }
 }
 @ApiTags('Tra cứu, thanh toán demo và hóa đơn')
@@ -140,6 +161,12 @@ class PropertyCalendarController {
     PropertyCalendarController,
     PublicLookupController,
   ],
-  providers: [BookingsService, PaymentsService, BookingAccessService, PublicLookupService, LookupRateLimit],
+  providers: [
+    BookingsService,
+    PaymentsService,
+    BookingAccessService,
+    PublicLookupService,
+    LookupRateLimit,
+  ],
 })
 export class BookingsModule {}

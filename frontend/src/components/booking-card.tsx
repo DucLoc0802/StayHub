@@ -16,7 +16,9 @@ import type { CalendarPriceDay, Property } from '@/lib/types';
 import { useAuth } from './providers';
 import { Button } from './ui/button';
 import { Calendar } from './ui/calendar';
-const AvailabilityDays = createContext(new Map<string, CalendarPriceDay & { insufficient?: boolean }>());
+const AvailabilityDays = createContext(
+  new Map<string, CalendarPriceDay & { insufficient?: boolean }>(),
+);
 function InventoryDayButton(props: React.ComponentProps<typeof DayButton>) {
   const daily = useContext(AvailabilityDays);
   const day = daily.get(format(props.day.date, 'yyyy-MM-dd'));
@@ -54,10 +56,12 @@ export function BookingCard({
   onDatesChange?: (dates: { checkIn: string; checkOut: string } | null) => void;
 }) {
   const [roomId, setRoomId] = useState('');
-  const room = property.roomTypes.find((r) => r.id === roomId) ?? property.roomTypes[0];
+  const room =
+    property.roomTypes.find((r) => r.id === roomId) ?? property.roomTypes[0];
   const [range, setRange] = useState<DateRange>();
   const [quantity, setQuantity] = useState(1);
   const [guests, setGuests] = useState(1);
+  const [reviewing, setReviewing] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [month, setMonth] = useState(() =>
     earliestCheckInDate(property.checkInTime),
@@ -122,18 +126,32 @@ export function BookingCard({
     refetchInterval: 15000,
   });
   const propertyCalendar = useQuery({
-    queryKey: ['availability', 'property-calendar', property.id, calendarParams],
+    queryKey: [
+      'availability',
+      'property-calendar',
+      property.id,
+      calendarParams,
+    ],
     queryFn: () => api.propertyCalendar(property.id, calendarParams),
     enabled: !roomId,
     refetchInterval: 15000,
   });
   const daily = new Map(
     roomId
-      ? availability.data?.days.map((d) => [d.date, {
-          ...d,
-          insufficient: d.availableUnits < quantity,
-          pricePerNight: d.availableUnits >= quantity ? room?.pricePerNight ?? null : null,
-        }] as const)
+      ? availability.data?.days.map(
+          (d) =>
+            [
+              d.date,
+              {
+                ...d,
+                insufficient: d.availableUnits < quantity,
+                pricePerNight:
+                  d.availableUnits >= quantity
+                    ? (room?.pricePerNight ?? null)
+                    : null,
+              },
+            ] as const,
+        )
       : propertyCalendar.data?.days.map((d) => [d.date, d] as const),
   );
   const refresh = () => {
@@ -142,12 +160,12 @@ export function BookingCard({
   };
   const mutation = useMutation({
     mutationFn: () => api.createBooking({ roomTypeId: roomId, ...params }),
-    onSuccess: () => {
+    onSuccess: (booking) => {
       refresh();
       toast.success(
         'Đã giữ phòng tạm thời. Vui lòng thanh toán cọc trước hạn.',
       );
-      router.push('/bookings');
+      router.push(`/bookings/${booking.id}/payment`);
     },
     onError: (error) => {
       toast.error(errorMessage(error));
@@ -186,14 +204,18 @@ export function BookingCard({
       </div>
       <p>
         <strong className="text-2xl tracking-tight">
-          {!roomId && 'Từ '}{money(room.pricePerNight)}
+          {!roomId && 'Từ '}
+          {money(room.pricePerNight)}
         </strong>
         <span className="ml-1 text-sm text-muted-foreground">
           / {property.type === 'HOTEL' ? 'phòng' : 'căn'} / đêm
         </span>
       </p>
       {roomId && hasDates && selectedAvailability.data && (
-        <p className="mt-2 text-sm text-success">Còn {selectedAvailability.data.availableUnits} {property.type === 'HOTEL' ? 'phòng' : 'căn'} trong toàn bộ kỳ lưu trú</p>
+        <p className="mt-2 text-sm text-success">
+          Còn {selectedAvailability.data.availableUnits}{' '}
+          {property.type === 'HOTEL' ? 'phòng' : 'căn'} trong toàn bộ kỳ lưu trú
+        </p>
       )}
       <p className="mt-2 text-xs text-muted-foreground">
         Đặt cọc {property.depositPercent}% · Phần còn lại trả tại chỗ nghỉ
@@ -217,7 +239,10 @@ export function BookingCard({
             max={365}
             disabled={(date) => {
               const day = daily.get(format(date, 'yyyy-MM-dd'));
-              return date < earliestDate || (!!day && day.availableUnits < (roomId ? quantity : 1));
+              return (
+                date < earliestDate ||
+                (!!day && day.availableUnits < (roomId ? quantity : 1))
+              );
             }}
             excludeDisabled
             numberOfMonths={1}
@@ -286,7 +311,9 @@ export function BookingCard({
       </div>
       <div aria-live="polite" aria-atomic="true">
         {!roomId ? (
-          <p className="my-4 text-sm text-muted-foreground">Chọn loại phòng để đặt chỗ.</p>
+          <p className="my-4 text-sm text-muted-foreground">
+            Chọn loại phòng để đặt chỗ.
+          </p>
         ) : !hasDates ? (
           <p className="my-4 text-sm text-muted-foreground">
             Chọn ngày để kiểm tra phòng trống
@@ -372,37 +399,85 @@ export function BookingCard({
           Vui lòng dùng tài khoản Khách thuê để đặt chỗ.
         </p>
       ) : (
-        <Button
-          className="mt-5 w-full"
-          disabled={
-            mutation.isPending ||
-            !hasDates ||
-            !roomId ||
-            !q ||
-            quote.isError ||
-            quote.isFetching ||
-            !policy.data ||
-            !eligibility.data?.canBook ||
-            (!!range?.from && range.from < earliestDate)
-          }
-          onClick={() => {
-            if (
-              !user.fullName.trim() ||
-              !/^(?:0|\+84)[35789]\d{8}$/.test(user.phoneNumber ?? '')
-            ) {
-              toast.info(
-                'Vui lòng hoàn thiện thông tin cá nhân trước khi đặt phòng.',
-              );
-              router.push(
-                `/account?next=${encodeURIComponent(propertyPath(property))}`,
-              );
-              return;
+        <>
+          {reviewing && q && (
+            <section
+              aria-label="Kiểm tra thông tin đặt phòng"
+              className="mt-5 space-y-3 border-y py-5 text-sm"
+            >
+              <h2 className="text-lg font-semibold">Kiểm tra đặt phòng</h2>
+              <p>
+                {user.fullName} · {user.phoneNumber}
+              </p>
+              <p>
+                {property.name} · {room.name}
+              </p>
+              <p>
+                {params.checkIn} → {params.checkOut} · {quantity} phòng/căn ·{' '}
+                {guests} khách
+              </p>
+              <p>
+                Tổng tiền: <strong>{money(q.totalAmount)}</strong>
+              </p>
+              <p>
+                Cọc cần trả: <strong>{money(q.depositAmount)}</strong> · Còn lại
+                trả tại chỗ nghỉ: {money(q.remainingAmount)}
+              </p>
+              <p className="text-muted-foreground">
+                Thanh toán cọc demo trước hạn để xác nhận. Hủy đơn sau thanh
+                toán sẽ mất cọc.
+              </p>
+            </section>
+          )}
+          <Button
+            className="mt-5 w-full"
+            disabled={
+              mutation.isPending ||
+              !hasDates ||
+              !roomId ||
+              !q ||
+              quote.isError ||
+              quote.isFetching ||
+              !policy.data ||
+              !eligibility.data?.canBook ||
+              (!!range?.from && range.from < earliestDate)
             }
-            mutation.mutate();
-          }}
-        >
-          {mutation.isPending ? 'Đang tạo đặt chỗ…' : 'Đặt chỗ ngay'}
-        </Button>
+            onClick={() => {
+              if (
+                !user.fullName.trim() ||
+                !/^(?:0|\+84)[35789]\d{8}$/.test(user.phoneNumber ?? '')
+              ) {
+                toast.info(
+                  'Vui lòng hoàn thiện thông tin cá nhân trước khi đặt phòng.',
+                );
+                router.push(
+                  `/account?next=${encodeURIComponent(propertyPath(property))}`,
+                );
+                return;
+              }
+              if (!reviewing) {
+                setReviewing(true);
+                return;
+              }
+              mutation.mutate();
+            }}
+          >
+            {mutation.isPending
+              ? 'Đang tạo đặt chỗ…'
+              : reviewing
+                ? 'Tạo đơn & thanh toán cọc'
+                : 'Kiểm tra thông tin đặt phòng'}
+          </Button>
+          {reviewing && (
+            <Button
+              className="mt-2 w-full"
+              variant="outline"
+              onClick={() => setReviewing(false)}
+            >
+              Quay lại chỉnh sửa
+            </Button>
+          )}
+        </>
       )}
       <p className="mt-3 text-xs leading-5 text-muted-foreground">
         Phòng được giữ tạm ngay khi đặt. Thanh toán cọc trước hạn để xác nhận;

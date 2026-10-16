@@ -5,8 +5,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  OnModuleDestroy,
-  OnModuleInit,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,22 +16,10 @@ import {
 import { availabilityByNight, heldBookings } from './availability';
 
 @Injectable()
-export class InventoryService implements OnModuleInit, OnModuleDestroy {
-  private timer?: ReturnType<typeof setInterval>;
+export class InventoryService {
   private sweeping = false;
   private readonly logger = new Logger(InventoryService.name);
   constructor(private readonly prisma: PrismaService) {}
-  onModuleInit() {
-    this.timer = setInterval(
-      () => void this.sweep(),
-      bookingPolicy.expirationIntervalMs,
-    );
-    this.timer.unref();
-    void this.sweep();
-  }
-  onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer);
-  }
 
   async forGuest<T>(
     guestId: string,
@@ -82,6 +68,14 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
         data: { status: 'EXPIRED', expiredAt: booking.paymentDeadlineAt },
       });
       if (!changed.count) continue;
+      await tx.bookingEvent.create({
+        data: {
+          bookingId: booking.id,
+          type: 'EXPIRED',
+          status: 'EXPIRED',
+          createdAt: booking.paymentDeadlineAt,
+        },
+      });
       const user = await tx.user.findUniqueOrThrow({ where: { id: guestId } });
       const eventAt = booking.paymentDeadlineAt;
       const since = new Date(
@@ -203,6 +197,7 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(
         error instanceof Error ? error.message : 'Không thể xử lý đơn hết hạn.',
       );
+      throw error;
     } finally {
       this.sweeping = false;
     }

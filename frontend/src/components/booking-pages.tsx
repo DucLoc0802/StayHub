@@ -4,19 +4,25 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
 import { dateLabel, money, timestampLabel } from '@/lib/utils';
 import { BookingSummary } from './booking-extras';
 import { Button } from './ui/button';
 import { ErrorState, Loading } from './ui/states';
 import { useAuth } from './providers';
+import { BookingHistory } from './booking-history';
 
-export function BookingScreen({ id }: { id: string }) {
+export function BookingScreen({
+  id,
+  admin = false,
+}: {
+  id: string;
+  admin?: boolean;
+}) {
   const { user } = useAuth();
   const query = useQuery({
-    queryKey: ['booking', id],
-    queryFn: () => api.booking(id),
+    queryKey: [admin ? 'admin-booking' : 'booking', id],
+    queryFn: () => (admin ? api.adminBooking(id) : api.booking(id)),
     refetchInterval: 10000,
   });
   if (query.isPending) return <Loading />;
@@ -27,6 +33,15 @@ export function BookingScreen({ id }: { id: string }) {
       <article className="panel mx-auto max-w-2xl space-y-5 p-6">
         <h1 className="page-title">Đơn đặt phòng</h1>
         <BookingSummary booking={b} />
+        <p className="text-sm">
+          Khách: {b.customerNameSnapshot} · {b.guestCount} người
+        </p>
+        {b.createdAt && (
+          <p className="text-sm text-muted-foreground">
+            Tạo ngày {timestampLabel(b.createdAt)}
+          </p>
+        )}
+        <BookingHistory booking={b} />
         {b.status === 'PENDING_PAYMENT' && (
           <p className="text-sm">
             Hạn cọc: {timestampLabel(b.paymentDeadlineAt)}
@@ -48,7 +63,9 @@ export function BookingScreen({ id }: { id: string }) {
         </div>
         <Link
           href={
-            user?.role === 'HOST' && b.guestId !== user.id && user.status === 'ACTIVE'
+            user?.role === 'HOST' &&
+            b.guestId !== user.id &&
+            user.status === 'ACTIVE'
               ? '/host/bookings'
               : user?.role === 'ADMIN'
                 ? '/admin/bookings'
@@ -76,7 +93,7 @@ export function PaymentScreen({ id }: { id: string }) {
     retry: false,
   });
   const mutation = useMutation({
-    mutationFn: () => api.pay(id),
+    mutationFn: (outcome: 'SUCCESS' | 'FAILED') => api.pay(id, outcome),
     onSuccess: () => {
       for (const key of [
         'bookings',
@@ -85,10 +102,10 @@ export function PaymentScreen({ id }: { id: string }) {
         'quote',
         'eligibility',
         'payment-demo',
+        'pending-payments',
       ])
         void client.invalidateQueries({ queryKey: [key] });
-      toast.success('Đã thanh toán cọc. Đơn đặt phòng được xác nhận.');
-      router.push(`/bookings/${id}`);
+      router.push(`/bookings/${id}/payment/result`);
     },
     onError: () => {
       void client.invalidateQueries({ queryKey: ['bookings'] });
@@ -102,16 +119,29 @@ export function PaymentScreen({ id }: { id: string }) {
         <Link href="/bookings" className="underline">
           Về lịch sử đặt phòng
         </Link>
+        <Link
+          href={`/bookings/${id}/payment/result`}
+          className="mt-4 block underline"
+        >
+          Xem trạng thái thanh toán
+        </Link>
       </div>
     );
   const { booking, payload, qrDataUrl } = query.data;
-  const remaining = new Date(booking.paymentDeadlineAt).getTime() - clock;
+  const serverClock =
+    new Date(query.data.serverNow).getTime() +
+    Math.max(0, clock - query.dataUpdatedAt);
+  const remaining = new Date(booking.paymentDeadlineAt).getTime() - serverClock;
   return (
     <div className="container-shell page-section">
       <div className="panel mx-auto grid max-w-4xl gap-7 p-6 md:grid-cols-2">
         <section>
           <h1 className="page-title mb-6">Thanh toán cọc</h1>
           <BookingSummary booking={booking} />
+          <p className="mt-4 text-sm">
+            Khách đặt: {booking.customerNameSnapshot} ·{' '}
+            {booking.customerPhoneSnapshot}
+          </p>
           <p className="mt-4 text-sm">
             Hạn thanh toán: {timestampLabel(booking.paymentDeadlineAt)}
           </p>
@@ -134,11 +164,16 @@ export function PaymentScreen({ id }: { id: string }) {
           <p className="break-words font-mono text-sm font-semibold">
             {payload.description}
           </p>
-          <p className="text-lg">{money(payload.amount)}</p>
+          <p className="text-sm text-muted-foreground">
+            Số tiền cần thanh toán lúc này
+          </p>
+          <p className="text-2xl font-semibold tabular-nums">
+            {money(payload.amount)}
+          </p>
           <p className="text-sm leading-6 text-muted-foreground">
             Thanh toán mô phỏng. QR không chứa thông tin ngân hàng. Không chuyển
-            tiền thật; bấm nút bên dưới để xác nhận demo. Backend kiểm tra lại
-            thời hạn và tồn phòng.
+            tiền thật; bấm nút bên dưới để xác nhận demo. Thời hạn và phòng
+            trống được kiểm tra trước khi ghi nhận.
           </p>
           {mutation.isError && (
             <p role="alert" className="text-sm text-destructive">
@@ -148,15 +183,116 @@ export function PaymentScreen({ id }: { id: string }) {
           <Button
             className="w-full"
             disabled={remaining <= 0 || mutation.isPending}
-            onClick={() => mutation.mutate()}
+            onClick={() => mutation.mutate('SUCCESS')}
           >
-            {mutation.isPending ? 'Đang xác nhận…' : 'Tôi đã thanh toán'}
+            {mutation.isPending ? 'Đang xác nhận…' : 'Thanh toán cọc demo'}
           </Button>
-          <Link href="/bookings" className="inline-block text-sm underline">
-            Về lịch sử
+          <Button
+            className="w-full"
+            variant="outline"
+            disabled={remaining <= 0 || mutation.isPending}
+            onClick={() => mutation.mutate('FAILED')}
+          >
+            Thử tình huống thanh toán thất bại
+          </Button>
+          <Link
+            href="/bookings/pending-payments"
+            className="inline-block text-sm underline"
+          >
+            Thanh toán sau
           </Link>
+          {remaining <= 0 && (
+            <Link
+              href={`/bookings/${id}/payment/result`}
+              className="block text-sm underline"
+            >
+              Xem kết quả hết hạn
+            </Link>
+          )}
         </section>
       </div>
+    </div>
+  );
+}
+export function PaymentResultScreen({ id }: { id: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const query = useQuery({
+    queryKey: ['booking', id],
+    queryFn: () => api.booking(id),
+    refetchInterval: 10000,
+    retry: false,
+  });
+  if (query.isPending) return <Loading />;
+  if (query.isError)
+    return (
+      <div className="container-shell page-section">
+        <ErrorState
+          message={errorMessage(query.error)}
+          retry={() => void query.refetch()}
+        />
+      </div>
+    );
+  const b = query.data;
+  const paid = b.payment?.status === 'SUCCESS';
+  const expired =
+    b.status === 'EXPIRED' ||
+    (!paid && new Date(b.paymentDeadlineAt).getTime() <= now);
+  const cancelled = b.status === 'CANCELLED';
+  const lastAttempt = b.paymentAttempts?.at(-1);
+  const eligible =
+    !paid && !expired && !cancelled && b.status === 'PENDING_PAYMENT';
+  const title = cancelled
+    ? 'Đặt phòng đã hủy'
+    : paid
+      ? 'Thanh toán thành công'
+      : expired
+        ? 'Đã hết hạn thanh toán'
+        : lastAttempt?.status === 'FAILED'
+          ? 'Thanh toán chưa thành công'
+          : 'Chưa ghi nhận thanh toán';
+  return (
+    <div className="container-shell page-section">
+      <article className="panel mx-auto max-w-2xl space-y-6 p-6 sm:p-8">
+        <h1 className="page-title">{title}</h1>
+        <p className="break-words font-semibold">
+          Mã đặt phòng: {b.bookingCode}
+        </p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {cancelled
+            ? paid
+              ? 'Đơn đã hủy sau thanh toán. Tiền cọc được giữ lại theo chính sách.'
+              : 'Đơn đã hủy và phòng đã được giải phóng.'
+            : paid
+              ? 'Cọc demo đã được ghi nhận. Đặt phòng được xác nhận tự động.'
+              : expired
+                ? 'Phòng đã được giải phóng. Vui lòng tạo đặt phòng mới.'
+                : (lastAttempt?.failureReason ??
+                  'Bạn có thể tiếp tục thanh toán trước thời hạn giữ phòng.')}
+        </p>
+        <BookingSummary booking={b} />
+        <div className="flex flex-wrap gap-3">
+          {paid && (
+            <Button asChild>
+              <Link href="/bookings">Xem đặt phòng của tôi</Link>
+            </Button>
+          )}
+          {eligible && (
+            <Button asChild>
+              <Link href={`/bookings/${id}/payment`}>Thử thanh toán lại</Link>
+            </Button>
+          )}
+          <Button asChild variant="outline">
+            <Link href="/properties">Khám phá chỗ nghỉ</Link>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Thanh toán mô phỏng, không thu tiền thật.
+        </p>
+      </article>
     </div>
   );
 }

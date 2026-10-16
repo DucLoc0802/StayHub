@@ -153,6 +153,8 @@ model Booking {
   updatedAt              DateTime @updatedAt
   payment                Payment?
   feedback               Feedback?
+  events                 BookingEvent[]
+  paymentAttempts        PaymentAttempt[]
   @@index([guestId, createdAt])
   @@index([roomTypeId, status, checkIn, checkOut])
   @@index([status, paymentDeadlineAt])
@@ -182,4 +184,28 @@ model Payment {
   method    PaymentMethod @default(FAKE)
   paidAt    DateTime?
   createdAt DateTime @default(now())
+}
+
+// Append-only audit records. No inferred transitions are backfilled.
+model BookingEvent {
+  id        String @id @default(uuid()) @db.Char(36)
+  bookingId String @db.Char(36)
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type      String @db.VarChar(40)
+  status    BookingStatus
+  createdAt DateTime @default(now())
+  @@index([bookingId, createdAt])
+}
+
+// Payment remains the unique settled obligation; attempts preserve failed retries.
+model PaymentAttempt {
+  id            String @id @default(uuid()) @db.Char(36)
+  bookingId     String @db.Char(36)
+  booking       Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount        Int
+  status        PaymentStatus
+  method        PaymentMethod @default(FAKE)
+  failureReason String? @db.VarChar(250)
+  createdAt     DateTime @default(now())
+  @@index([bookingId, createdAt])
 }

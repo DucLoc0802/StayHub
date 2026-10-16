@@ -81,9 +81,12 @@ export const api = {
   quote: (id: string, params: object) =>
     get<Quote>(`/room-types/${id}/quote`, params),
   bookings: () => get<Booking[]>('/bookings/my'),
-  hostBookings: () => get<Booking[]>('/host/bookings'),
+  pendingPayments: () => get<Booking[]>('/bookings/pending-payments'),
+  hostBookings: (propertyId?: string) =>
+    get<Booking[]>('/host/bookings', { propertyId }),
   createBooking: (body: unknown) => post<Booking>('/bookings', body),
-  pay: (id: string) => post<Booking>(`/bookings/${id}/pay`),
+  pay: (id: string, outcome: 'SUCCESS' | 'FAILED' = 'SUCCESS') =>
+    post<Booking>(`/bookings/${id}/pay`, { outcome }),
   lookupBooking: (code: string) =>
     get<Booking>(`/bookings/lookup/${encodeURIComponent(code)}`),
   publicLookup: (body: { bookingCode: string; email: string }) =>
@@ -105,6 +108,11 @@ export const api = {
     get<CustomerHistory>(`/admin/customers/${id}/history`),
   adminBookings: (params?: object) =>
     get<AdminPage<Booking>>('/admin/bookings', params),
+  adminBooking: (id: string) => get<Booking>(`/admin/bookings/${id}`),
+  adminBookingFilters: () =>
+    get<
+      { id: string; name: string; hostId: string; host: { fullName: string } }[]
+    >('/admin/booking-filters'),
   adminAmenities: () => get<Amenity[]>('/admin/amenities'),
   saveAmenity: (
     body: Partial<Pick<Amenity, 'code' | 'nameVi' | 'active'>>,

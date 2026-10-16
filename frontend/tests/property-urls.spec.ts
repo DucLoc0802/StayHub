@@ -3,7 +3,7 @@ import type { Property } from '../src/lib/types';
 import { propertyPath } from '../src/lib/property-url';
 
 const apiUrl = process.env.TEST_API_URL ?? 'http://localhost:4000/api';
-const id = '10000000-0000-4000-8000-000000000038';
+const id = '71000000-0000-4000-8000-000000000001';
 test('listing cards and direct links use the short property URL', async ({
   page,
   request,
@@ -11,7 +11,7 @@ test('listing cards and direct links use the short property URL', async ({
   const response = await request.get(`${apiUrl}/properties/${id}`);
   expect(response.ok()).toBe(true);
   const property = (await response.json()) as Property;
-  expect(property.slug).toBe('loi-hoa-family-home');
+  expect(property.slug).toBe('homestay-an-nhien');
   const path = propertyPath(property);
   await page.goto(`/properties?q=${encodeURIComponent(property.name)}`);
   const card = page
@@ -36,7 +36,7 @@ test('legacy long URLs and IDs open the correct listing and become short URLs', 
 }) => {
   const response = await request.get(`${apiUrl}/properties/${id}`);
   const property = (await response.json()) as Property;
-  for (const old of [`loi-hoa-family-home--${id}`, id]) {
+  for (const old of [`homestay-an-nhien--${id}`, id]) {
     await page.goto(`/properties/${old}?ref=shared#main`);
     await expect(page).toHaveURL(`${propertyPath(property)}?ref=shared#main`);
     await expect(

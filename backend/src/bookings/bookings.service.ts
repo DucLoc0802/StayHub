@@ -33,11 +33,68 @@ export const bookingInclude = {
   },
   payment: true,
   feedback: true,
+  events: { orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }] },
+  paymentAttempts: {
+    orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }],
+  },
 } satisfies Prisma.BookingInclude;
 type BookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 export function bookingResponse<T extends BookingRow>(booking: T) {
   const { property, ...roomType } = booking.roomType;
-  return { ...booking, roomType, property };
+  const timeline: {
+    id: string;
+    type: string;
+    createdAt: Date;
+    amount?: number;
+    failureReason?: string | null;
+  }[] = (booking.events ?? []).map((event) => ({
+    id: event.id,
+    type: event.type,
+    createdAt: event.createdAt,
+  }));
+  if (!timeline.some((e) => e.type === 'CREATED'))
+    timeline.push({
+      id: 'created',
+      type: 'CREATED',
+      createdAt: booking.createdAt,
+    });
+  for (const attempt of booking.paymentAttempts ?? [])
+    timeline.push({
+      id: attempt.id,
+      type: attempt.status === 'SUCCESS' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
+      createdAt: attempt.createdAt,
+      amount: attempt.amount,
+      failureReason: attempt.failureReason,
+    });
+  if (
+    booking.payment &&
+    !booking.paymentAttempts?.some((a) => a.status === booking.payment!.status)
+  ) {
+    timeline.push({
+      id: booking.payment.id,
+      type:
+        booking.payment.status === 'SUCCESS'
+          ? 'PAYMENT_SUCCESS'
+          : 'PAYMENT_FAILED',
+      createdAt: booking.payment.paidAt ?? booking.payment.createdAt,
+      amount: booking.payment.amount,
+    });
+  }
+  for (const [type, at] of [
+    ['CANCELLED', booking.cancelledAt],
+    ['EXPIRED', booking.expiredAt],
+  ] as const)
+    if (at && !timeline.some((e) => e.type === type))
+      timeline.push({ id: type, type, createdAt: at });
+  // Stable chronological order: payment precedes confirmation at the same instant.
+  const priority = (type: string) =>
+    type === 'CREATED' ? 0 : type.startsWith('PAYMENT_') ? 1 : 2;
+  timeline.sort(
+    (a, b) =>
+      a.createdAt.getTime() - b.createdAt.getTime() ||
+      priority(a.type) - priority(b.type),
+  );
+  return { ...booking, roomType, property, timeline };
 }
 export function validateRoomRequest(
   room: RoomType & { property: Property },
@@ -97,7 +154,12 @@ export class BookingsService {
           checkIn: { lt: checkOut },
           checkOut: { gt: checkIn },
         },
-        select: { roomTypeId: true, checkIn: true, checkOut: true, quantity: true },
+        select: {
+          roomTypeId: true,
+          checkIn: true,
+          checkOut: true,
+          quantity: true,
+        },
       });
       const occupancy = new Map<string, typeof bookings>();
       for (const booking of bookings) {
@@ -107,13 +169,20 @@ export class BookingsService {
       }
       const calendars = property.roomTypes.map((room) => ({
         room,
-        days: availabilityByNight(room.totalUnits, occupancy.get(room.id) ?? [], checkIn, checkOut).days,
+        days: availabilityByNight(
+          room.totalUnits,
+          occupancy.get(room.id) ?? [],
+          checkIn,
+          checkOut,
+        ).days,
       }));
       const dates = availabilityByNight(0, [], checkIn, checkOut).days;
       return {
         serverNow: now,
         days: dates.map(({ date }, index) => {
-          const chosen = calendars.find((calendar) => calendar.days[index].availableUnits >= 1);
+          const chosen = calendars.find(
+            (calendar) => calendar.days[index].availableUnits >= 1,
+          );
           return {
             date,
             pricePerNight: chosen?.room.pricePerNight ?? null,
@@ -254,6 +323,7 @@ export class BookingsService {
             checkInTimeSnapshot: room.property.checkInTime,
             checkOutTimeSnapshot: room.property.checkOutTime,
             paymentDeadlineAt,
+            events: { create: { type: 'CREATED', status: 'PENDING_PAYMENT' } },
             ...priceSnapshot(
               room.pricePerNight,
               room.property.depositPercent,
@@ -270,14 +340,38 @@ export class BookingsService {
     return this.inventory.forGuest(guestId, async (tx) =>
       (
         await tx.booking.findMany({
-          where: { guestId },
+          where: { guestId, payment: { is: { status: 'SUCCESS' } } },
           include: bookingInclude,
           orderBy: { createdAt: 'desc' },
         })
       ).map(bookingResponse),
     );
   }
-  async host(hostId: string) {
+  pending(guestId: string) {
+    return this.inventory.forGuest(guestId, async (tx, now) =>
+      (
+        await tx.booking.findMany({
+          where: {
+            guestId,
+            status: 'PENDING_PAYMENT',
+            paymentDeadlineAt: { gt: now },
+            NOT: { payment: { is: { status: 'SUCCESS' } } },
+          },
+          include: bookingInclude,
+          orderBy: { createdAt: 'desc' },
+        })
+      ).map(bookingResponse),
+    );
+  }
+  async host(hostId: string, propertyId?: string) {
+    if (
+      propertyId &&
+      !(await this.prisma.property.findFirst({
+        where: { id: propertyId, hostId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException('Không tìm thấy chỗ nghỉ.');
     const due = await this.prisma.booking.findMany({
       where: {
         roomType: { property: { hostId } },
@@ -291,7 +385,7 @@ export class BookingsService {
       await this.inventory.forGuest(guestId, async () => undefined);
     return (
       await this.prisma.booking.findMany({
-        where: { roomType: { property: { hostId } } },
+        where: { roomType: { propertyId, property: { hostId } } },
         include: {
           ...bookingInclude,
           guest: { select: { fullName: true, email: true } },
@@ -317,7 +411,11 @@ export class BookingsService {
       return bookingResponse(
         await tx.booking.update({
           where: { id },
-          data: { status: 'CANCELLED', cancelledAt: new Date() },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            events: { create: { type: 'CANCELLED', status: 'CANCELLED' } },
+          },
           include: bookingInclude,
         }),
       );

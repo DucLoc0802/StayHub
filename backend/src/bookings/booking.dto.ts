@@ -1,6 +1,22 @@
 ﻿import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsInt,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
+export class DemoPayDto {
+  @IsOptional() @IsIn(['SUCCESS', 'FAILED']) outcome: 'SUCCESS' | 'FAILED' =
+    'SUCCESS';
+}
+export class HostBookingQueryDto {
+  @IsOptional() @IsUUID() propertyId?: string;
+}
 export class AvailabilityQueryDto {
   @ApiProperty() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) checkIn!: string;
   @ApiProperty() @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) checkOut!: string;

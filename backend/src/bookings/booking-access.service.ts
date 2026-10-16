@@ -13,7 +13,12 @@ import { bookingInclude, bookingResponse } from './bookings.service';
 export function bookingScope(user: SessionUser): Prisma.BookingWhereInput {
   if (user.role === 'ADMIN') return {};
   if (user.role === 'HOST' && user.status === 'ACTIVE')
-    return { OR: [{ guestId: user.id }, { roomType: { property: { hostId: user.id } } }] };
+    return {
+      OR: [
+        { guestId: user.id },
+        { roomType: { property: { hostId: user.id } } },
+      ],
+    };
   return { guestId: user.id };
 }
 export function demoPaymentPayload(booking: {
@@ -61,7 +66,7 @@ export class BookingAccessService {
     const booking = await this.find(user, { id });
     if (
       booking.status !== 'PENDING_PAYMENT' ||
-      booking.payment ||
+      booking.payment?.status === 'SUCCESS' ||
       booking.paymentDeadlineAt <= new Date()
     )
       throw new ConflictException('Đơn đặt phòng không thể thanh toán.');

@@ -59,6 +59,11 @@ export class AdminQueryDto {
   @MaxLength(40)
   bookingCode?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() propertyId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() hostId?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsIn(['SUCCESS', 'FAILED', 'UNPAID'])
+  paymentStatus?: 'SUCCESS' | 'FAILED' | 'UNPAID';
   @ApiPropertyOptional() @IsOptional() @IsUUID() roomTypeId?: string;
   @ApiPropertyOptional()
   @IsOptional()
@@ -237,7 +242,27 @@ export class ManagementService {
     const where: Prisma.BookingWhereInput = {
       status: dto.status,
       roomTypeId: dto.roomTypeId,
-      ...(dto.propertyId ? { roomType: { propertyId: dto.propertyId } } : {}),
+      roomType: {
+        propertyId: dto.propertyId,
+        property: { hostId: dto.hostId },
+      },
+      ...(dto.paymentStatus === 'SUCCESS'
+        ? { payment: { is: { status: 'SUCCESS' } } }
+        : dto.paymentStatus === 'FAILED'
+          ? {
+              AND: [
+                { NOT: { payment: { is: { status: 'SUCCESS' } } } },
+                {
+                  OR: [
+                    { paymentAttempts: { some: { status: 'FAILED' } } },
+                    { payment: { is: { status: 'FAILED' } } },
+                  ],
+                },
+              ],
+            }
+          : dto.paymentStatus === 'UNPAID'
+            ? { NOT: { payment: { is: { status: 'SUCCESS' } } } }
+            : {}),
       ...(dto.bookingCode
         ? { bookingCode: dto.bookingCode.toUpperCase() }
         : {}),
@@ -270,7 +295,7 @@ export class ManagementService {
       items: (
         await tx.booking.findMany({
           where,
-          include: { ...bookingInclude, guest: { select: publicUser } },
+          include: { ...bookingInclude, guest: { select: { fullName: true } } },
           orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
           skip: (dto.page - 1) * dto.limit,
           take: dto.limit,
@@ -291,12 +316,38 @@ export class ManagementService {
       },
     });
   }
+  async booking(id: string) {
+    const initial = await this.prisma.booking.findUnique({
+      where: { id },
+      select: { guestId: true },
+    });
+    if (!initial) throw new NotFoundException('Không tìm thấy đơn đặt phòng.');
+    return this.inventory.forGuest(initial.guestId, async (tx) =>
+      bookingResponse(
+        await tx.booking.findUniqueOrThrow({
+          where: { id },
+          include: bookingInclude,
+        }),
+      ),
+    );
+  }
+  bookingFilters() {
+    return this.prisma.property.findMany({
+      select: {
+        id: true,
+        name: true,
+        hostId: true,
+        host: { select: { fullName: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
 }
 @ApiTags('Quản trị người dùng và thống kê')
 @ApiBearerAuth()
 @Roles('ADMIN')
 @Controller('admin')
-class ManagementController {
+export class ManagementController {
   constructor(private readonly management: ManagementService) {}
   @Get('users') users(@Query() dto: AdminQueryDto) {
     return this.management.users(dto);
@@ -318,6 +369,12 @@ class ManagementController {
   }
   @Get('bookings') bookings(@Query() dto: AdminQueryDto) {
     return this.management.bookings(dto);
+  }
+  @Get('booking-filters') filters() {
+    return this.management.bookingFilters();
+  }
+  @Get('bookings/:id') booking(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.management.booking(id);
   }
   @Get('feedback') feedback() {
     return this.management.feedback();

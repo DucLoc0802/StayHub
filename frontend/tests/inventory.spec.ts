@@ -24,7 +24,7 @@ const future = (offset: number) =>
 const dates = { checkIn: future(0), checkOut: future(3) };
 async function setup(request: APIRequestContext, page: Page) {
   const login = await request.post(api + '/auth/login', {
-    data: { email: 'host', password: 'host' },
+    data: { email: 'host', password: process.env.DEMO_PASSWORD },
   });
   const host = (await login.json()) as Session;
   const registration = await request.post(api + '/auth/register', {
@@ -134,9 +134,7 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
   const { property } = await setup(request, page);
   await page.goto('/properties/' + property.slug);
   const card = page.locator('aside');
-  await expect(
-    card.getByText('Chọn loại phòng để đặt chỗ.'),
-  ).toBeVisible();
+  await expect(card.getByText('Chọn loại phòng để đặt chỗ.')).toBeVisible();
   await card
     .getByLabel('Loại phòng / chỗ ở')
     .selectOption(property.roomTypes[1].id);
@@ -150,13 +148,14 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
   const created = page.waitForResponse(
     (r) => r.url().endsWith('/bookings') && r.request().method() === 'POST',
   );
-  await card.getByRole('button', { name: 'Đặt chỗ ngay' }).click();
+  await card
+    .getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' })
+    .click();
+  await card.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   const booking = (await (await created).json()) as Booking;
-  await expect(page).toHaveURL('/bookings');
-  await expect(page.locator('article')).toContainText(
-    'Phòng gia đình · 2 phòng',
-  );
-  await expect(page.locator('article')).toContainText('Hạn cọc:');
+  await expect(page).toHaveURL(`/bookings/${booking.id}/payment`);
+  await expect(page.locator('main')).toContainText('Phòng gia đình · 2 phòng');
+  await expect(page.locator('main')).toContainText('Hạn thanh toán:');
   const remaining = async () =>
     (
       await (
@@ -168,9 +167,12 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
     ).availableUnits;
   expect(await remaining()).toBe(1);
   await page
-    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
+    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
     .click();
-  await page.getByRole('button', { name: 'Tôi đã thanh toán' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   await expect(page.locator('article')).toContainText('Đã xác nhận');
   expect(await remaining()).toBe(1);
   await page.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
@@ -194,19 +196,19 @@ test('expired booking refreshes history, disables payment and releases held unit
   });
   expect(result.status()).toBe(201);
   const booking = (await result.json()) as Booking;
-  await page.goto('/bookings');
+  await page.goto(`/bookings/${booking.id}/payment/result`);
   await expect(
-    page.getByRole('button', { name: 'Thanh toán cọc', exact: true }),
+    page.getByRole('link', { name: 'Thử thanh toán lại' }),
   ).toBeVisible();
   await prisma.booking.update({
     where: { id: booking.id },
     data: { paymentDeadlineAt: new Date(Date.now() - 1) },
   });
-  await expect(page.locator('article')).toContainText('Hết hạn thanh toán', {
+  await expect(page.locator('article')).toContainText('hết hạn thanh toán', {
     timeout: 15000,
   });
   await expect(
-    page.getByRole('button', { name: 'Thanh toán cọc', exact: true }),
+    page.getByRole('link', { name: 'Thử thanh toán lại', exact: true }),
   ).toHaveCount(0);
   const availability = await (
     await request.get(`${api}/room-types/${booking.roomTypeId}/availability`, {
@@ -235,7 +237,9 @@ test('host edits room inventory and payment window; guest sees the saved options
   await page.getByRole('button', { name: 'Lưu chỗ nghỉ' }).click();
   expect((await saved).status()).toBe(200);
   await page.goto('/properties/' + property.slug);
-  await page.getByLabel('Loại phòng / chỗ ở').selectOption(property.roomTypes[0].id);
+  await page
+    .getByLabel('Loại phòng / chỗ ở')
+    .selectOption(property.roomTypes[0].id);
   await chooseDates(page);
   await expect(
     page.locator('aside').getByText('Còn 8 phòng trong toàn bộ kỳ lưu trú'),

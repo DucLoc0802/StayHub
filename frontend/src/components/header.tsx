@@ -154,6 +154,16 @@ export function Header() {
                         </Link>
                       </Dropdown.Item>
                     )}
+                    {user.role === 'GUEST' && (
+                      <Dropdown.Item asChild>
+                        <Link
+                          className={itemClass}
+                          href="/bookings/pending-payments"
+                        >
+                          Chờ thanh toán
+                        </Link>
+                      </Dropdown.Item>
+                    )}
                     {user.role === 'ADMIN' && (
                       <Dropdown.Item asChild>
                         <Link className={itemClass} href="/admin/hosts">

@@ -16,7 +16,6 @@ export const bookingPolicy = Object.freeze({
   expirationThreshold: positive('BOOKING_EXPIRATION_THRESHOLD', 3, 100),
   expirationPeriodDays: positive('BOOKING_EXPIRATION_PERIOD_DAYS', 30, 365),
   blockDurationHours: positive('BOOKING_BLOCK_HOURS', 24, 720),
-  expirationIntervalMs: 60_000,
   maximumUnits: 100,
 });
 export const publicBookingPolicy = () => ({

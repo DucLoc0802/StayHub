@@ -15,10 +15,18 @@ import type { Amenity, Booking, User } from '@/lib/types';
 import { Button } from './ui/button';
 import { ErrorState, Loading, StatusBadge } from './ui/states';
 function AdminBookingRecord({ booking: b }: { booking: Booking }) {
+  const failed =
+    b.payment?.status === 'FAILED' ||
+    b.paymentAttempts?.at(-1)?.status === 'FAILED';
   return (
     <article className="grid gap-3 py-3 text-sm sm:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,.9fr)_auto] lg:gap-5">
       <div className="min-w-0 space-y-1 sm:col-span-2 lg:col-span-1">
         <p className="text-xs text-muted-foreground">{b.bookingCode}</p>
+        {b.createdAt && (
+          <p className="text-xs text-muted-foreground">
+            Tạo {timestampLabel(b.createdAt)}
+          </p>
+        )}
         <h2 className="font-semibold">
           {b.propertyNameSnapshot || b.property.name}
         </h2>
@@ -28,7 +36,8 @@ function AdminBookingRecord({ booking: b }: { booking: Booking }) {
         </p>
         {b.guest && (
           <p className="break-words text-muted-foreground">
-            {b.guest.fullName} · {b.guest.email}
+            {b.guest.fullName}
+            {b.guest.email && ` · ${b.guest.email}`}
           </p>
         )}
       </div>
@@ -44,11 +53,11 @@ function AdminBookingRecord({ booking: b }: { booking: Booking }) {
           <span className="text-xs text-muted-foreground">(UTC+7)</span>
         </p>
         <p className="text-xs">
-          {b.payment
-            ? b.payment.status === 'SUCCESS'
-              ? 'Cọc thanh toán thành công'
-              : 'Thanh toán cọc thất bại'
-            : 'Chưa ghi nhận thanh toán cọc'}
+          {b.payment?.status === 'SUCCESS'
+            ? 'Cọc thanh toán thành công (demo)'
+            : failed
+              ? 'Thanh toán cọc thất bại (demo)'
+              : 'Chưa ghi nhận thanh toán cọc'}
         </p>
         {b.status === 'PENDING_PAYMENT' && (
           <p className="text-xs">
@@ -65,7 +74,7 @@ function AdminBookingRecord({ booking: b }: { booking: Booking }) {
         <dd className="text-right">{money(b.remainingAmount)}</dd>
       </dl>
       <Link
-        href={`/bookings/${b.id}`}
+        href={`/admin/bookings/${b.id}`}
         aria-label={`Xem đơn đặt phòng ${b.bookingCode}`}
         className="inline-flex min-h-11 items-center justify-self-start self-start underline underline-offset-4 sm:col-span-2 lg:col-span-1"
       >
@@ -373,12 +382,18 @@ export function AdminUsers() {
 export function AdminBookings() {
   const [q, setQ] = useState(''),
     [status, setStatus] = useState(''),
+    [paymentStatus, setPaymentStatus] = useState(''),
+    [propertyId, setPropertyId] = useState(''),
+    [hostId, setHostId] = useState(''),
     [from, setFrom] = useState(''),
     [to, setTo] = useState(''),
     [page, setPage] = useState(1);
   const params = {
     q: q || undefined,
     status: status || undefined,
+    paymentStatus: paymentStatus || undefined,
+    propertyId: propertyId || undefined,
+    hostId: hostId || undefined,
     from: from || undefined,
     to: to || undefined,
     page,
@@ -387,9 +402,22 @@ export function AdminBookings() {
     queryKey: ['admin-bookings', params],
     queryFn: () => api.adminBookings(params),
   });
+  const filters = useQuery({
+    queryKey: ['admin-booking-filters'],
+    queryFn: api.adminBookingFilters,
+  });
+  const hosts = [
+    ...new Map(
+      (filters.data ?? []).map((p) => [p.hostId, p.host.fullName]),
+    ).entries(),
+  ];
   return (
     <div className="container-shell py-6 sm:py-8">
       <h1 className="mb-5 text-2xl font-semibold">Tra cứu đặt phòng</h1>
+      <p className="mb-5 text-sm text-muted-foreground">
+        Lịch sử trên toàn hệ thống, gồm đơn chờ cọc và các giao dịch demo. Chế
+        độ chỉ xem.
+      </p>
       <div className="mb-4 grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="field">
           <label htmlFor="admin-booking-q">
@@ -449,7 +477,68 @@ export function AdminBookings() {
             }}
           />
         </div>
+        <div className="field">
+          <label htmlFor="admin-payment-status">Thanh toán cọc</label>
+          <select
+            id="admin-payment-status"
+            value={paymentStatus}
+            onChange={(e) => {
+              setPaymentStatus(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Tất cả</option>
+            <option value="SUCCESS">Thành công</option>
+            <option value="FAILED">Thất bại, chưa thanh toán</option>
+            <option value="UNPAID">Chưa thanh toán thành công</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="admin-host">Chủ cơ sở</label>
+          <select
+            id="admin-host"
+            value={hostId}
+            onChange={(e) => {
+              setHostId(e.target.value);
+              setPropertyId('');
+              setPage(1);
+            }}
+          >
+            <option value="">Tất cả chủ cơ sở</option>
+            {hosts.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="admin-property">Cơ sở / chi nhánh</label>
+          <select
+            id="admin-property"
+            value={propertyId}
+            onChange={(e) => {
+              setPropertyId(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Tất cả cơ sở</option>
+            {filters.data
+              ?.filter((p) => !hostId || p.hostId === hostId)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+        </div>
       </div>
+      {filters.isError && (
+        <ErrorState
+          message={errorMessage(filters.error)}
+          retry={() => void filters.refetch()}
+        />
+      )}
       {query.isPending ? (
         <Loading />
       ) : query.isError ? (
@@ -462,7 +551,27 @@ export function AdminBookings() {
               <AdminBookingRecord key={b.id} booking={b} />
             ))}
           </div>
-          {!query.data.items.length && <p>Không có đặt phòng phù hợp.</p>}
+          {!query.data.items.length && (
+            <div className="py-8 text-sm">
+              <p>Không có đặt phòng phù hợp với bộ lọc.</p>
+              <Button
+                className="mt-4"
+                variant="outline"
+                onClick={() => {
+                  setQ('');
+                  setStatus('');
+                  setPaymentStatus('');
+                  setPropertyId('');
+                  setHostId('');
+                  setFrom('');
+                  setTo('');
+                  setPage(1);
+                }}
+              >
+                Xóa bộ lọc
+              </Button>
+            </div>
+          )}
           <Pager {...query.data} onChange={setPage} />
         </>
       )}

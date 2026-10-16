@@ -305,7 +305,10 @@ test(
             (await bookings.availability(r.id, dto(r.id))).availableUnits,
             0,
           );
-          await conflict(payments.pay(b.id, g));
+          assert.equal(
+            (await payments.pay(b.id, g)).payment!.id,
+            paid.payment!.id,
+          );
           await bookings.cancel(b.id, g);
           assert.equal(
             (await bookings.availability(r.id, dto(r.id))).availableUnits,
@@ -401,6 +404,49 @@ test(
             (await bookings.eligibility(g)).bookingBlockedUntil,
             null,
           );
+        },
+      );
+      await t.test(
+        'failed payment retries preserve history and concurrent payments settle once',
+        async () => {
+          const r = await room(1),
+            g = await guest();
+          const b = await bookings.create(g, dto(r.id));
+          assert.equal((await bookings.mine(g)).length, 0);
+          assert.equal((await bookings.pending(g)).length, 1);
+          const failed = await payments.pay(b.id, g, 'FAILED');
+          assert.equal(failed.status, 'PENDING_PAYMENT');
+          assert.equal(failed.payment, null);
+          assert.equal(failed.paymentAttempts[0].status, 'FAILED');
+          assert.equal((await bookings.mine(g)).length, 0);
+          const [a, c] = await Promise.all([
+            payments.pay(b.id, g),
+            payments.pay(b.id, g),
+          ]);
+          assert.equal(a.payment!.id, c.payment!.id);
+          assert.equal(
+            await prisma.payment.count({ where: { bookingId: b.id } }),
+            1,
+          );
+          assert.equal(
+            await prisma.paymentAttempt.count({
+              where: { bookingId: b.id, status: 'SUCCESS' },
+            }),
+            1,
+          );
+          assert.equal((await bookings.mine(g)).length, 1);
+          assert.equal((await bookings.pending(g)).length, 0);
+          const history = (await bookings.mine(g))[0].timeline.map(
+            (e) => e.type,
+          );
+          assert.deepEqual(history, [
+            'CREATED',
+            'PAYMENT_FAILED',
+            'PAYMENT_SUCCESS',
+            'CONFIRMED',
+          ]);
+          await bookings.cancel(b.id, g);
+          assert.equal((await bookings.mine(g)).length, 1);
         },
       );
     } finally {

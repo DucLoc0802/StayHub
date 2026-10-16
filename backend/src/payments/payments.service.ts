@@ -12,7 +12,7 @@ import {
 @Injectable()
 export class PaymentsService {
   constructor(private readonly inventory: InventoryService) {}
-  pay(id: string, guestId: string) {
+  pay(id: string, guestId: string, outcome: 'SUCCESS' | 'FAILED' = 'SUCCESS') {
     return this.inventory.forGuest(guestId, async (tx) => {
       let booking = await tx.booking.findFirst({
         where: { id, guestId },
@@ -29,7 +29,15 @@ export class PaymentsService {
       });
       if (booking.status === 'EXPIRED')
         throw new ConflictException(expiredMessage);
-      if (booking.status !== 'PENDING_PAYMENT' || booking.payment)
+      if (
+        booking.status === 'CONFIRMED' &&
+        booking.payment?.status === 'SUCCESS'
+      )
+        return bookingResponse(booking); // Idempotent retry after a lost response.
+      if (
+        booking.status !== 'PENDING_PAYMENT' ||
+        booking.payment?.status === 'SUCCESS'
+      )
         throw new ConflictException('Đơn đặt phòng không thể thanh toán.');
       if (
         booking.roomType.status !== 'ACTIVE' ||
@@ -52,9 +60,48 @@ export class PaymentsService {
         await this.inventory.expireGuest(tx, guestId, paidAt);
         throw new ConflictException(expiredMessage);
       }
-      await tx.booking.update({ where: { id }, data: { status: 'CONFIRMED' } });
-      await tx.payment.create({
+      await tx.paymentAttempt.create({
         data: {
+          bookingId: id,
+          amount: booking.depositAmount,
+          status: outcome,
+          method: 'FAKE',
+          failureReason:
+            outcome === 'FAILED'
+              ? 'Thanh toán demo thất bại. Vui lòng thử lại trước hạn.'
+              : null,
+          createdAt: paidAt,
+        },
+      });
+      if (outcome === 'FAILED')
+        return bookingResponse(
+          await tx.booking.findUniqueOrThrow({
+            where: { id },
+            include: bookingInclude,
+          }),
+        );
+      await tx.booking.update({
+        where: { id },
+        data: {
+          status: 'CONFIRMED',
+          events: {
+            create: {
+              type: 'CONFIRMED',
+              status: 'CONFIRMED',
+              createdAt: paidAt,
+            },
+          },
+        },
+      });
+      await tx.payment.upsert({
+        where: { bookingId: id },
+        update: {
+          amount: booking.depositAmount,
+          status: 'SUCCESS',
+          method: 'FAKE',
+          paidAt,
+        },
+        create: {
           bookingId: id,
           amount: booking.depositAmount,
           status: 'SUCCESS',

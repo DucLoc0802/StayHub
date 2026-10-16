@@ -84,7 +84,8 @@ async function mockApi(page: Page, role?: Role) {
         maxActiveUnpaidBookings: 2,
         bookingBlockedUntil: null,
       };
-    else if (url.pathname.endsWith('/calendar')) json = { serverNow: new Date().toISOString(), days: [] };
+    else if (url.pathname.endsWith('/calendar'))
+      json = { serverNow: new Date().toISOString(), days: [] };
     else if (url.pathname.endsWith('/availability'))
       json = {
         roomTypeId: property.roomTypes[0].id,
@@ -193,6 +194,7 @@ async function mockApi(page: Page, role?: Role) {
         serverNow: new Date().toISOString(),
       };
     else if (url.pathname.includes('/properties/')) json = property;
+    else if (url.pathname.endsWith('/bookings/test-booking')) json = booking;
     else {
       const count = url.searchParams.get('limit') === '4' ? 4 : 8;
       const items =
@@ -240,10 +242,13 @@ test('home, listing, detail, auth and role areas remain usable at desktop, table
         await expect(page.locator('.property-card').first()).toBeVisible();
         await expect
           .poll(() =>
-            page.locator('.property-card img').first().evaluate((image) => {
-              const element = image as HTMLImageElement;
-              return element.complete && element.naturalWidth > 0;
-            }),
+            page
+              .locator('.property-card img')
+              .first()
+              .evaluate((image) => {
+                const element = image as HTMLImageElement;
+                return element.complete && element.naturalWidth > 0;
+              }),
           )
           .toBe(true);
       }
@@ -367,7 +372,9 @@ test('gallery, calendar, booking totals, payment and cancellation work with moti
   await expect(dialog).not.toBeVisible();
   await expect(galleryTrigger).toBeFocused();
   const calendar = page.locator('.stayhub-calendar');
-  await page.getByLabel('Loại phòng / chỗ ở').selectOption(property.roomTypes[0].id);
+  await page
+    .getByLabel('Loại phòng / chỗ ở')
+    .selectOption(property.roomTypes[0].id);
   const height = (await calendar.boundingBox())?.height;
   await page.getByRole('button', { name: 'Tháng sau' }).click();
   await expect(calendar.locator('.rdp-weeks')).toHaveCount(1);
@@ -388,24 +395,22 @@ test('gallery, calendar, booking totals, payment and cancellation work with moti
   const request = page.waitForRequest(
     (r) => r.method() === 'POST' && r.url().endsWith('/bookings'),
   );
-  await page.getByRole('button', { name: 'Đặt chỗ ngay' }).click();
+  await page
+    .getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' })
+    .click();
+  await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   expect((await request).postDataJSON().guestCount).toBe(2);
-  await expect(page).toHaveURL('/bookings');
+  await expect(page).toHaveURL('/bookings/test-booking/payment');
   const toast = page.locator('[data-sonner-toast]').first();
   await expect(toast).toBeVisible();
   await expect(toast).toHaveCSS('transition-duration', '0.24s');
   await page
-    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
+    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
     .click();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Thanh toán cọc', exact: true }),
-  ).toBeFocused();
-  await page
-    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
-    .click();
-  await page.getByRole('button', { name: 'Tôi đã thanh toán' }).click();
+    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   await expect(page.locator('article')).toContainText('Đã xác nhận');
   await page.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
   await page.getByRole('button', { name: 'Xác nhận hủy' }).click();
@@ -613,7 +618,9 @@ test('discovery keeps long locations readable and does not present a missing pri
     const card = page.locator('.discovery-property');
     await expect(card).toBeVisible();
     await expect(card).toContainText(listing.name);
-    await expect(card).toContainText(`${listing.district} · ${listing.address}`);
+    await expect(card).toContainText(
+      `${listing.district} · ${listing.address}`,
+    );
     await expect(card).toContainText('Xem giá theo loại phòng');
     await expect(card).not.toContainText(/Từ\s*0/);
     await expect(card).toHaveAttribute('href', propertyPath);

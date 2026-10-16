@@ -5,7 +5,6 @@ import { validateSync } from 'class-validator';
 import {
   demoAccounts,
   demoAmenities,
-  demoProperties,
   demoAccommodations,
 } from '../prisma/demo-data';
 import {
@@ -13,25 +12,23 @@ import {
   SearchPropertyDto,
 } from '../src/properties/property.dto';
 
-test('synthetic catalog has intended geographic concentration and distinct UUIDs', () => {
-  assert.equal(demoProperties.length, 38);
-  assert.equal(new Set(demoProperties.map((p) => p.id)).size, 38);
-  assert.equal(new Set(demoProperties.map((p) => p.name)).size, 38);
-  const counts: Record<string, number> = {};
-  for (const p of demoProperties)
-    counts[p.district] = (counts[p.district] ?? 0) + 1;
-  assert.deepEqual(counts, {
-    'Quận 1': 7,
-    'Quận 3': 3,
-    'Bình Thạnh': 6,
-    'Thủ Đức': 7,
-    'Quận 2': 6,
-    'Quận 7': 5,
-    'Gò Vấp': 2,
-    'Phú Nhuận': 2,
-  });
-  assert.ok(demoProperties.some((p) => p.type === 'HOTEL'));
-  assert.ok(demoProperties.some((p) => p.type === 'HOMESTAY'));
+test('four independent Host accounts own five properties with only Hoàng Thành sharing a brand', () => {
+  assert.equal(demoAccounts.filter((a) => a[2] === 'HOST').length, 4);
+  assert.equal(demoAccommodations.length, 5);
+  assert.equal(new Set(demoAccommodations.map((p) => p.id)).size, 5);
+  assert.equal(new Set(demoAccommodations.map((p) => p.name)).size, 5);
+  const ownership = new Map<string, typeof demoAccommodations>();
+  for (const p of demoAccommodations)
+    ownership.set(p.hostEmail, [...(ownership.get(p.hostEmail) ?? []), p]);
+  assert.deepEqual(
+    [...ownership.values()].map((p) => p.length).sort(),
+    [1, 1, 1, 2],
+  );
+  const branches = [...ownership.values()].find((p) => p.length === 2)!;
+  assert.deepEqual(
+    branches.map((p) => p.name),
+    ['Khách sạn Hoàng Thành 1', 'Khách sạn Hoàng Thành 2'],
+  );
 });
 
 test('catalog matches app validation and sensible capacities and varied facilities', () => {
@@ -61,7 +58,9 @@ test('catalog matches app validation and sensible capacities and varied faciliti
       checkInTime: '14:00',
       checkOutTime: '12:00',
       images: images.map((i) => i.url),
-      amenityIds: codes.map((c) => amenityIds.get(c)),
+      amenityIds: codes.map((c) =>
+        amenityIds.get(c as (typeof demoAmenities)[number][0]),
+      ),
     });
     assert.equal(validateSync(dto).length, 0, data.name);
     assert.equal(status, 'ACTIVE');
@@ -77,8 +76,7 @@ test('catalog matches app validation and sensible capacities and varied faciliti
     assert.equal(new Set(codes).size, codes.length);
     assert.equal(images.length, 3);
   }
-  assert.ok(new Set(demoProperties.map((p) => p.pricePerNight)).size > 25);
-  assert.ok(new Set(demoProperties.map((p) => p.codes.join(','))).size >= 6);
+  assert.equal(demoAccommodations.flatMap((p) => p.roomTypes).length, 13);
 });
 
 test('Quận 2 and property type are supported search filters; invalid type rejected', () => {

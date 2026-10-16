@@ -129,7 +129,7 @@ async function main() {
   await request('GET', '/bookings/my', undefined, undefined, 401);
   const admin = await request<Session>('POST', '/auth/login', undefined, {
     email: 'admin',
-    password: 'admin',
+    password: process.env.DEMO_PASSWORD,
   });
   const pending = await request<User[]>(
     'GET',
@@ -354,7 +354,7 @@ async function main() {
     '/bookings/' + booking.id + '/pay',
     guest.accessToken,
     undefined,
-    409,
+    201,
   );
   await request(
     'PATCH',
@@ -390,10 +390,16 @@ async function main() {
     (await prisma.booking.findUniqueOrThrow({ where: { id: late.id } })).status,
     'EXPIRED',
   );
-  assert.ok(
+  assert.equal(
     (await request<Booking[]>('GET', '/bookings/my', guest.accessToken)).some(
       (b) => b.id === late.id && b.status === 'EXPIRED',
     ),
+    false,
+  );
+  assert.equal(
+    (await request<Booking>('GET', `/bookings/${late.id}`, guest.accessToken))
+      .status,
+    'EXPIRED',
   );
   assert.ok(
     (await request<Booking[]>('GET', '/host/bookings', host.accessToken)).some(

@@ -81,7 +81,8 @@ async function mockApi(page: Page, role: 'HOST' | 'GUEST' = 'GUEST') {
         maxActiveUnpaidBookings: 2,
         bookingBlockedUntil: null,
       };
-    else if (url.pathname.endsWith('/calendar')) json = { serverNow: new Date().toISOString(), days: [] };
+    else if (url.pathname.endsWith('/calendar'))
+      json = { serverNow: new Date().toISOString(), days: [] };
     else if (url.pathname.endsWith('/availability'))
       json = {
         roomTypeId: property.roomTypes[0].id,
@@ -130,7 +131,9 @@ test('guests see host times and today becomes dimmed and disabled when the selec
   await page.clock.install({ time: new Date('2026-10-04T04:50:00Z') });
   await mockApi(page);
   await page.goto(path);
-  await page.getByLabel('Loại phòng / chỗ ở').selectOption(property.roomTypes[0].id);
+  await page
+    .getByLabel('Loại phòng / chỗ ở')
+    .selectOption(property.roomTypes[0].id);
   const card = page.locator('aside');
   await expect(card.getByText('14:00', { exact: true })).toBeVisible();
   await expect(card.getByText('11:30', { exact: true })).toBeVisible();
@@ -143,7 +146,7 @@ test('guests see host times and today becomes dimmed and disabled when the selec
   await day(page, '2026-10-04').click();
   await day(page, '2026-10-05').click();
   await expect(
-    page.getByRole('button', { name: 'Đặt chỗ ngay' }),
+    page.getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' }),
   ).toBeEnabled();
   await page.clock.pauseAt(new Date('2026-10-04T04:59:56Z'));
   await page.clock.fastForward(5000);
@@ -155,7 +158,7 @@ test('guests see host times and today becomes dimmed and disabled when the selec
     '0.5',
   );
   await expect(
-    page.getByRole('button', { name: 'Đặt chỗ ngay' }),
+    page.getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' }),
   ).toBeDisabled();
   await expect(card.getByRole('alert')).toContainText(
     'Thời gian nhận phòng quá gần',
@@ -163,7 +166,7 @@ test('guests see host times and today becomes dimmed and disabled when the selec
   await day(page, '2026-10-05').click();
   await day(page, '2026-10-06').click();
   await expect(
-    page.getByRole('button', { name: 'Đặt chỗ ngay' }),
+    page.getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' }),
   ).toBeEnabled();
   for (const width of [1440, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 });

@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { RequireAuth } from '@/components/require-auth';
+import { HostPropertyScope } from '@/components/host-property-scope';
 export default function HostLayout({
   children,
 }: {
@@ -34,7 +35,7 @@ export default function HostLayout({
             Đặt phòng
           </Link>
         </nav>
-        {children}
+        <HostPropertyScope>{children}</HostPropertyScope>
       </div>
     </RequireAuth>
   );

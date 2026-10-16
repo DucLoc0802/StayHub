@@ -24,15 +24,27 @@ test(
       });
     const seed = () => {
       const result = spawnSync(process.execPath, ['dist/seed/prisma/seed.js'], {
-        env: { ...process.env, DATABASE_URL: url },
+        env: {
+          ...process.env,
+          DATABASE_URL: url,
+          DEMO_PASSWORD: 'Synthetic-test-password-123',
+        },
         encoding: 'utf8',
       });
       assert.equal(result.status, 0, result.stderr);
     };
     try {
+      seed();
       const before = await snapshot();
-      assert.equal(before.length, 38);
-      assert.equal(before.flatMap((p) => p.roomTypes).length, 62);
+      assert.equal(before.length, 5);
+      assert.equal(before.flatMap((p) => p.roomTypes).length, 13);
+      const hostCounts = new Map<string, number>();
+      for (const property of before)
+        hostCounts.set(
+          property.hostId,
+          (hostCounts.get(property.hostId) ?? 0) + 1,
+        );
+      assert.deepEqual([...hostCounts.values()].sort(), [1, 1, 1, 2]);
       const history = await prisma.booking.findMany({
         where: {
           roomTypeId: {
@@ -40,13 +52,40 @@ test(
           },
         },
         orderBy: { id: 'asc' },
+        include: {
+          payment: true,
+          events: { orderBy: { id: 'asc' } },
+          paymentAttempts: { orderBy: { id: 'asc' } },
+        },
       });
+      const demoHistory = history.filter((b) =>
+        b.bookingCode.startsWith('STB-DEMO-V2-'),
+      );
+      assert.equal(demoHistory.length, 7);
+      assert.equal(new Set(demoHistory.map((b) => b.guestId)).size, 2);
+      assert.ok(
+        history.some(
+          (b) =>
+            b.status === 'PENDING_PAYMENT' &&
+            b.paymentAttempts.some((p) => p.status === 'FAILED'),
+        ),
+      );
+      for (const booking of demoHistory) {
+        assert.ok(booking.events.some((e) => e.type === 'CREATED'));
+        if (booking.payment)
+          assert.equal(booking.payment.amount, booking.depositAmount);
+      }
       seed();
       assert.deepEqual(await snapshot(), before);
       assert.deepEqual(
         await prisma.booking.findMany({
           where: { id: { in: history.map((b) => b.id) } },
           orderBy: { id: 'asc' },
+          include: {
+            payment: true,
+            events: { orderBy: { id: 'asc' } },
+            paymentAttempts: { orderBy: { id: 'asc' } },
+          },
         }),
         history,
       );

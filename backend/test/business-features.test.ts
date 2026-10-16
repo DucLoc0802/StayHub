@@ -160,42 +160,101 @@ test(
         quantity: 2,
         guestCount: 4,
       };
-      await t.test('batched Property calendar excludes inactive inventory and projects the cheapest bookable daily price', async () => {
-        const fixtureIds: string[] = [];
-        const start = new Date(Date.now() + 90 * 86400000);
-        start.setUTCHours(0, 0, 0, 0);
-        const at = (offset: number) => new Date(start.getTime() + offset * 86400000);
-        const rooms = property.roomTypes;
-        const inactive = await prisma.roomType.create({ data: {
-          ...roomFields, propertyId: property.id, name: 'Inactive cheaper', pricePerNight: 1, status: 'INACTIVE',
-        } });
-        try {
-          for (const [roomTypeId, offset, quantity] of [
-            [rooms[0].id, 0, 10], [rooms[0].id, 2, 6], [rooms[0].id, 3, 9],
-            [rooms[0].id, 4, 10], [rooms[1].id, 4, 3],
-          ] as [string, number, number][]) {
-            const row = await prisma.booking.create({ data: {
-              bookingCode: `STB-${randomUUID()}`, guestId: guest.id, roomTypeId, quantity,
-              guestCount: 1, checkIn: at(offset), checkOut: at(offset + 1),
-              roomTypeNameSnapshot: 'Calendar fixture', nightlyPriceSnapshot: 1, totalNights: 1,
-              totalAmount: quantity, depositPercentSnapshot: 0, depositAmount: 0, remainingAmount: quantity,
-              paymentDeadlineAt: new Date(), status: 'CONFIRMED',
-            } });
-            fixtureIds.push(row.id);
+      await t.test(
+        'batched Property calendar excludes inactive inventory and projects the cheapest bookable daily price',
+        async () => {
+          const fixtureIds: string[] = [];
+          const start = new Date(Date.now() + 90 * 86400000);
+          start.setUTCHours(0, 0, 0, 0);
+          const at = (offset: number) =>
+            new Date(start.getTime() + offset * 86400000);
+          const rooms = property.roomTypes;
+          const inactive = await prisma.roomType.create({
+            data: {
+              ...roomFields,
+              propertyId: property.id,
+              name: 'Inactive cheaper',
+              pricePerNight: 1,
+              status: 'INACTIVE',
+            },
+          });
+          try {
+            for (const [roomTypeId, offset, quantity] of [
+              [rooms[0].id, 0, 10],
+              [rooms[0].id, 2, 6],
+              [rooms[0].id, 3, 9],
+              [rooms[0].id, 4, 10],
+              [rooms[1].id, 4, 3],
+            ] as [string, number, number][]) {
+              const row = await prisma.booking.create({
+                data: {
+                  bookingCode: `STB-${randomUUID()}`,
+                  guestId: guest.id,
+                  roomTypeId,
+                  quantity,
+                  guestCount: 1,
+                  checkIn: at(offset),
+                  checkOut: at(offset + 1),
+                  roomTypeNameSnapshot: 'Calendar fixture',
+                  nightlyPriceSnapshot: 1,
+                  totalNights: 1,
+                  totalAmount: quantity,
+                  depositPercentSnapshot: 0,
+                  depositAmount: 0,
+                  remainingAmount: quantity,
+                  paymentDeadlineAt: new Date(),
+                  status: 'CONFIRMED',
+                },
+              });
+              fixtureIds.push(row.id);
+            }
+            const query = `checkIn=${at(0).toISOString().slice(0, 10)}&checkOut=${at(5).toISOString().slice(0, 10)}`;
+            const calendar = await request(
+              'GET',
+              `/properties/${property.id}/calendar?${query}`,
+              undefined,
+            );
+            assert.deepEqual(
+              calendar.days.map(
+                (day: {
+                  pricePerNight: number | null;
+                  availableUnits: number;
+                }) => [day.pricePerNight, day.availableUnits],
+              ),
+              [
+                [1200000, 3],
+                [600000, 10],
+                [600000, 4],
+                [600000, 1],
+                [null, 0],
+              ],
+            );
+            const availability = await request(
+              'GET',
+              `/room-types/${rooms[0].id}/availability?${query}`,
+              undefined,
+            );
+            assert.deepEqual(
+              availability.days.map(
+                (day: { availableUnits: number }) => day.availableUnits,
+              ),
+              [0, 10, 4, 1, 0],
+            );
+            await request(
+              'GET',
+              `/properties/${property.id}/calendar?checkIn=bad&checkOut=bad`,
+              undefined,
+              undefined,
+              400,
+            );
+          } finally {
+            await prisma.booking.deleteMany({
+              where: { id: { in: fixtureIds } },
+            });
+            await prisma.roomType.delete({ where: { id: inactive.id } });
           }
-          const query = `checkIn=${at(0).toISOString().slice(0, 10)}&checkOut=${at(5).toISOString().slice(0, 10)}`;
-          const calendar = await request('GET', `/properties/${property.id}/calendar?${query}`, undefined);
-          assert.deepEqual(calendar.days.map((day: { pricePerNight: number | null; availableUnits: number }) => [day.pricePerNight, day.availableUnits]), [
-            [1200000, 3], [600000, 10], [600000, 4], [600000, 1], [null, 0],
-          ]);
-          const availability = await request('GET', `/room-types/${rooms[0].id}/availability?${query}`, undefined);
-          assert.deepEqual(availability.days.map((day: { availableUnits: number }) => day.availableUnits), [0, 10, 4, 1, 0]);
-          await request('GET', `/properties/${property.id}/calendar?checkIn=bad&checkOut=bad`, undefined, undefined, 400);
-        } finally {
-          await prisma.booking.deleteMany({ where: { id: { in: fixtureIds } } });
-          await prisma.roomType.delete({ where: { id: inactive.id } });
-        }
-      });
+        },
+      );
       await t.test(
         'incomplete guest browses but cannot book; profile updates are self-only and validated',
         async () => {
@@ -227,10 +286,27 @@ test(
           );
           assert.equal(saved.id, incomplete.id);
           assert.equal(saved.passwordHash, undefined);
-          for (const phoneNumber of ['0901234567', '090 123 4567', '090-123-4567', '+84 90 123 4567']) {
-            const profile = await request('PATCH', '/auth/profile', incomplete.token, { fullName: 'Khách hoàn thiện', phoneNumber });
+          for (const phoneNumber of [
+            '0901234567',
+            '090 123 4567',
+            '090-123-4567',
+            '+84 90 123 4567',
+          ]) {
+            const profile = await request(
+              'PATCH',
+              '/auth/profile',
+              incomplete.token,
+              { fullName: 'Khách hoàn thiện', phoneNumber },
+            );
             assert.equal(profile.phoneNumber, '0901234567');
-            assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: incomplete.id } })).phoneNumber, '0901234567');
+            assert.equal(
+              (
+                await prisma.user.findUniqueOrThrow({
+                  where: { id: incomplete.id },
+                })
+              ).phoneNumber,
+              '0901234567',
+            );
           }
           const booking = await request(
             'POST',
@@ -331,16 +407,63 @@ test(
       await t.test(
         'public lookup requires code plus snapshot email, returns safe fields and rate limits anonymous calls',
         async () => {
-          const body = { bookingCode: booking.bookingCode.toLowerCase(), email: ` ${guest.email.toUpperCase()} ` };
-          const result = await request('POST', '/booking-lookup', undefined, body, 201);
+          const body = {
+            bookingCode: booking.bookingCode.toLowerCase(),
+            email: ` ${guest.email.toUpperCase()} `,
+          };
+          const result = await request(
+            'POST',
+            '/booking-lookup',
+            undefined,
+            body,
+            201,
+          );
           assert.equal(result.bookingCode, booking.bookingCode);
           assert.equal(result.propertyName, propertyPayload.name);
-          assert.deepEqual(Object.keys(result).sort(), ['bookingCode', 'status', 'propertyName', 'roomTypeName', 'checkIn', 'checkOut', 'quantity', 'guestCount', 'paymentState', 'paymentDeadlineAt'].sort());
-          const wrongEmail = await request('POST', '/booking-lookup', undefined, { ...body, email: 'wrong@synthetic.test' }, 404);
-          const wrongCode = await request('POST', '/booking-lookup', undefined, { ...body, bookingCode: 'STB-UNKNOWN' }, 404);
+          assert.deepEqual(
+            Object.keys(result).sort(),
+            [
+              'bookingCode',
+              'status',
+              'propertyName',
+              'roomTypeName',
+              'checkIn',
+              'checkOut',
+              'quantity',
+              'guestCount',
+              'paymentState',
+              'paymentDeadlineAt',
+            ].sort(),
+          );
+          const wrongEmail = await request(
+            'POST',
+            '/booking-lookup',
+            undefined,
+            { ...body, email: 'wrong@synthetic.test' },
+            404,
+          );
+          const wrongCode = await request(
+            'POST',
+            '/booking-lookup',
+            undefined,
+            { ...body, bookingCode: 'STB-UNKNOWN' },
+            404,
+          );
           assert.deepEqual(wrongEmail, wrongCode);
-          await request('POST', '/booking-lookup', undefined, { ...body, email: stranger.email }, 404);
-          await request('POST', '/booking-lookup', undefined, { bookingCode: body.bookingCode }, 400);
+          await request(
+            'POST',
+            '/booking-lookup',
+            undefined,
+            { ...body, email: stranger.email },
+            404,
+          );
+          await request(
+            'POST',
+            '/booking-lookup',
+            undefined,
+            { bookingCode: body.bookingCode },
+            400,
+          );
           await request('POST', '/booking-lookup', undefined, body, 429);
         },
       );
@@ -384,7 +507,7 @@ test(
             `/bookings/${booking.id}/pay`,
             guest.token,
             undefined,
-            409,
+            201,
           );
         },
       );
@@ -681,53 +804,318 @@ test(
           );
         },
       );
-      await t.test('paid Guest converted to pending/active Host retains only owned history, invoice and eligible feedback', async () => {
-        const own = await request('GET', '/bookings/my', guest.token);
-        assert.ok(own.some((item: { id: string }) => item.id === booking.id));
-        await request('PATCH', `/admin/users/${guest.id}`, admin.token, { role: 'HOST' });
-        await request('PATCH', `/admin/users/${stranger.id}`, admin.token, { role: 'HOST' });
-        assert.ok((await request('GET', '/bookings/my', stranger.token)).every((item: { guestId: string }) => item.guestId === stranger.id));
-        const noBookings = await makeUser('GUEST');
-        await request('PATCH', `/admin/users/${noBookings.id}`, admin.token, { role: 'HOST' });
-        assert.deepEqual(await request('GET', '/bookings/my', noBookings.token), []);
-        await request('PATCH', `/admin/hosts/${noBookings.id}/approve`, admin.token);
-        assert.deepEqual(await request('GET', '/host/properties', noBookings.token), []);
-        for (const approved of [false, true]) {
-          if (approved) await request('PATCH', `/admin/hosts/${guest.id}/approve`, admin.token);
-          const history = await request('GET', '/bookings/my', guest.token);
-          assert.ok(history.some((item: { id: string }) => item.id === booking.id));
-          assert.equal((await request('GET', `/bookings/${booking.id}`, guest.token)).id, booking.id);
-          assert.equal((await request('GET', `/bookings/${booking.id}/invoice`, guest.token)).id, booking.id);
-          assert.equal((await request('GET', `/bookings/lookup/${booking.bookingCode}`, guest.token)).id, booking.id);
-          await request('GET', `/bookings/${booking.id}`, stranger.token, undefined, 404);
-          await request('GET', `/bookings/${booking.id}/invoice`, stranger.token, undefined, 404);
-          await request('GET', '/admin/statistics', guest.token, undefined, 403);
-          if (!approved) {
-            for (const path of ['/host/properties', '/host/bookings', `/host/properties/${property.id}`])
-              await request('GET', path, guest.token, undefined, 403);
-            await request('POST', '/host/properties', guest.token, propertyPayload, 403);
-            await request('GET', `/bookings/${booking.id}`, host.token);
-            const outsiderBooking = await prisma.booking.create({ data: {
-              guestId: stranger.id, roomTypeId: property.roomTypes[0].id, bookingCode: `STB-${randomUUID()}`,
-              roomTypeNameSnapshot: 'Room', quantity: 1, guestCount: 1, checkIn: new Date('2020-01-01'), checkOut: new Date('2020-01-02'),
-              nightlyPriceSnapshot: 1, totalNights: 1, totalAmount: 1, depositPercentSnapshot: 0,
-              depositAmount: 0, remainingAmount: 1, paymentDeadlineAt: new Date('2020-01-01'), status: 'CONFIRMED',
-            } });
-            await request('GET', `/bookings/${outsiderBooking.id}`, guest.token, undefined, 404);
-            await request('POST', `/bookings/${outsiderBooking.id}/feedback`, guest.token, { rating: 5, content: 'Not my booking' }, 404);
-            const ownPast = await prisma.booking.create({ data: {
-              guestId: guest.id, roomTypeId: property.roomTypes[0].id, bookingCode: `STB-${randomUUID()}`,
-              roomTypeNameSnapshot: 'Room', quantity: 1, guestCount: 1, checkIn: new Date('2020-02-01'), checkOut: new Date('2020-02-02'),
-              nightlyPriceSnapshot: 1, totalNights: 1, totalAmount: 1, depositPercentSnapshot: 0,
-              depositAmount: 0, remainingAmount: 1, paymentDeadlineAt: new Date('2020-02-01'), status: 'CONFIRMED',
-            } });
-            await request('POST', `/bookings/${ownPast.id}/feedback`, guest.token, { rating: 5, content: 'Historical stay is accessible' }, 201);
-          } else {
-            assert.deepEqual(await request('GET', '/host/bookings', guest.token), []);
-            await request('GET', `/host/properties/${property.id}`, guest.token, undefined, 404);
+      await t.test(
+        'paid Guest converted to pending/active Host retains only owned history, invoice and eligible feedback',
+        async () => {
+          const own = await request('GET', '/bookings/my', guest.token);
+          assert.ok(own.some((item: { id: string }) => item.id === booking.id));
+          await request('PATCH', `/admin/users/${guest.id}`, admin.token, {
+            role: 'HOST',
+          });
+          await request('PATCH', `/admin/users/${stranger.id}`, admin.token, {
+            role: 'HOST',
+          });
+          assert.ok(
+            (await request('GET', '/bookings/my', stranger.token)).every(
+              (item: { guestId: string }) => item.guestId === stranger.id,
+            ),
+          );
+          const noBookings = await makeUser('GUEST');
+          await request('PATCH', `/admin/users/${noBookings.id}`, admin.token, {
+            role: 'HOST',
+          });
+          assert.deepEqual(
+            await request('GET', '/bookings/my', noBookings.token),
+            [],
+          );
+          await request(
+            'PATCH',
+            `/admin/hosts/${noBookings.id}/approve`,
+            admin.token,
+          );
+          assert.deepEqual(
+            await request('GET', '/host/properties', noBookings.token),
+            [],
+          );
+          for (const approved of [false, true]) {
+            if (approved)
+              await request(
+                'PATCH',
+                `/admin/hosts/${guest.id}/approve`,
+                admin.token,
+              );
+            const history = await request('GET', '/bookings/my', guest.token);
+            assert.ok(
+              history.some((item: { id: string }) => item.id === booking.id),
+            );
+            assert.equal(
+              (await request('GET', `/bookings/${booking.id}`, guest.token)).id,
+              booking.id,
+            );
+            assert.equal(
+              (
+                await request(
+                  'GET',
+                  `/bookings/${booking.id}/invoice`,
+                  guest.token,
+                )
+              ).id,
+              booking.id,
+            );
+            assert.equal(
+              (
+                await request(
+                  'GET',
+                  `/bookings/lookup/${booking.bookingCode}`,
+                  guest.token,
+                )
+              ).id,
+              booking.id,
+            );
+            await request(
+              'GET',
+              `/bookings/${booking.id}`,
+              stranger.token,
+              undefined,
+              404,
+            );
+            await request(
+              'GET',
+              `/bookings/${booking.id}/invoice`,
+              stranger.token,
+              undefined,
+              404,
+            );
+            await request(
+              'GET',
+              '/admin/statistics',
+              guest.token,
+              undefined,
+              403,
+            );
+            if (!approved) {
+              for (const path of [
+                '/host/properties',
+                '/host/bookings',
+                `/host/properties/${property.id}`,
+              ])
+                await request('GET', path, guest.token, undefined, 403);
+              await request(
+                'POST',
+                '/host/properties',
+                guest.token,
+                propertyPayload,
+                403,
+              );
+              await request('GET', `/bookings/${booking.id}`, host.token);
+              const outsiderBooking = await prisma.booking.create({
+                data: {
+                  guestId: stranger.id,
+                  roomTypeId: property.roomTypes[0].id,
+                  bookingCode: `STB-${randomUUID()}`,
+                  roomTypeNameSnapshot: 'Room',
+                  quantity: 1,
+                  guestCount: 1,
+                  checkIn: new Date('2020-01-01'),
+                  checkOut: new Date('2020-01-02'),
+                  nightlyPriceSnapshot: 1,
+                  totalNights: 1,
+                  totalAmount: 1,
+                  depositPercentSnapshot: 0,
+                  depositAmount: 0,
+                  remainingAmount: 1,
+                  paymentDeadlineAt: new Date('2020-01-01'),
+                  status: 'CONFIRMED',
+                },
+              });
+              await request(
+                'GET',
+                `/bookings/${outsiderBooking.id}`,
+                guest.token,
+                undefined,
+                404,
+              );
+              await request(
+                'POST',
+                `/bookings/${outsiderBooking.id}/feedback`,
+                guest.token,
+                { rating: 5, content: 'Not my booking' },
+                404,
+              );
+              const ownPast = await prisma.booking.create({
+                data: {
+                  guestId: guest.id,
+                  roomTypeId: property.roomTypes[0].id,
+                  bookingCode: `STB-${randomUUID()}`,
+                  roomTypeNameSnapshot: 'Room',
+                  quantity: 1,
+                  guestCount: 1,
+                  checkIn: new Date('2020-02-01'),
+                  checkOut: new Date('2020-02-02'),
+                  nightlyPriceSnapshot: 1,
+                  totalNights: 1,
+                  totalAmount: 1,
+                  depositPercentSnapshot: 0,
+                  depositAmount: 0,
+                  remainingAmount: 1,
+                  paymentDeadlineAt: new Date('2020-02-01'),
+                  status: 'CONFIRMED',
+                },
+              });
+              await request(
+                'POST',
+                `/bookings/${ownPast.id}/feedback`,
+                guest.token,
+                { rating: 5, content: 'Historical stay is accessible' },
+                201,
+              );
+            } else {
+              assert.deepEqual(
+                await request('GET', '/host/bookings', guest.token),
+                [],
+              );
+              await request(
+                'GET',
+                `/host/properties/${property.id}`,
+                guest.token,
+                undefined,
+                404,
+              );
+            }
           }
-        }
-      });
+        },
+      );
+      await t.test(
+        'Admin detail is read-only and branches are scoped by Host and property across APIs',
+        async () => {
+          await request(
+            'PATCH',
+            `/admin/amenities/${amenity.id}`,
+            admin.token,
+            { active: true },
+          );
+          const branch = await request(
+            'POST',
+            '/host/properties',
+            host.token,
+            { ...propertyPayload, name: 'Chi nhánh kiểm thử 2' },
+            201,
+          );
+          const other = await request(
+            'POST',
+            '/host/properties',
+            strangerHost.token,
+            { ...propertyPayload, name: 'Cơ sở chủ khác' },
+            201,
+          );
+          properties.push(branch.id, other.id);
+          const owned = await request('GET', '/host/properties', host.token);
+          assert.deepEqual(
+            owned.map((p: { id: string }) => p.id).sort(),
+            [property.id, branch.id].sort(),
+          );
+          assert.deepEqual(
+            await request(
+              'GET',
+              `/host/bookings?propertyId=${branch.id}`,
+              host.token,
+            ),
+            [],
+          );
+          assert.ok(
+            (
+              await request(
+                'GET',
+                `/host/bookings?propertyId=${property.id}`,
+                host.token,
+              )
+            ).every(
+              (b: { property: { id: string } }) =>
+                b.property.id === property.id,
+            ),
+          );
+          await request(
+            'GET',
+            `/host/bookings?propertyId=${other.id}`,
+            host.token,
+            undefined,
+            404,
+          );
+          await request(
+            'GET',
+            `/host/properties/${other.id}`,
+            host.token,
+            undefined,
+            404,
+          );
+          await request(
+            'PATCH',
+            `/host/properties/${other.id}`,
+            host.token,
+            { name: 'Forbidden' },
+            404,
+          );
+          await request(
+            'PATCH',
+            `/host/properties/${branch.id}`,
+            host.token,
+            { roomTypes: [{ ...roomFields, id: other.roomTypes[0].id }] },
+            400,
+          );
+          const all = await request(
+            'GET',
+            '/admin/bookings?limit=100',
+            admin.token,
+          );
+          assert.equal(all.total, await prisma.booking.count());
+          const paid = await request(
+            'GET',
+            `/admin/bookings?hostId=${host.id}&propertyId=${property.id}&paymentStatus=SUCCESS`,
+            admin.token,
+          );
+          assert.ok(
+            paid.items.some((b: { id: string }) => b.id === booking.id),
+          );
+          const detail = await request(
+            'GET',
+            `/admin/bookings/${booking.id}`,
+            admin.token,
+          );
+          assert.ok(
+            detail.timeline.some(
+              (e: { type: string }) => e.type === 'PAYMENT_SUCCESS',
+            ),
+          );
+          assert.ok(
+            detail.timeline.some(
+              (e: { type: string }) => e.type === 'CONFIRMED',
+            ),
+          );
+          for (const actor of [host, strangerHost, stranger]) {
+            await request(
+              'GET',
+              `/admin/bookings/${booking.id}`,
+              actor.token,
+              undefined,
+              403,
+            );
+            await request(
+              'GET',
+              '/admin/booking-filters',
+              actor.token,
+              undefined,
+              403,
+            );
+          }
+          await request(
+            'PATCH',
+            `/admin/bookings/${booking.id}/confirm`,
+            admin.token,
+            {},
+            404,
+          );
+        },
+      );
     } finally {
       await prisma.feedback.deleteMany({ where: { guestId: { in: users } } });
       await prisma.payment.deleteMany({

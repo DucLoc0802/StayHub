@@ -2,6 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nestjs",
   "buildCommand": "npm run build:vercel",
+  "crons": [
+    { "path": "/api/internal/expire-bookings", "schedule": "*/10 * * * *" }
+  ],
   "env": {
     "NODE_ENV": "production",
     "FRONTEND_URL": "https://pentabug2-stayhub.vercel.app"

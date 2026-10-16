@@ -156,16 +156,17 @@ async function mock(
         days: Array.from({ length: (to - from) / 86400000 }, (_, i) => {
           const date = new Date(from + i * 86400000).toISOString().slice(0, 10);
           const values: Record<string, [number | null, number]> = {
-            '2027-10-09': [900000, 3], '2027-10-10': [600000, 7],
-            '2027-10-11': [600000, 4], '2027-10-12': [600000, 1],
+            '2027-10-09': [900000, 3],
+            '2027-10-10': [600000, 7],
+            '2027-10-11': [600000, 4],
+            '2027-10-12': [600000, 1],
             '2027-10-13': [null, 0],
           };
           const [pricePerNight, availableUnits] = values[date] ?? [600000, 10];
           return { date, pricePerNight, availableUnits };
         }),
       };
-    }
-    else if (path.endsWith('/availability')) {
+    } else if (path.endsWith('/availability')) {
       const from = Date.parse(url.searchParams.get('checkIn')!),
         to = Date.parse(url.searchParams.get('checkOut')!);
       const deluxe = path.includes('30000000');
@@ -219,7 +220,26 @@ async function mock(
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII=',
         serverNow: '2027-10-05T03:00:00Z',
       };
-    else if (path.endsWith('/pay')) {
+    else if (
+      path.endsWith('/pay') &&
+      request.postDataJSON()?.outcome === 'FAILED'
+    ) {
+      current = {
+        ...current,
+        paymentAttempts: [
+          {
+            id: 'failed-attempt',
+            status: 'FAILED',
+            amount: current.depositAmount,
+            createdAt: '2027-10-05T03:00:00Z',
+            method: 'FAKE',
+            failureReason: 'Thanh toán demo thất bại.',
+          },
+        ],
+      };
+      data = current;
+      status = 201;
+    } else if (path.endsWith('/pay')) {
       current = {
         ...current,
         status: 'CONFIRMED',
@@ -245,8 +265,24 @@ async function mock(
           paidAt: '2027-10-05T03:00:00Z',
         },
       };
-    else if (path.endsWith('/bookings/my') || path.endsWith('/host/bookings'))
-      data = [current];
+    else if (path.endsWith('/bookings/my'))
+      data = current.payment?.status === 'SUCCESS' ? [current] : [];
+    else if (path.endsWith('/host/bookings')) data = [current];
+    else if (path.endsWith('/bookings/pending-payments'))
+      data =
+        current.status === 'PENDING_PAYMENT' && !current.payment
+          ? [current]
+          : [];
+    else if (path.endsWith('/host/properties')) data = [listing];
+    else if (path.endsWith('/admin/booking-filters'))
+      data = [
+        {
+          id,
+          name: property.name,
+          hostId: 'host',
+          host: { fullName: 'Chủ cơ sở' },
+        },
+      ];
     else if (path.includes('/bookings/lookup/')) data = current;
     else if (path === '/api/bookings' && request.method() === 'POST') {
       data = current;
@@ -318,19 +354,32 @@ async function mock(
 const day = (page: Page, value: string) =>
   page.locator(`[data-day="${value}"]:not(.rdp-outside) .rdp-day_button`);
 
-test('profile accepts formatted Vietnamese phones, submits canonical digits and rejects invalid text', async ({ page }) => {
+test('profile accepts formatted Vietnamese phones, submits canonical digits and rejects invalid text', async ({
+  page,
+}) => {
   await mock(page);
   await page.goto('/account');
   const phone = page.getByLabel('Số điện thoại *', { exact: true });
-  for (const input of ['0901234567', '090 123 4567', '090-123-4567', '+84 90 123 4567']) {
+  for (const input of [
+    '0901234567',
+    '090 123 4567',
+    '090-123-4567',
+    '+84 90 123 4567',
+  ]) {
     await phone.fill(input);
-    const request = page.waitForRequest((req) => req.url().endsWith('/auth/profile') && req.method() === 'PATCH');
+    const request = page.waitForRequest(
+      (req) => req.url().endsWith('/auth/profile') && req.method() === 'PATCH',
+    );
     await page.getByRole('button', { name: 'Lưu thông tin' }).click();
     expect((await request).postDataJSON().phoneNumber).toBe('0901234567');
-    await expect(page.getByRole('link', { name: 'Tiếp tục đặt phòng' })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Tiếp tục đặt phòng' }),
+    ).toBeVisible();
   }
   let submitted = false;
-  page.on('request', (req) => { if (req.url().endsWith('/auth/profile')) submitted = true; });
+  page.on('request', (req) => {
+    if (req.url().endsWith('/auth/profile')) submitted = true;
+  });
   await phone.fill('not a phone');
   await page.getByRole('button', { name: 'Lưu thông tin' }).click();
   await expect(page.locator('#profile-phone-error')).toBeVisible();
@@ -338,18 +387,33 @@ test('profile accepts formatted Vietnamese phones, submits canonical digits and 
 });
 
 for (const status of ['PENDING', 'ACTIVE'] as const) {
-  test(`converted ${status} Host can navigate personal history, invoice and feedback`, async ({ page }) => {
+  test(`converted ${status} Host can navigate personal history, invoice and feedback`, async ({
+    page,
+  }) => {
     await mock(page, 'HOST', true, 'completed', status);
     await page.goto('/bookings');
-    await expect(page.getByText(`Mã đặt chỗ · ${booking.bookingCode}`)).toBeVisible();
-    await expect(page.getByLabel('Điểm đánh giá', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(`Mã đặt chỗ · ${booking.bookingCode}`),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel('Điểm đánh giá', { exact: true }),
+    ).toBeVisible();
     await page.getByRole('button', { name: 'Mở menu tài khoản' }).click();
-    await expect(page.getByRole('menuitem', { name: 'Đặt phòng của tôi' })).toBeVisible();
-    if (status === 'PENDING') await expect(page.getByRole('menuitem', { name: 'Quản lý chỗ nghỉ' })).toHaveCount(0);
+    await expect(
+      page.getByRole('menuitem', { name: 'Đặt phòng của tôi' }),
+    ).toBeVisible();
+    if (status === 'PENDING')
+      await expect(
+        page.getByRole('menuitem', { name: 'Quản lý chỗ nghỉ' }),
+      ).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.getByRole('link', { name: 'Xem hóa đơn' }).click();
-    await expect(page.getByRole('button', { name: 'In / Xuất PDF' })).toBeVisible();
-    await expect(page.getByText(booking.bookingCode, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'In / Xuất PDF' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(booking.bookingCode, { exact: true }),
+    ).toBeVisible();
   });
 }
 
@@ -357,54 +421,112 @@ for (const role of ['ANONYMOUS', 'GUEST', 'HOST', 'ADMIN'] as const) {
   test(`public lookup is visible and limited for ${role}`, async ({ page }) => {
     await mock(page, role === 'ANONYMOUS' ? 'GUEST' : role);
     if (role === 'ANONYMOUS') {
-      await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, json: { message: 'Vui lòng đăng nhập.' } }));
+      await page.route('**/api/auth/me', (route) =>
+        route.fulfill({
+          status: 401,
+          json: { message: 'Vui lòng đăng nhập.' },
+        }),
+      );
     }
     await page.route('**/api/booking-lookup', async (route) => {
       const body = route.request().postDataJSON();
       expect(Object.keys(body).sort()).toEqual(['bookingCode', 'email']);
-      await route.fulfill(body.email === 'synthetic@example.test' ? {
-        status: 201, json: { bookingCode: booking.bookingCode, status: 'CONFIRMED', propertyName: property.name,
-          roomTypeName: 'Tiêu chuẩn', checkIn: booking.checkIn, checkOut: booking.checkOut,
-          quantity: 2, guestCount: 4, paymentState: 'PAID' },
-      } : { status: 404, json: { message: 'Không tìm thấy booking phù hợp với thông tin đã nhập.' } });
+      await route.fulfill(
+        body.email === 'synthetic@example.test'
+          ? {
+              status: 201,
+              json: {
+                bookingCode: booking.bookingCode,
+                status: 'CONFIRMED',
+                propertyName: property.name,
+                roomTypeName: 'Tiêu chuẩn',
+                checkIn: booking.checkIn,
+                checkOut: booking.checkOut,
+                quantity: 2,
+                guestCount: 4,
+                paymentState: 'PAID',
+              },
+            }
+          : {
+              status: 404,
+              json: {
+                message:
+                  'Không tìm thấy booking phù hợp với thông tin đã nhập.',
+              },
+            },
+      );
     });
     await page.goto('/booking-lookup');
     for (const width of [1440, 375]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(page.locator('header').getByRole('link', { name: 'Tra cứu booking', exact: true }).filter({ visible: true })).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect(
+        page
+          .locator('header')
+          .getByRole('link', { name: 'Tra cứu đặt phòng', exact: true })
+          .filter({ visible: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
     }
-    await page.getByLabel('Mã booking', { exact: true }).fill(booking.bookingCode.toLowerCase());
+    await page
+      .getByLabel('Mã booking', { exact: true })
+      .fill(booking.bookingCode.toLowerCase());
     await page.getByLabel('Email đặt phòng').fill('SYNTHETIC@example.test');
     await page.getByRole('button', { name: 'Tra cứu', exact: true }).click();
-    await expect(page.getByRole('heading', { name: booking.bookingCode })).toBeVisible();
-    await expect(page.getByText('Đã thanh toán cọc', { exact: true })).toBeVisible();
-    await expect(page.getByText(booking.customerPhoneSnapshot, { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Xem hóa đơn' })).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: booking.bookingCode }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Đã thanh toán cọc', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(booking.customerPhoneSnapshot, { exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Xem hóa đơn' })).toHaveCount(
+      0,
+    );
     await page.getByLabel('Email đặt phòng').fill('wrong@example.test');
     await page.getByRole('button', { name: 'Tra cứu', exact: true }).click();
-    await expect(page.locator('main').getByRole('alert')).toContainText('Không tìm thấy booking');
-    await expect(page.getByRole('heading', { name: booking.bookingCode })).toHaveCount(0);
+    await expect(page.locator('main').getByRole('alert')).toContainText(
+      'Không tìm thấy booking',
+    );
+    await expect(
+      page.getByRole('heading', { name: booking.bookingCode }),
+    ).toHaveCount(0);
   });
 }
 
-test('property prices color only the price, include accessible labels, and quantity disables insufficient dates', async ({ page }) => {
+test('property prices color only the price, include accessible labels, and quantity disables insufficient dates', async ({
+  page,
+}) => {
   await mock(page);
   await page.goto('/properties/business-ui-demo');
   for (const [date, price, tone] of [
-    ['09', '900k', 'yellow'], ['10', '600k', 'green'],
-    ['11', '600k', 'yellow'], ['12', '600k', 'red'],
+    ['09', '900k', 'yellow'],
+    ['10', '600k', 'green'],
+    ['11', '600k', 'yellow'],
+    ['12', '600k', 'red'],
   ]) {
     const button = day(page, `2027-10-${date}`);
     await expect(button.locator('.calendar-price')).toContainText(price);
-    await expect(button.locator('.calendar-price')).toHaveClass(new RegExp(`inventory-${tone}`));
+    await expect(button.locator('.calendar-price')).toHaveClass(
+      new RegExp(`inventory-${tone}`),
+    );
     await expect(button).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(button).toHaveAttribute('aria-label', /giá từ/);
     await expect(button).not.toHaveClass(/inventory-/);
   }
   await expect(day(page, '2027-10-13')).toBeDisabled();
-  await expect(day(page, '2027-10-13').locator('.calendar-price')).toHaveText(/\s*/);
-  await expect(day(page, '2027-10-13')).toHaveAttribute('aria-label', /Hết phòng/);
+  await expect(day(page, '2027-10-13').locator('.calendar-price')).toHaveText(
+    /\s*/,
+  );
+  await expect(day(page, '2027-10-13')).toHaveAttribute(
+    'aria-label',
+    /Hết phòng/,
+  );
   await page.getByLabel('Loại phòng / chỗ ở').selectOption(id);
   await page.getByLabel('Số phòng', { exact: true }).selectOption('3');
   await expect(day(page, '2027-10-11')).toBeDisabled();
@@ -414,7 +536,12 @@ test('property prices color only the price, include accessible labels, and quant
   await expect(day(page, '2027-10-11')).toBeEnabled();
   await day(page, '2027-10-09').click();
   await day(page, '2027-10-11').click();
-  await expect(page.locator('aside').getByText('Còn 4 phòng trong toàn bộ kỳ lưu trú').first()).toBeVisible();
+  await expect(
+    page
+      .locator('aside')
+      .getByText('Còn 4 phòng trong toàn bộ kỳ lưu trú')
+      .first(),
+  ).toBeVisible();
   await expect(day(page, '2027-10-10')).not.toHaveText(/\n4$/);
 });
 
@@ -483,7 +610,7 @@ test('calendar colors, labels, sold-out disabling and per-room-type switching', 
   await day(page, '2027-10-09').click();
   await day(page, '2027-10-13').click();
   await expect(
-    page.getByRole('button', { name: 'Đặt chỗ ngay' }),
+    page.getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' }),
   ).toBeDisabled();
   await page
     .getByLabel('Loại phòng / chỗ ở')
@@ -503,7 +630,9 @@ test('incomplete guest browses, is prompted only when booking and completes prof
   ).toBeVisible();
   await day(page, '2027-10-09').click();
   await day(page, '2027-10-11').click();
-  await page.getByRole('button', { name: 'Đặt chỗ ngay' }).click();
+  await page
+    .getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' })
+    .click();
   await expect(page).toHaveURL(/\/account\?next=/);
   await page
     .getByLabel('Họ và tên *', { exact: true })
@@ -530,7 +659,13 @@ test('QR payment, confirmation, invoice snapshots and print layout work at mobil
     path: '../.local/business-payment-mobile.png',
     fullPage: true,
   });
-  await page.getByRole('button', { name: 'Tôi đã thanh toán' }).click();
+  await page
+    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   await expect(page.getByRole('link', { name: 'Xem hóa đơn' })).toBeVisible();
   await page.getByRole('link', { name: 'Xem hóa đơn' }).click();
   await expect(page.getByText('0901234567', { exact: true })).toBeVisible();
@@ -552,6 +687,100 @@ test('QR payment, confirmation, invoice snapshots and print layout work at mobil
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.invoice-content')).toBeVisible();
   await expect(page.locator('.invoice-actions')).toBeHidden();
+});
+
+test('booking review creates a hold and routes directly into payment', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.goto('/properties/business-ui-demo');
+  await page.getByLabel('Loại phòng / chỗ ở').selectOption(id);
+  await day(page, '2027-10-09').click();
+  await day(page, '2027-10-11').click();
+  await page
+    .getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' })
+    .click();
+  await expect(
+    page.getByRole('region', { name: 'Kiểm tra thông tin đặt phòng' }),
+  ).toContainText('Khách tổng hợp');
+  await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
+  await expect(page).toHaveURL(new RegExp(`/bookings/${booking.id}/payment$`));
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán cọc', exact: true }),
+  ).toBeVisible();
+});
+
+test('unfinished checkout stays outside paid history, failure is retryable, and success URL alone does not pay', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.goto(`/bookings/${booking.id}/payment/result?success=true`);
+  await expect(
+    page.getByRole('heading', { name: 'Chưa ghi nhận thanh toán' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+  ).toHaveCount(0);
+  await page.goto('/bookings');
+  await expect(
+    page.getByText('Bạn chưa có đặt phòng đã thanh toán nào.'),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Tiếp tục đơn chờ thanh toán' }).click();
+  await page
+    .getByRole('link', { name: 'Tiếp tục thanh toán', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Thử tình huống thanh toán thất bại' })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán chưa thành công' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Thanh toán demo thất bại.', { exact: true }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Thử thanh toán lại' }).click();
+  await page
+    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
+  await expect(
+    page.getByText(`Mã đặt chỗ · ${booking.bookingCode}`),
+  ).toBeVisible();
+});
+
+test('multi-property Host selection follows the chosen branch across management tabs', async ({
+  page,
+}) => {
+  await mock(page, 'HOST');
+  const branch = {
+    ...property,
+    id: 'second-branch',
+    name: 'Khách sạn Hoàng Thành 2',
+  };
+  await page.route('**/api/host/properties', (route) =>
+    route.fulfill({ json: [property, branch] }),
+  );
+  await page.route('**/api/host/bookings?*', (route) =>
+    route.fulfill({
+      json:
+        new URL(route.request().url()).searchParams.get('propertyId') ===
+        branch.id
+          ? [{ ...booking, property: branch }]
+          : [booking],
+    }),
+  );
+  await page.goto('/host');
+  await page.getByLabel('Cơ sở đang quản lý').selectOption(branch.id);
+  await expect(page.getByRole('heading', { name: branch.name })).toBeVisible();
+  await page.getByRole('link', { name: 'Đặt phòng', exact: true }).click();
+  await expect(page.getByLabel('Cơ sở đang quản lý')).toHaveValue(branch.id);
+  await expect(page.getByRole('heading', { name: branch.name })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: property.name, exact: true }),
+  ).toHaveCount(0);
 });
 test('booking lookup and public feedback render', async ({ page }) => {
   await mock(page);

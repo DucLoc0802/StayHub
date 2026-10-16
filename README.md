@@ -12,7 +12,7 @@ Triển khai frontend và backend trên Vercel: [cấu hình domain, biến môi
 - Tìm tên/khu vực, loại cơ sở, tiện ích, khoảng giá; giá “Từ”, lọc và sắp xếp dùng giá thấp nhất của loại phòng đang mở bán.
 - Host quản lý nhiều loại phòng, giá, tồn, sức chứa, trạng thái, ảnh, tiện ích, giờ nhận/trả và cửa sổ thanh toán.
 - Guest chọn loại phòng, ngày, số phòng và số khách. Lịch trống tính theo từng đêm, checkout exclusive.
-- Pending giữ phòng ngay; thanh toán trước deadline xác nhận đơn, quá hạn thành EXPIRED và trả tồn phòng. Khách tối đa 2 đơn pending; 3 lần hết hạn trong 30 ngày tạm khóa đặt 24 giờ.
+- Pending giữ phòng ngay; xem lại thông tin → trang thanh toán riêng → kết quả do backend xác thực. My Bookings chỉ hiển thị đơn đã trả cọc; tiếp tục đơn chưa trả tại `/bookings/pending-payments`. Quá hạn thành EXPIRED và trả tồn phòng. Khách tối đa 2 đơn pending; 3 lần hết hạn trong 30 ngày tạm khóa đặt 24 giờ.
 - Hủy confirmed mất cọc, giữ lịch sử Payment. Giá, tên loại phòng, số lượng và chính sách tại lúc đặt được lưu snapshot.
 - Link tên chỗ nghỉ ngắn và ổn định; link UUID cũ được chuyển hướng. Responsive, bàn phím, reduced motion, trạng thái loading/error/empty.
 - Lịch có nhãn và màu tồn phòng: xanh từ 5, vàng 3–4, đỏ 1–2; ngày hết phòng bị vô hiệu hóa. Số phòng trên thẻ loại phòng được tính cho kỳ lưu trú đã chọn.
@@ -68,18 +68,18 @@ Các biến cấu hình lead time/chống lạm dụng nằm trong `backend/.env
 
 ## Demo
 
-| Đăng nhập                 | Mật khẩu    | Vai trò      |
-| ------------------------- | ----------- | ------------ |
-| admin                     | admin       | Admin        |
-| host                      | host        | Host ACTIVE  |
-| guest                     | guest       | Guest        |
-| pendinghost@stayhub.local | StayHub123! | Host PENDING |
-| host.east@stayhub.local   | StayHub123! | Host ACTIVE  |
-| host.south@stayhub.local  | StayHub123! | Host ACTIVE  |
+Đặt `DEMO_PASSWORD` (ít nhất 8 ký tự, tối đa 72 byte UTF-8) trong môi trường backend trước khi chạy seed. Tài khoản mới dùng mật khẩu này, băm bcrypt; tài khoản đã tồn tại giữ nguyên mật khẩu và chỉnh sửa. Không chạy seed trên production.
 
-Dữ liệu hoàn toàn tổng hợp: **38 cơ sở, 12 hotel, 26 homestay, 62 loại phòng, 254 đơn vị, 14 tiện ích và 8 đơn minh họa**, kèm một đánh giá sau lưu trú. Đa số ở Thủ Đức, Quận 1, Quận 2, Bình Thạnh và Quận 7. Nhãn địa danh dùng cách gọi quen thuộc; không phải thông tin địa giới hiện hành hay tin đăng thật.
+| Tài khoản Host                                   | Cơ sở tổng hợp               |
+| ------------------------------------------------ | ---------------------------- |
+| host@stayhub.local — Trần Thảo An                | Homestay An Nhiên            |
+| host.east@stayhub.local — Nguyễn Minh Châu       | Khách sạn Minh Châu          |
+| host.south@stayhub.local — Lê Bình An            | Nhà nghỉ Bình An             |
+| host.hoangthanh@stayhub.local — Hoàng Thanh Tùng | Khách sạn Hoàng Thành 1 và 2 |
 
-Seed không tạo trùng, giữ chỉnh sửa cơ sở/loại phòng và lịch sử. Ba tài khoản demo chính được giữ mật khẩu admin/host/guest. Ngày demo được giữ nguyên sau lần tạo đầu tiên. Ảnh ngoài phụ thuộc nhà cung cấp.
+Thêm `admin@stayhub.local`, `guest@stayhub.local` và `guest.lan@stayhub.local`. Các bí danh đăng nhập `admin`, `host`, `guest` vẫn dùng được. Database mới có **4 Host, 5 cơ sở, 13 loại phòng, 37 đơn vị, 14 tiện ích và 7 đơn minh họa** trên hai khách hàng, gồm đã thanh toán, đã hủy sau thanh toán, hết hạn, chờ cọc và giao dịch thất bại có thể thử lại. Không tạo đánh giá công khai hoặc chỉ số phổ biến giả.
+
+Seed dùng ID cố định, giữ lịch sử và chỉnh sửa. Chỉ ngừng bán các fixture cũ khớp đầy đủ dấu vân tay; cơ sở đã chỉnh sửa và dữ liệu người dùng được giữ. Database nâng cấp có thể còn cơ sở cũ để bảo toàn lịch sử. Địa chỉ, giá và ảnh đều là minh họa. [Thay đổi marketplace, API, migration và triển khai lịch hết hạn](MARKETPLACE_CHANGES.md).
 
 ## Kiểm thử
 

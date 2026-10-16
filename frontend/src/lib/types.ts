@@ -107,6 +107,22 @@ export interface Property {
   amenities: { amenity: Amenity; amenityId: string }[];
 }
 export interface Booking {
+  createdAt?: string;
+  timeline?: {
+    id: string;
+    type: string;
+    createdAt: string;
+    amount?: number;
+    failureReason?: string | null;
+  }[];
+  paymentAttempts?: {
+    id: string;
+    status: 'SUCCESS' | 'FAILED';
+    amount: number;
+    createdAt: string;
+    failureReason?: string | null;
+    method: 'FAKE';
+  }[];
   id: string;
   guestId?: string;
   bookingCode: string;
@@ -146,7 +162,7 @@ export interface Booking {
     paidAt: string;
     method: 'FAKE';
   };
-  guest?: { fullName: string; email: string };
+  guest?: { fullName: string; email?: string };
 }
 export interface Feedback {
   id: string;

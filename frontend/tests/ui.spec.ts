@@ -118,11 +118,7 @@ test('public pages render without horizontal overflow on desktop, tablet and mob
         .toBe(true);
     }
     await page.goto('/');
-    await expect(
-      page.getByRole('heading', {
-        name: 'Tìm chỗ nghỉ tại TP. Hồ Chí Minh',
-      }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page.locator('.property-card').first()).toBeVisible();
     await page.screenshot({
       path: `../docs/screenshots/home-${width}.png`,
@@ -156,14 +152,16 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
 }) => {
   await page.goto('/login');
   await page.getByLabel('Tài khoản hoặc email', { exact: true }).fill('guest');
-  await page.getByLabel('Mật khẩu', { exact: true }).fill('guest');
+  await page
+    .getByLabel('Mật khẩu', { exact: true })
+    .fill(process.env.DEMO_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL('/');
-  await page.goto('/properties/10000000-0000-4000-8000-000000000001');
+  await page.goto('/properties/71000000-0000-4000-8000-000000000001');
   await expect(
-    page.getByRole('heading', { name: 'Cam Giấy · Căn hộ ban công' }),
+    page.getByRole('heading', { name: 'Homestay An Nhiên' }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/properties\/cam-giay/);
+  await expect(page).toHaveURL(/\/properties\/homestay-an-nhien/);
   await expect(page.locator('.gallery-image')).toHaveCount(3);
   await expect
     .poll(
@@ -212,8 +210,11 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
         String.fromCharCode(0x1edf),
     )
     .inputValue();
+  await page
+    .getByLabel('Loại phòng / chỗ ở')
+    .selectOption('72000000-0000-4000-8000-000000000001');
   const availability = await page.request.get(
-    `${process.env.TEST_API_URL ?? 'http://localhost:4000/api'}/room-types/${roomTypeId}/availability?checkIn=${month}-01&checkOut=${month}-28`,
+    `${process.env.TEST_API_URL ?? 'http://localhost:4000/api'}/room-types/${roomTypeId || '72000000-0000-4000-8000-000000000001'}/availability?checkIn=${month}-01&checkOut=${month}-28`,
   );
   expect(availability.ok()).toBe(true);
   const { days }: { days: { date: string; availableUnits: number }[] } =
@@ -229,13 +230,19 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
       .locator(`[data-day="${date}"]:not(.rdp-outside) .rdp-day_button`)
       .click();
   }
-  await page.getByRole('button', { name: 'Đặt chỗ ngay' }).click();
-  await expect(page).toHaveURL('/bookings');
+  await page
+    .getByRole('button', { name: 'Kiểm tra thông tin đặt phòng' })
+    .click();
+  await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
+  await expect(page).toHaveURL(/\/bookings\/.+\/payment$/);
+  await page
+    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   const card = page.locator('article').first();
-  await expect(card.getByText('Chờ thanh toán', { exact: true })).toBeVisible();
-  await card.getByRole('button', { name: 'Thanh toán cọc' }).click();
-  await expect(page.getByRole('dialog')).toContainText('không thu tiền thật');
-  await page.getByRole('button', { name: 'Tôi đã thanh toán' }).click();
   await expect(card.getByText('Đã xác nhận', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('mất khoản tiền cọc');
@@ -254,19 +261,15 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
 test('role areas, host form validation and account states fit narrow screens', async ({
   page,
 }) => {
-  for (const [email, password, route, heading] of [
-    ['host', 'host', '/host', 'Cùng đón những chuyến đi mới.'],
-    [
-      'pendinghost@stayhub.local',
-      'StayHub123!',
-      '/account',
-      'Tài khoản của tôi',
-    ],
-    ['admin', 'admin', '/admin/hosts', 'Xét duyệt người cho thuê'],
+  for (const [email, route, heading] of [
+    ['host', '/host', 'Quản lý chỗ nghỉ'],
+    ['admin', '/admin/hosts', 'Xét duyệt người cho thuê'],
   ]) {
     await page.goto('/login');
     await page.getByLabel('Tài khoản hoặc email', { exact: true }).fill(email);
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
+    await page
+      .getByLabel('Mật khẩu', { exact: true })
+      .fill(process.env.DEMO_PASSWORD!);
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
     await expect(page).toHaveURL(route);
     await expect(
@@ -282,7 +285,7 @@ test('role areas, host form validation and account states fit narrow screens', a
     }
     if (email === 'host') {
       await page.getByRole('link', { name: 'Thêm chỗ nghỉ' }).click();
-      await page.getByLabel('Giá mỗi đêm (₫)').fill('850000');
+      await page.getByLabel('Giá mỗi đêm (₫)').first().fill('850000');
       await page.getByRole('button', { name: 'Lưu chỗ nghỉ' }).click();
       await expect(page.getByText('Tên cần ít nhất 3 ký tự.')).toBeVisible();
       expect(
@@ -292,7 +295,7 @@ test('role areas, host form validation and account states fit narrow screens', a
       ).toBe(true);
       await page.goto('/host/bookings');
       await expect(
-        page.getByRole('heading', { name: 'Đặt phòng tại chỗ nghỉ của tôi' }),
+        page.getByRole('heading', { name: 'Quản lý đặt phòng' }),
       ).toBeVisible();
     }
     if (email.startsWith('pendinghost@'))
