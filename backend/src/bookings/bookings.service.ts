@@ -58,24 +58,29 @@ export function bookingResponse<T extends BookingRow>(booking: T) {
       type: 'CREATED',
       createdAt: booking.createdAt,
     });
-  for (const attempt of booking.paymentAttempts ?? [])
+  for (const attempt of (booking.paymentAttempts ?? []).filter(
+    (p) => p.method === 'FAKE',
+  ))
     timeline.push({
       id: attempt.id,
-      type: attempt.status === 'SUCCESS' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
+      type:
+        attempt.status === 'SUCCESS'
+          ? 'SIMULATED_PAYMENT_SUCCESS'
+          : 'SIMULATED_PAYMENT_FAILED',
       createdAt: attempt.createdAt,
       amount: attempt.amount,
       failureReason: attempt.failureReason,
     });
   if (
-    booking.payment &&
+    booking.payment?.method === 'FAKE' &&
     !booking.paymentAttempts?.some((a) => a.status === booking.payment!.status)
   ) {
     timeline.push({
       id: booking.payment.id,
       type:
         booking.payment.status === 'SUCCESS'
-          ? 'PAYMENT_SUCCESS'
-          : 'PAYMENT_FAILED',
+          ? 'SIMULATED_PAYMENT_SUCCESS'
+          : 'SIMULATED_PAYMENT_FAILED',
       createdAt: booking.payment.paidAt ?? booking.payment.createdAt,
       amount: booking.payment.amount,
     });
@@ -88,7 +93,7 @@ export function bookingResponse<T extends BookingRow>(booking: T) {
       timeline.push({ id: type, type, createdAt: at });
   // Stable chronological order: payment precedes confirmation at the same instant.
   const priority = (type: string) =>
-    type === 'CREATED' ? 0 : type.startsWith('PAYMENT_') ? 1 : 2;
+    type === 'CREATED' ? 0 : type.includes('PAYMENT_') ? 1 : 2;
   timeline.sort(
     (a, b) =>
       a.createdAt.getTime() - b.createdAt.getTime() ||
@@ -353,8 +358,16 @@ export class BookingsService {
         await tx.booking.findMany({
           where: {
             guestId,
-            status: 'PENDING_PAYMENT',
-            paymentDeadlineAt: { gt: now },
+            OR: [
+              { status: 'PENDING_PAYMENT', paymentDeadlineAt: { gt: now } },
+              {
+                paymentAttempts: {
+                  some: {
+                    status: { in: ['SUBMITTED', 'RESOLUTION_REQUIRED'] },
+                  },
+                },
+              },
+            ],
             NOT: { payment: { is: { status: 'SUCCESS' } } },
           },
           include: bookingInclude,
@@ -408,6 +421,22 @@ export class BookingsService {
         throw new ConflictException(expiredMessage);
       if (booking.status === 'CANCELLED')
         throw new ConflictException('Đơn đặt phòng đã được hủy.');
+      const claims = await tx.paymentAttempt.updateMany({
+        where: { bookingId: id, status: 'SUBMITTED' },
+        data: {
+          status: 'RESOLUTION_REQUIRED',
+          failureReason:
+            'Đơn đã hủy khi chờ xác minh. Cần kiểm tra khoản tiền nhận và liên hệ khách.',
+        },
+      });
+      if (claims.count)
+        await tx.bookingEvent.create({
+          data: {
+            bookingId: id,
+            type: 'PAYMENT_RESOLUTION_REQUIRED',
+            status: 'CANCELLED',
+          },
+        });
       return bookingResponse(
         await tx.booking.update({
           where: { id },

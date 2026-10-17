@@ -424,8 +424,9 @@ export function BookingCard({
                 trả tại chỗ nghỉ: {money(q.remainingAmount)}
               </p>
               <p className="text-muted-foreground">
-                Thanh toán cọc demo trước hạn để xác nhận. Hủy đơn sau thanh
-                toán sẽ mất cọc.
+                Chuyển tiền cọc và gửi thông báo trước hạn. Đơn được xác nhận
+                sau khi khoản tiền được kiểm tra. Hủy đơn đã xác nhận sẽ mất
+                cọc.
               </p>
             </section>
           )}

@@ -32,8 +32,6 @@ export type SessionUser = {
 };
 export const Public = () => SetMetadata('public', true);
 export const Roles = (...roles: Role[]) => SetMetadata('roles', roles);
-// Only personal booking routes may admit a pending Host; ownership remains server-scoped.
-export const PersonalBookings = () => SetMetadata('personalBookings', true);
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): SessionUser =>
     ctx.switchToHttp().getRequest().user,
@@ -78,9 +76,7 @@ export class AuthGuard implements CanActivate {
       ctx.getHandler(),
       ctx.getClass(),
     ]);
-    const personalBookings = this.reflector.getAllAndOverride<boolean>('personalBookings', [ctx.getHandler(), ctx.getClass()]);
-    const pendingOwner = personalBookings && user.role === 'HOST' && user.status === 'PENDING';
-    if (roles && (!roles.includes(user.role) || (user.status !== 'ACTIVE' && !pendingOwner))) {
+    if (roles && (!roles.includes(user.role) || user.status !== 'ACTIVE')) {
       throw new ForbiddenException(
         'Bạn không có quyền thực hiện thao tác này hoặc tài khoản chưa được phê duyệt.',
       );

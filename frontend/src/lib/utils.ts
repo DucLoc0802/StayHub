@@ -45,6 +45,10 @@ export const roleLabel = {
   ADMIN: 'Quản trị viên',
 };
 export const statusLabel = {
+  SUBMITTED: 'Chờ xác minh',
+  SUCCESS: 'Đã xác minh',
+  FAILED: 'Chưa thành công',
+  RESOLUTION_REQUIRED: 'Cần xử lý riêng',
   EXPIRED: 'Hết hạn thanh toán',
   ACTIVE: 'Đang hoạt động',
   INACTIVE: 'Tạm ngưng',

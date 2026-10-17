@@ -72,8 +72,8 @@ test('paid history and resumable checkout query different persisted states', asy
     payment: { is: { status: 'SUCCESS' } },
   });
   assert.equal(where[1].guestId, 'customer');
-  assert.equal(where[1].status, 'PENDING_PAYMENT');
-  assert.ok(where[1].paymentDeadlineAt);
+  assert.ok(where[1].OR);
+  assert.equal(where[1].guestId, 'customer');
 });
 
 test('Host branch queries intersect ownership and reject foreign property IDs', async () => {
@@ -162,6 +162,7 @@ test('historical timeline uses recorded evidence and never invents confirmation/
     payment: {
       id: 'payment',
       status: 'SUCCESS',
+      method: 'FAKE',
       paidAt: new Date('2020-01-02'),
       createdAt: new Date('2020-01-02'),
       amount: 100,
@@ -171,7 +172,7 @@ test('historical timeline uses recorded evidence and never invents confirmation/
   } as unknown as Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
   assert.deepEqual(
     bookingResponse(legacy).timeline.map((e) => e.type),
-    ['CREATED', 'PAYMENT_SUCCESS'],
+    ['CREATED', 'SIMULATED_PAYMENT_SUCCESS'],
   );
   const recorded = {
     ...legacy,
@@ -187,7 +188,7 @@ test('historical timeline uses recorded evidence and never invents confirmation/
   } as typeof legacy;
   assert.deepEqual(
     bookingResponse(recorded).timeline.map((e) => e.type),
-    ['CREATED', 'PAYMENT_SUCCESS', 'CONFIRMED'],
+    ['CREATED', 'SIMULATED_PAYMENT_SUCCESS', 'CONFIRMED'],
   );
 });
 

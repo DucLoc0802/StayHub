@@ -38,6 +38,7 @@ import { bookingInclude, bookingResponse } from '../bookings/bookings.service';
 import { InventoryModule } from '../bookings/inventory.module';
 import { InventoryService } from '../bookings/inventory.service';
 import { dateRange } from '../bookings/availability';
+import { propertyInclude } from '../properties/properties.service';
 
 export class AdminQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(191) q?: string;
@@ -180,7 +181,7 @@ export class ManagementService {
         tx.booking.count(),
         tx.booking.groupBy({ by: ['status'], _count: true }),
         tx.payment.aggregate({
-          where: { status: 'SUCCESS' },
+          where: { status: 'SUCCESS', method: 'MOMO_MANUAL' },
           _sum: { amount: true },
         }),
       ]);
@@ -214,7 +215,11 @@ export class ManagementService {
           _count: true,
         }),
         tx.payment.aggregate({
-          where: { status: 'SUCCESS', booking: { guestId: id } },
+          where: {
+            status: 'SUCCESS',
+            method: 'MOMO_MANUAL',
+            booking: { guestId: id },
+          },
           _sum: { amount: true },
         }),
         tx.booking.findMany({
@@ -342,6 +347,40 @@ export class ManagementService {
       orderBy: { name: 'asc' },
     });
   }
+  properties(dto: AdminQueryDto) {
+    const where: Prisma.PropertyWhereInput = {
+      hostId: dto.hostId,
+      ...(dto.q ? { name: { contains: dto.q } } : {}),
+    };
+    return this.prisma.$transaction(async (tx) => ({
+      items: (
+        await tx.property.findMany({
+          where,
+          include: {
+            ...propertyInclude,
+            host: { select: { id: true, fullName: true } },
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          skip: (dto.page - 1) * dto.limit,
+          take: dto.limit,
+        })
+      ).map((p) => ({
+        ...p,
+        minPricePerNight: p.roomTypes
+          .filter((r) => r.status === 'ACTIVE')
+          .reduce<number | null>(
+            (price, room) =>
+              price === null
+                ? room.pricePerNight
+                : Math.min(price, room.pricePerNight),
+            null,
+          ),
+      })),
+      total: await tx.property.count({ where }),
+      page: dto.page,
+      limit: dto.limit,
+    }));
+  }
 }
 @ApiTags('Quản trị người dùng và thống kê')
 @ApiBearerAuth()
@@ -372,6 +411,9 @@ export class ManagementController {
   }
   @Get('booking-filters') filters() {
     return this.management.bookingFilters();
+  }
+  @Get('properties') properties(@Query() dto: AdminQueryDto) {
+    return this.management.properties(dto);
   }
   @Get('bookings/:id') booking(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.management.booking(id);

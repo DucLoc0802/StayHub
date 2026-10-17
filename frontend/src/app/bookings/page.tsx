@@ -3,7 +3,7 @@ import { BookingsList } from '@/components/bookings-list';
 import Link from 'next/link';
 export default function BookingsPage() {
   return (
-    <RequireAuth>
+    <RequireAuth role="GUEST">
       <div className="container-shell page-section">
         <h1 className="page-title mt-3">Đặt phòng của tôi</h1>
         <p className="mb-8 mt-3 text-sm text-muted-foreground">

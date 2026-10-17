@@ -64,10 +64,8 @@ test(
       assert.equal(demoHistory.length, 7);
       assert.equal(new Set(demoHistory.map((b) => b.guestId)).size, 2);
       assert.ok(
-        history.some(
-          (b) =>
-            b.status === 'PENDING_PAYMENT' &&
-            b.paymentAttempts.some((p) => p.status === 'FAILED'),
+        history.some((b) =>
+          b.paymentAttempts.some((p) => p.status === 'FAILED'),
         ),
       );
       for (const booking of demoHistory) {

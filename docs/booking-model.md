@@ -1,5 +1,7 @@
 ﻿# Mô hình đặt phòng StayHub
 
+> Tài liệu mốc trước: thanh toán FAKE/QR và seed cũ bên dưới đã được thay thế bởi [cập nhật vai trò/MoMo](../ROLE_PAYMENT_CHANGES.md). Phiên bản hiện tại không có QR hoặc API thanh toán giả lập.
+
 ## 1. Cơ sở lưu trú và loại phòng
 
 `Property` là cơ sở lưu trú: tên, địa chỉ, khu vực, chủ sở hữu, ảnh, tiện ích, giờ nhận/trả phòng và chính sách cọc. `RoomType` là loại phòng hoặc chỗ ở có thể bán trong cơ sở đó.

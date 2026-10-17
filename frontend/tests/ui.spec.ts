@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { submitAndVerifyTransfer } from './transfer-helper';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -34,7 +35,7 @@ test('authentication validation exposes field descriptions and clears invalid st
     await expect(email).toHaveAccessibleDescription(
       register
         ? 'Email không hợp lệ.'
-        : 'Nhập email hoặc tài khoản demo admin, host, guest.',
+        : 'Nhập email hoặc tên tài khoản hợp lệ.',
     );
     await expect(password).toHaveAccessibleDescription(
       register ? 'Mật khẩu cần ít nhất 8 ký tự.' : 'Vui lòng nhập mật khẩu.',
@@ -103,7 +104,9 @@ test('public pages render without horizontal overflow on desktop, tablet and mob
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  fs.mkdirSync(path.resolve('../docs/screenshots'), { recursive: true });
+  fs.mkdirSync(path.resolve('../.local/role-payment-screenshots'), {
+    recursive: true,
+  });
   for (const width of [1440, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const route of ['/', '/properties', '/login', '/register']) {
@@ -121,7 +124,7 @@ test('public pages render without horizontal overflow on desktop, tablet and mob
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page.locator('.property-card').first()).toBeVisible();
     await page.screenshot({
-      path: `../docs/screenshots/home-${width}.png`,
+      path: `../.local/role-payment-screenshots/home-${width}.png`,
       fullPage: true,
       animations: 'disabled',
     });
@@ -147,16 +150,18 @@ test('search and mobile filter navigation', async ({ page }) => {
   await expect(page).toHaveURL(/minPrice=500000/);
   await expect(page.getByRole('dialog')).not.toBeVisible();
 });
-test('guest login, property detail calendar, booking, fake deposit and cancellation', async ({
+test('guest login, property calendar, verified deposit and cancellation', async ({
   page,
 }) => {
   await page.goto('/login');
-  await page.getByLabel('Tài khoản hoặc email', { exact: true }).fill('guest');
+  await page
+    .getByLabel('Tài khoản hoặc email', { exact: true })
+    .fill('guest01');
   await page
     .getByLabel('Mật khẩu', { exact: true })
     .fill(process.env.DEMO_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/properties');
   await page.goto('/properties/71000000-0000-4000-8000-000000000001');
   await expect(
     page.getByRole('heading', { name: 'Homestay An Nhiên' }),
@@ -188,7 +193,7 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
       ),
     ).toBe(true);
     await page.screenshot({
-      path: `../docs/screenshots/detail-${width}.png`,
+      path: `../.local/role-payment-screenshots/detail-${width}.png`,
       fullPage: true,
       animations: 'disabled',
     });
@@ -235,12 +240,7 @@ test('guest login, property detail calendar, booking, fake deposit and cancellat
     .click();
   await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   await expect(page).toHaveURL(/\/bookings\/.+\/payment$/);
-  await page
-    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
-    .click();
-  await expect(
-    page.getByRole('heading', { name: 'Thanh toán thành công' }),
-  ).toBeVisible();
+  await submitAndVerifyTransfer(page);
   await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   const card = page.locator('article').first();
   await expect(card.getByText('Đã xác nhận', { exact: true })).toBeVisible();
@@ -262,8 +262,8 @@ test('role areas, host form validation and account states fit narrow screens', a
   page,
 }) => {
   for (const [email, route, heading] of [
-    ['host', '/host', 'Quản lý chỗ nghỉ'],
-    ['admin', '/admin/hosts', 'Xét duyệt người cho thuê'],
+    ['host01', '/host', 'Quản lý chỗ nghỉ'],
+    ['admin01', '/admin', 'Thống kê StayHub'],
   ]) {
     await page.goto('/login');
     await page.getByLabel('Tài khoản hoặc email', { exact: true }).fill(email);
@@ -283,7 +283,7 @@ test('role areas, host form validation and account states fit narrow screens', a
         ),
       ).toBe(true);
     }
-    if (email === 'host') {
+    if (email === 'host01') {
       await page.getByRole('link', { name: 'Thêm chỗ nghỉ' }).click();
       await page.getByLabel('Giá mỗi đêm (₫)').first().fill('850000');
       await page.getByRole('button', { name: 'Lưu chỗ nghỉ' }).click();
@@ -304,9 +304,8 @@ test('role areas, host form validation and account states fit narrow screens', a
           name: 'Tài khoản của bạn đang chờ phê duyệt.',
         }),
       ).toBeVisible();
-    await page.getByRole('button', { name: 'Mở menu tài khoản' }).click();
-    await page.getByRole('menuitem', { name: 'Đăng xuất' }).click();
-    await expect(page).toHaveURL('/');
+    await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+    await expect(page).toHaveURL('/login');
   }
 });
 test('empty results, network errors and keyboard dialog dismissal', async ({

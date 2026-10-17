@@ -57,7 +57,7 @@ export interface PublicBooking {
   checkOut: string;
   quantity: number;
   guestCount: number;
-  paymentState: 'PAID' | 'UNPAID';
+  paymentState: 'PAID' | 'UNPAID' | 'SIMULATED';
   paymentDeadlineAt?: string;
 }
 export interface BookingPolicy {
@@ -115,14 +115,7 @@ export interface Booking {
     amount?: number;
     failureReason?: string | null;
   }[];
-  paymentAttempts?: {
-    id: string;
-    status: 'SUCCESS' | 'FAILED';
-    amount: number;
-    createdAt: string;
-    failureReason?: string | null;
-    method: 'FAKE';
-  }[];
+  paymentAttempts?: PaymentAttempt[];
   id: string;
   guestId?: string;
   bookingCode: string;
@@ -158,9 +151,9 @@ export interface Booking {
   payment: null | {
     id: string;
     amount: number;
-    status: 'SUCCESS' | 'FAILED';
+    status: PaymentState;
     paidAt: string;
-    method: 'FAKE';
+    method: 'FAKE' | 'MOMO_MANUAL';
   };
   guest?: { fullName: string; email?: string };
 }
@@ -175,16 +168,49 @@ export interface FeedbackSummary {
   count: number;
   items: (Feedback & { guest: { fullName: string } })[];
 }
-export interface DemoPayment {
+export interface CheckoutPayment {
   booking: Booking;
-  qrDataUrl: string;
   serverNow: string;
-  payload: {
-    mode: 'DEMO';
-    currency: 'VND';
-    amount: number;
-    reference: string;
-    description: string;
+  recipient: {
+    available: boolean;
+    receiverName: string | null;
+    receiverPhone: string | null;
+    verificationWindowMinutes: number;
+  };
+}
+export type PaymentState =
+  'SUCCESS' | 'FAILED' | 'SUBMITTED' | 'RESOLUTION_REQUIRED';
+export interface PaymentAttempt {
+  id: string;
+  bookingId?: string;
+  amount: number;
+  status: PaymentState;
+  method: 'FAKE' | 'MOMO_MANUAL';
+  createdAt: string;
+  transactionRef?: string | null;
+  failureReason?: string | null;
+  evidenceNote?: string | null;
+  reviewedAt?: string | null;
+  reviewedById?: string | null;
+  verificationDeadlineAt?: string | null;
+  receiverNameSnapshot?: string | null;
+  receiverPhoneSnapshot?: string | null;
+  hostIdSnapshot?: string | null;
+  reviewedBy?: { id: string; fullName: string } | null;
+  booking?: {
+    id: string;
+    bookingCode: string;
+    status: Booking['status'];
+    customerNameSnapshot: string;
+    propertyNameSnapshot: string;
+    depositAmount: number;
+    roomType: {
+      property: {
+        id: string;
+        name: string;
+        host: { id: string; fullName: string };
+      };
+    };
   };
 }
 export interface AdminStatistics {

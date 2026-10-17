@@ -20,7 +20,7 @@ export function DialogContent({
       <DialogPrimitive.Overlay className="motion-backdrop fixed inset-0 z-50 bg-black/35 backdrop-blur-sm" />
       <DialogPrimitive.Content
         className={cn(
-          'motion-dialog fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border bg-white p-6 shadow-xl',
+          'motion-dialog fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-white p-6 shadow-xl',
           motion === 'sheet' && 'motion-sheet',
           className,
         )}

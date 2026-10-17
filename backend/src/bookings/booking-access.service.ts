@@ -4,34 +4,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as QRCode from 'qrcode';
 import { SessionUser } from '../common/security';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from './inventory.service';
 import { bookingInclude, bookingResponse } from './bookings.service';
 
 export function bookingScope(user: SessionUser): Prisma.BookingWhereInput {
+  if (user.role === 'HOST')
+    return { roomType: { property: { hostId: user.id } } };
   if (user.role === 'ADMIN') return {};
-  if (user.role === 'HOST' && user.status === 'ACTIVE')
-    return {
-      OR: [
-        { guestId: user.id },
-        { roomType: { property: { hostId: user.id } } },
-      ],
-    };
   return { guestId: user.id };
-}
-export function demoPaymentPayload(booking: {
-  bookingCode: string;
-  depositAmount: number;
-}) {
-  return {
-    mode: 'DEMO',
-    currency: 'VND',
-    amount: booking.depositAmount,
-    reference: booking.bookingCode,
-    description: `STAYHUB ${booking.bookingCode}`,
-  };
 }
 @Injectable()
 export class BookingAccessService {
@@ -61,25 +43,5 @@ export class BookingAccessService {
         'Chỉ đơn đã xác nhận và thanh toán cọc mới có hóa đơn.',
       );
     return booking;
-  }
-  async paymentDemo(user: SessionUser, id: string) {
-    const booking = await this.find(user, { id });
-    if (
-      booking.status !== 'PENDING_PAYMENT' ||
-      booking.payment?.status === 'SUCCESS' ||
-      booking.paymentDeadlineAt <= new Date()
-    )
-      throw new ConflictException('Đơn đặt phòng không thể thanh toán.');
-    const payload = demoPaymentPayload(booking);
-    return {
-      booking,
-      payload,
-      qrDataUrl: await QRCode.toDataURL(JSON.stringify(payload), {
-        width: 280,
-        margin: 2,
-        errorCorrectionLevel: 'M',
-      }),
-      serverNow: new Date(),
-    };
   }
 }

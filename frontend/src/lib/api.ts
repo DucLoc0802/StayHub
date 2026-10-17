@@ -13,7 +13,8 @@ import type {
   User,
   Feedback,
   FeedbackSummary,
-  DemoPayment,
+  CheckoutPayment,
+  PaymentAttempt,
   AdminStatistics,
   AdminPage,
   CustomerHistory,
@@ -85,14 +86,33 @@ export const api = {
   hostBookings: (propertyId?: string) =>
     get<Booking[]>('/host/bookings', { propertyId }),
   createBooking: (body: unknown) => post<Booking>('/bookings', body),
-  pay: (id: string, outcome: 'SUCCESS' | 'FAILED' = 'SUCCESS') =>
-    post<Booking>(`/bookings/${id}/pay`, { outcome }),
+  submitTransfer: (
+    id: string,
+    body: { transactionRef: string; evidenceNote?: string },
+  ) => post<Booking>(`/bookings/${id}/payment-claims`, body),
   lookupBooking: (code: string) =>
     get<Booking>(`/bookings/lookup/${encodeURIComponent(code)}`),
   publicLookup: (body: { bookingCode: string; email: string }) =>
     post<PublicBooking>('/booking-lookup', body),
   booking: (id: string) => get<Booking>(`/bookings/${id}`),
-  paymentDemo: (id: string) => get<DemoPayment>(`/bookings/${id}/payment-demo`),
+  checkout: (id: string) => get<CheckoutPayment>(`/bookings/${id}/payment`),
+  hostBooking: (id: string) => get<Booking>(`/host/bookings/${id}`),
+  adminPayments: (params?: object) =>
+    get<AdminPage<PaymentAttempt>>('/admin/payments', params),
+  reviewPayment: (
+    id: string,
+    body: {
+      decision: 'VERIFY' | 'REJECT' | 'RESOLUTION_REQUIRED';
+      reason?: string;
+      receivedAmount?: number;
+      verifiedTransactionRef?: string;
+    },
+  ) => post<Booking>(`/admin/payments/${id}/review`, body),
+  adminProperties: (params?: object) =>
+    get<AdminPage<Property & { host: { id: string; fullName: string } }>>(
+      '/admin/properties',
+      params,
+    ),
   invoice: (id: string) => get<Booking>(`/bookings/${id}/invoice`),
   feedback: (id: string, body: { rating: number; content: string }) =>
     post<Feedback>(`/bookings/${id}/feedback`, body),

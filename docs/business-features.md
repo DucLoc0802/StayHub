@@ -1,5 +1,7 @@
 # Chức năng nghiệp vụ bổ sung
 
+> Tài liệu mốc trước: thông tin thanh toán FAKE/QR, tài khoản và seed cũ bên dưới đã được thay thế bởi [cập nhật vai trò/MoMo](../ROLE_PAYMENT_CHANGES.md). Phiên bản hiện tại không có QR hoặc API thanh toán giả lập.
+
 Giữ nguyên Property → RoomType → Booking → Payment, transaction tồn phòng, deadline, chống lạm dụng và giao diện cam/kem. Không có cổng thanh toán thật.
 
 ## Khách và lịch phòng

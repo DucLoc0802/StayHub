@@ -1,5 +1,4 @@
 'use client';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,39 +66,6 @@ export function BookingSummary({ booking: b }: { booking: Booking }) {
         <dt>Còn lại</dt>
         <dd className="text-right">{money(b.remainingAmount)}</dd>
       </dl>
-    </div>
-  );
-}
-export function DemoQr({ id }: { id: string }) {
-  const query = useQuery({
-    queryKey: ['payment-demo', id],
-    queryFn: () => api.paymentDemo(id),
-    retry: false,
-  });
-  if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorState message={errorMessage(query.error)} />;
-  return (
-    <div className="mt-4 space-y-3 text-center">
-      <Image
-        className="mx-auto max-w-full rounded-xl border"
-        src={query.data.qrDataUrl}
-        unoptimized
-        width={280}
-        height={280}
-        alt={`QR thanh toán demo ${query.data.payload.reference}, tiền cọc ${money(query.data.payload.amount)}`}
-      />
-      <p className="break-words font-mono text-sm font-semibold">
-        {query.data.payload.description}
-      </p>
-      <p>{money(query.data.payload.amount)}</p>
-      <p className="text-xs leading-6 text-muted-foreground">
-        QR chứa số tiền và mã tham chiếu demo, không chứa tài khoản ngân hàng.
-        Không chuyển tiền thật. Bấm “Tôi đã thanh toán” để mô phỏng thanh toán
-        cọc.
-      </p>
-      <Link href={`/bookings/${id}/payment`} className="text-sm underline">
-        Mở trang thanh toán QR
-      </Link>
     </div>
   );
 }

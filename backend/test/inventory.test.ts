@@ -2,10 +2,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { HttpException } from '@nestjs/common';
+import { HttpException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { InventoryService } from '../src/bookings/inventory.service';
-import { BookingsService } from '../src/bookings/bookings.service';
+import {
+  BookingsService,
+  bookingInclude,
+  bookingResponse,
+} from '../src/bookings/bookings.service';
 import { PaymentsService } from '../src/payments/payments.service';
 import { PropertiesService } from '../src/properties/properties.service';
 import { RoomTypeDto } from '../src/properties/property.dto';
@@ -19,7 +23,7 @@ test(
     const prisma = new PrismaService({ datasources: { db: { url } } });
     const inventory = new InventoryService(prisma),
       bookings = new BookingsService(prisma, inventory),
-      payments = new PaymentsService(inventory),
+      manual = new PaymentsService(inventory, prisma),
       properties = new PropertiesService(prisma, inventory);
     const guests: string[] = [],
       propertyIds: string[] = [];
@@ -39,6 +43,50 @@ test(
     };
     const hostId = await guest();
     await prisma.user.update({ where: { id: hostId }, data: { role: 'HOST' } });
+    process.env.MOMO_RECEIVER_NAME = 'Synthetic receiver';
+    process.env.MOMO_RECEIVER_PHONE = '0900000009';
+    const reviewerId = await guest();
+    await prisma.user.update({
+      where: { id: reviewerId },
+      data: { role: 'ADMIN' },
+    });
+    const payments = {
+      pay: async (
+        id: string,
+        guestId: string,
+        outcome: 'SUCCESS' | 'FAILED' = 'SUCCESS',
+      ) => {
+        const row = await prisma.booking.findUniqueOrThrow({
+          where: { id },
+          include: bookingInclude,
+        });
+        if (
+          row.status === 'CANCELLED' ||
+          row.status === 'EXPIRED' ||
+          (row.status === 'PENDING_PAYMENT' &&
+            row.paymentDeadlineAt <= new Date())
+        ) {
+          await inventory.forGuest(guestId, async () => undefined);
+          throw new ConflictException();
+        }
+        if (row.payment?.status === 'SUCCESS') return bookingResponse(row);
+        const submitted = await manual.submit(id, guestId, {
+          transactionRef: 'TEST-' + randomUUID(),
+        });
+        const claim = submitted.paymentAttempts.at(-1)!;
+        return manual.review(
+          claim.id,
+          reviewerId,
+          outcome === 'FAILED'
+            ? { decision: 'REJECT', reason: 'Synthetic rejected reference' }
+            : {
+                decision: 'VERIFY',
+                receivedAmount: claim.amount,
+                verifiedTransactionRef: claim.transactionRef!,
+              },
+        );
+      },
+    };
     const date = (n: number) =>
       new Date(Date.now() + (60 + n) * 86400000).toISOString().slice(0, 10);
     const dto = (roomTypeId: string, quantity = 1, from = 0, to = 3) => ({
@@ -419,9 +467,18 @@ test(
           assert.equal(failed.payment, null);
           assert.equal(failed.paymentAttempts[0].status, 'FAILED');
           assert.equal((await bookings.mine(g)).length, 0);
+          const submitted = await manual.submit(b.id, g, {
+            transactionRef: 'RETRY-' + randomUUID(),
+          });
+          const claim = submitted.paymentAttempts.at(-1)!;
+          const review = {
+            decision: 'VERIFY' as const,
+            receivedAmount: claim.amount,
+            verifiedTransactionRef: claim.transactionRef!,
+          };
           const [a, c] = await Promise.all([
-            payments.pay(b.id, g),
-            payments.pay(b.id, g),
+            manual.review(claim.id, reviewerId, review),
+            manual.review(claim.id, reviewerId, review),
           ]);
           assert.equal(a.payment!.id, c.payment!.id);
           assert.equal(
@@ -441,7 +498,9 @@ test(
           );
           assert.deepEqual(history, [
             'CREATED',
-            'PAYMENT_FAILED',
+            'PAYMENT_SUBMITTED',
+            'PAYMENT_REJECTED',
+            'PAYMENT_SUBMITTED',
             'PAYMENT_SUCCESS',
             'CONFIRMED',
           ]);

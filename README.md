@@ -1,6 +1,6 @@
 ﻿# StayHub
 
-Ứng dụng đặt homestay và khách sạn tại TP. Hồ Chí Minh. Giao diện tiếng Việt, cam ấm / kem / trắng; Next.js + TypeScript, NestJS, Prisma 6 và MySQL. Giữ vai trò Guest / Host / Admin và thanh toán cọc giả lập.
+Ứng dụng đặt homestay và khách sạn tại TP. Hồ Chí Minh. Giao diện tiếng Việt, cam ấm / kem / trắng; Next.js + TypeScript, NestJS, Prisma 6 và MySQL. Giữ vai trò Guest / Host / Admin và xác minh cọc MoMo thủ công. [Thay đổi vai trò và thanh toán](ROLE_PAYMENT_CHANGES.md).
 
 **Property là cơ sở lưu trú; RoomType là loại phòng/chỗ ở có thể đặt.** Hotel có nhiều loại phòng và số lượng tồn; homestay có một loại nguyên căn với số lượng 1. [Mô hình, quy tắc, API và migration](docs/booking-model.md).
 
@@ -17,7 +17,7 @@ Triển khai frontend và backend trên Vercel: [cấu hình domain, biến môi
 - Link tên chỗ nghỉ ngắn và ổn định; link UUID cũ được chuyển hướng. Responsive, bàn phím, reduced motion, trạng thái loading/error/empty.
 - Lịch có nhãn và màu tồn phòng: xanh từ 5, vàng 3–4, đỏ 1–2; ngày hết phòng bị vô hiệu hóa. Số phòng trên thẻ loại phòng được tính cho kỳ lưu trú đã chọn.
 - Khách bổ sung họ tên/số điện thoại tại tài khoản trước khi đặt; xem chỗ nghỉ và lịch không cần hoàn thiện hồ sơ.
-- Mã đặt chỗ duy nhất, tra cứu theo quyền; QR cọc demo, hóa đơn snapshot có nút in/lưu PDF; đánh giá sau thời điểm trả phòng của đơn confirmed.
+- Mã đặt chỗ duy nhất, tra cứu theo quyền; thanh toán MoMo không QR, thông báo “Tôi đã thanh toán” chờ Admin xác minh; biên nhận snapshot có nút in/lưu PDF; chỉ công khai đánh giá từ đơn đã xác minh tiền và qua giờ trả phòng.
 - Admin có thống kê, tìm đơn, danh sách người dùng, lịch sử khách, quản lý tiện ích và xem đánh giá. [Hướng dẫn các chức năng mới](docs/business-features.md).
 
 ## Chạy bằng Docker
@@ -70,14 +70,14 @@ Các biến cấu hình lead time/chống lạm dụng nằm trong `backend/.env
 
 Đặt `DEMO_PASSWORD` (ít nhất 8 ký tự, tối đa 72 byte UTF-8) trong môi trường backend trước khi chạy seed. Tài khoản mới dùng mật khẩu này, băm bcrypt; tài khoản đã tồn tại giữ nguyên mật khẩu và chỉnh sửa. Không chạy seed trên production.
 
-| Tài khoản Host                                   | Cơ sở tổng hợp               |
-| ------------------------------------------------ | ---------------------------- |
-| host@stayhub.local — Trần Thảo An                | Homestay An Nhiên            |
-| host.east@stayhub.local — Nguyễn Minh Châu       | Khách sạn Minh Châu          |
-| host.south@stayhub.local — Lê Bình An            | Nhà nghỉ Bình An             |
-| host.hoangthanh@stayhub.local — Hoàng Thanh Tùng | Khách sạn Hoàng Thành 1 và 2 |
+| Tài khoản Host                         | Cơ sở tổng hợp               |
+| -------------------------------------- | ---------------------------- |
+| host01 — host@stayhub.local            | Homestay An Nhiên            |
+| host02 — host.east@stayhub.local       | Khách sạn Minh Châu          |
+| host03 — host.south@stayhub.local      | Nhà nghỉ Bình An             |
+| host04 — host.hoangthanh@stayhub.local | Khách sạn Hoàng Thành 1 và 2 |
 
-Thêm `admin@stayhub.local`, `guest@stayhub.local` và `guest.lan@stayhub.local`. Các bí danh đăng nhập `admin`, `host`, `guest` vẫn dùng được. Database mới có **4 Host, 5 cơ sở, 13 loại phòng, 37 đơn vị, 14 tiện ích và 7 đơn minh họa** trên hai khách hàng, gồm đã thanh toán, đã hủy sau thanh toán, hết hạn, chờ cọc và giao dịch thất bại có thể thử lại. Không tạo đánh giá công khai hoặc chỉ số phổ biến giả.
+Thêm `admin01` (`admin@stayhub.local`), `guest01` (`guest@stayhub.local`) và `guest02` (`guest.lan@stayhub.local`). Email/ID/mật khẩu cũ được giữ nguyên; UI dùng tên đăng nhập mới, API giữ bí danh cũ để tương thích. Database mới có **4 Host, 5 cơ sở, 13 loại phòng, 37 đơn vị, 14 tiện ích và 7 đơn minh họa** trên hai khách hàng, gồm đã thanh toán, đã hủy sau thanh toán, hết hạn, chờ cọc và giao dịch thất bại có thể thử lại. Không tạo đánh giá công khai hoặc chỉ số phổ biến giả.
 
 Seed dùng ID cố định, giữ lịch sử và chỉnh sửa. Chỉ ngừng bán các fixture cũ khớp đầy đủ dấu vân tay; cơ sở đã chỉnh sửa và dữ liệu người dùng được giữ. Database nâng cấp có thể còn cơ sở cũ để bảo toàn lịch sử. Địa chỉ, giá và ảnh đều là minh họa. [Thay đổi marketplace, API, migration và triển khai lịch hết hạn](MARKETPLACE_CHANGES.md).
 
@@ -96,4 +96,4 @@ API end-to-end: đặt `DATABASE_URL` và `TEST_API_URL` trỏ database/API test
 
 Browser: frontend/backend test đang chạy, đặt `PLAYWRIGHT_BASE_URL`, `TEST_API_URL`; đặt thêm `INVENTORY_TEST_DATABASE_URL` để chạy ba bài live inventory (tự dọn dữ liệu). Chạy `npm.cmd run test:e2e --prefix frontend`. Playwright mặc định Microsoft Edge; có thể đổi cấu hình trình duyệt trên máy khác.
 
-[Kết quả kiểm chứng](docs/verification.md). Không có thanh toán thật, email thật, số phòng vật lý, housekeeping hay kết nối OTA.
+[Kết quả kiểm chứng](docs/verification.md). MoMo được đối chiếu thủ công: không có merchant API, xác nhận tự động, hoàn tiền tự động hoặc chi trả tự động cho Host. Chưa có email, số phòng vật lý, housekeeping hay kết nối OTA.

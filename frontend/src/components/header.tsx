@@ -147,13 +147,6 @@ export function Header() {
                         Đặt phòng của tôi
                       </Link>
                     </Dropdown.Item>
-                    {user.role === 'HOST' && user.status === 'ACTIVE' && (
-                      <Dropdown.Item asChild>
-                        <Link className={itemClass} href="/host">
-                          Quản lý chỗ nghỉ
-                        </Link>
-                      </Dropdown.Item>
-                    )}
                     {user.role === 'GUEST' && (
                       <Dropdown.Item asChild>
                         <Link
@@ -161,13 +154,6 @@ export function Header() {
                           href="/bookings/pending-payments"
                         >
                           Chờ thanh toán
-                        </Link>
-                      </Dropdown.Item>
-                    )}
-                    {user.role === 'ADMIN' && (
-                      <Dropdown.Item asChild>
-                        <Link className={itemClass} href="/admin/hosts">
-                          Xét duyệt người cho thuê
                         </Link>
                       </Dropdown.Item>
                     )}

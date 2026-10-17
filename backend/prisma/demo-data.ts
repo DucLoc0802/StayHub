@@ -18,13 +18,13 @@ export const demoAmenities = [
 
 // Fictional local-development personas; passwords are supplied by environment.
 export const demoAccounts: [string, string, Role, AccountStatus][] = [
-  ['admin@stayhub.local', 'Quản trị demo StayHub', 'ADMIN', 'ACTIVE'],
-  ['guest@stayhub.local', 'Nguyễn Minh Anh', 'GUEST', 'ACTIVE'],
-  ['guest.lan@stayhub.local', 'Phạm Ngọc Lan', 'GUEST', 'ACTIVE'],
-  ['host@stayhub.local', 'Trần Thảo An', 'HOST', 'ACTIVE'],
-  ['host.east@stayhub.local', 'Nguyễn Minh Châu', 'HOST', 'ACTIVE'],
-  ['host.south@stayhub.local', 'Lê Bình An', 'HOST', 'ACTIVE'],
-  ['host.hoangthanh@stayhub.local', 'Hoàng Thanh Tùng', 'HOST', 'ACTIVE'],
+  ['admin@stayhub.local', 'admin01', 'ADMIN', 'ACTIVE'],
+  ['guest@stayhub.local', 'guest01', 'GUEST', 'ACTIVE'],
+  ['guest.lan@stayhub.local', 'guest02', 'GUEST', 'ACTIVE'],
+  ['host@stayhub.local', 'host01', 'HOST', 'ACTIVE'],
+  ['host.east@stayhub.local', 'host02', 'HOST', 'ACTIVE'],
+  ['host.south@stayhub.local', 'host03', 'HOST', 'ACTIVE'],
+  ['host.hoangthanh@stayhub.local', 'host04', 'HOST', 'ACTIVE'],
 ];
 const specs = [
   [
@@ -77,8 +77,8 @@ export const demoAccommodations = specs.map(
       name,
       type,
       district,
-      address: `Khu vực đường ${street}, ${district}, TP. Hồ Chí Minh (địa chỉ demo)`,
-      description: `${name} ${type === 'HOMESTAY' ? 'là căn nghỉ riêng với bếp và ban công, phù hợp hai khách.' : 'có phòng đôi và phòng gia đình, phòng tắm riêng, bàn làm việc và nước nóng.'} ${index >= 3 ? 'Hai cơ sở Hoàng Thành thuộc cùng một đơn vị vận hành.' : 'Cơ sở do chủ nhà độc lập vận hành.'} Nhận phòng từ 14:00, trả phòng trước 12:00. Tên, địa chỉ, ảnh và giá là dữ liệu tổng hợp cho demo StayHub, không phải tin đăng thật.`,
+      address: `Khu vực đường ${street}, ${district}, TP. Hồ Chí Minh (địa chỉ minh họa)`,
+      description: `${name} ${type === 'HOMESTAY' ? 'là căn nghỉ riêng với bếp và ban công, phù hợp hai khách.' : 'có phòng đôi và phòng gia đình, phòng tắm riêng, bàn làm việc và nước nóng.'} ${index >= 3 ? 'Hai cơ sở Hoàng Thành thuộc cùng một đơn vị vận hành.' : 'Cơ sở do chủ nhà độc lập vận hành.'} Nhận phòng từ 14:00, trả phòng trước 12:00. Thông tin chỗ nghỉ, địa chỉ, ảnh và giá là dữ liệu minh họa, không phải tin đăng thật.`,
       depositPercent: 30,
       paymentWindowHours: 6,
       checkInTime: '14:00',

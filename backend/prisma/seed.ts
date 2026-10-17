@@ -59,6 +59,13 @@ async function main() {
   }
   // Rename only known old fixture personas; preserve real account customizations.
   for (const [email, legacyName] of [
+    ['admin@stayhub.local', 'Quản trị demo StayHub'],
+    ['guest@stayhub.local', 'Nguyễn Minh Anh'],
+    ['guest.lan@stayhub.local', 'Phạm Ngọc Lan'],
+    ['host@stayhub.local', 'Trần Thảo An'],
+    ['host.east@stayhub.local', 'Nguyễn Minh Châu'],
+    ['host.south@stayhub.local', 'Lê Bình An'],
+    ['host.hoangthanh@stayhub.local', 'Hoàng Thanh Tùng'],
     ['guest@stayhub.local', 'Khách demo StayHub'],
     ['host@stayhub.local', 'Chủ nhà demo Trung tâm'],
     ['host.east@stayhub.local', 'Chủ nhà demo phía Đông'],
@@ -118,6 +125,21 @@ async function main() {
       throw new Error(
         `Seed property ownership differs: ${property.id}. Existing data was preserved.`,
       );
+    await prisma.property.updateMany({
+      where: {
+        id: property.id,
+        hostId: host.id,
+        address: property.address.replace(
+          '(địa chỉ minh họa)',
+          '(địa chỉ demo)',
+        ),
+        description: property.description.replace(
+          'Thông tin chỗ nghỉ, địa chỉ, ảnh và giá là dữ liệu minh họa, không phải tin đăng thật.',
+          'Tên, địa chỉ, ảnh và giá là dữ liệu tổng hợp cho demo StayHub, không phải tin đăng thật.',
+        ),
+      },
+      data: { address: property.address, description: property.description },
+    });
     await prisma.property.upsert({
       where: { id: property.id },
       update: {},

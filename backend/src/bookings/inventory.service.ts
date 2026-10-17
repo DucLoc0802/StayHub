@@ -68,6 +68,23 @@ export class InventoryService {
         data: { status: 'EXPIRED', expiredAt: booking.paymentDeadlineAt },
       });
       if (!changed.count) continue;
+      const claims = await tx.paymentAttempt.updateMany({
+        where: { bookingId: booking.id, status: 'SUBMITTED' },
+        data: {
+          status: 'RESOLUTION_REQUIRED',
+          failureReason:
+            'Đã hết hạn giữ phòng khi chờ xác minh. Cần kiểm tra khoản tiền nhận và xử lý riêng.',
+        },
+      });
+      if (claims.count)
+        await tx.bookingEvent.create({
+          data: {
+            bookingId: booking.id,
+            type: 'PAYMENT_RESOLUTION_REQUIRED',
+            status: 'EXPIRED',
+            createdAt: booking.paymentDeadlineAt,
+          },
+        });
       await tx.bookingEvent.create({
         data: {
           bookingId: booking.id,

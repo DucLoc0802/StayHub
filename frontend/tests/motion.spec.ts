@@ -157,21 +157,24 @@ async function mockApi(page: Page, role?: Role) {
       };
       json = booking;
     } else if (
+      url.pathname.endsWith('/bookings/pending-payments') ||
       url.pathname.endsWith('/bookings/my') ||
       url.pathname.endsWith('/host/bookings')
     )
       json = booking ? [booking] : [];
-    else if (url.pathname.endsWith('/pay') && booking) {
+    else if (url.pathname.endsWith('/payment-claims') && booking) {
       booking = {
         ...booking,
-        status: 'CONFIRMED',
-        payment: {
-          id: 'payment',
-          method: 'FAKE',
-          amount: booking.depositAmount,
-          status: 'SUCCESS',
-          paidAt: '2026-10-04T08:00:00Z',
-        },
+        paymentAttempts: [
+          {
+            id: 'claim',
+            method: 'MOMO_MANUAL',
+            status: 'SUBMITTED',
+            amount: booking.depositAmount,
+            transactionRef: request.postDataJSON().transactionRef,
+            createdAt: new Date().toISOString(),
+          },
+        ],
       };
       json = booking;
     } else if (url.pathname.endsWith('/cancel') && booking) {
@@ -179,18 +182,15 @@ async function mockApi(page: Page, role?: Role) {
       json = booking;
     } else if (url.pathname.endsWith('/feedback'))
       json = { averageRating: null, count: 0, items: [] };
-    else if (url.pathname.endsWith('/payment-demo') && booking)
+    else if (url.pathname.endsWith('/payment') && booking)
       json = {
         booking,
-        payload: {
-          mode: 'DEMO',
-          currency: 'VND',
-          amount: booking.depositAmount,
-          reference: booking.bookingCode,
-          description: 'STAYHUB ' + booking.bookingCode,
+        recipient: {
+          available: true,
+          receiverName: 'Test receiver',
+          receiverPhone: '0900000009',
+          verificationWindowMinutes: 60,
         },
-        qrDataUrl:
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII=',
         serverNow: new Date().toISOString(),
       };
     else if (url.pathname.includes('/properties/')) json = property;
@@ -405,13 +405,17 @@ test('gallery, calendar, booking totals, payment and cancellation work with moti
   await expect(toast).toBeVisible();
   await expect(toast).toHaveCSS('transition-duration', '0.24s');
   await page
-    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
+    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
+    .click();
+  await page.getByLabel('Mã giao dịch MoMo *').fill('MOTION-TRANSFER-123');
+  await page
+    .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+    page.getByRole('heading', { name: 'Đang chờ xác nhận thanh toán' }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
-  await expect(page.locator('article')).toContainText('Đã xác nhận');
+  await page.goto('/bookings/pending-payments');
+  await expect(page.locator('article')).toContainText('Chờ thanh toán');
   await page.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
   await page.getByRole('button', { name: 'Xác nhận hủy' }).click();
   await expect(page.locator('article')).toContainText('Đã hủy');

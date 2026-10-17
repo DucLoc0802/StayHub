@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from './providers';
 import { Button } from './ui/button';
+import { customerDestination, roleHome } from '@/lib/role-routes';
 const schema = (register: boolean) =>
   z.object({
     email: register
@@ -22,9 +23,9 @@ const schema = (register: boolean) =>
           .max(191, 'Tài khoản tối đa 191 ký tự.')
           .refine(
             (value) =>
-              ['admin', 'host', 'guest'].includes(value) ||
+              /^(admin01|host0[1-4]|guest0[12])$/.test(value) ||
               z.email().safeParse(value).success,
-            'Nhập email hoặc tài khoản demo admin, host, guest.',
+            'Nhập email hoặc tên tài khoản hợp lệ.',
           ),
     password: z
       .string()
@@ -64,21 +65,10 @@ export function AuthForm({ register = false }: { register?: boolean }) {
     onSuccess: (session) => {
       auth.login(session);
       toast.success(register ? 'Đăng ký thành công.' : 'Đăng nhập thành công.');
-      const next = params.get('next');
-      const safeNext =
-        next &&
-        /^\/(properties(?:\/|\?|$)|bookings(?:\/|\?|$))/.test(next) &&
-        !next.includes('\\')
-          ? next
-          : '/';
-      router.push(
-        session.user.role === 'ADMIN'
-          ? '/admin/hosts'
-          : session.user.role === 'HOST'
-            ? session.user.status === 'ACTIVE'
-              ? '/host'
-              : '/account'
-            : safeNext,
+      router.replace(
+        session.user.role === 'GUEST'
+          ? customerDestination(params.get('next'))
+          : roleHome(session.user.role),
       );
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -90,7 +80,7 @@ export function AuthForm({ register = false }: { register?: boolean }) {
           {register ? 'Tạo tài khoản StayHub' : 'Đăng nhập StayHub'}
         </h1>
         <form
-          className="motion-content space-y-4"
+          className="motion-content panel space-y-4 p-5 sm:p-6"
           onSubmit={form.handleSubmit((data) => {
             if (
               register &&
@@ -172,7 +162,7 @@ export function AuthForm({ register = false }: { register?: boolean }) {
                 form.formState.errors.email ? errorIds.email : undefined
               }
               placeholder={
-                register ? 'ban@example.com' : 'Email hoặc tài khoản demo'
+                register ? 'ban@example.com' : 'Email hoặc tên tài khoản'
               }
               {...form.register('email')}
             />

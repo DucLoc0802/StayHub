@@ -5,12 +5,15 @@ import { useAuth } from './providers';
 import { Button } from './ui/button';
 import { ErrorState, Loading } from './ui/states';
 import { errorMessage } from '@/lib/api';
+import { roleAccount } from '@/lib/role-routes';
 import type { Role } from '@/lib/types';
 export function RequireAuth({
   role,
+  allowInactive = false,
   children,
 }: {
   role?: Role;
+  allowInactive?: boolean;
   children: React.ReactNode;
 }) {
   const { user, loading, error, retry } = useAuth();
@@ -36,12 +39,15 @@ export function RequireAuth({
         </Button>
       </div>
     );
-  if (role && (user.role !== role || user.status !== 'ACTIVE'))
+  if (
+    role &&
+    (user.role !== role || (!allowInactive && user.status !== 'ACTIVE'))
+  )
     return (
       <div className="container-shell page-section">
         <ErrorState message="Tài khoản của bạn chưa có quyền truy cập trang này." />
         <Button className="mt-4" asChild>
-          <Link href="/account">Xem trạng thái tài khoản</Link>
+          <Link href={roleAccount(user.role)}>Xem trạng thái tài khoản</Link>
         </Button>
       </div>
     );

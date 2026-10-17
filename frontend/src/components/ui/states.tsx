@@ -124,9 +124,12 @@ export function StatusBadge({ status }: { status: keyof typeof statusLabel }) {
     <span
       className={cn(
         'motion-status inline-flex rounded-md px-2 py-1 text-xs font-medium',
-        status === 'ACTIVE' || status === 'CONFIRMED'
+        status === 'ACTIVE' || status === 'CONFIRMED' || status === 'SUCCESS'
           ? 'bg-success/10 text-success'
-          : status === 'PENDING' || status === 'PENDING_PAYMENT'
+          : status === 'PENDING' ||
+              status === 'PENDING_PAYMENT' ||
+              status === 'SUBMITTED' ||
+              status === 'RESOLUTION_REQUIRED'
             ? 'bg-warning/10 text-warning'
             : status === 'REJECTED' || status === 'CANCELLED'
               ? 'bg-destructive/10 text-destructive'

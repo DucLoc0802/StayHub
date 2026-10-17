@@ -3,6 +3,13 @@ import { Transform } from 'class-transformer';
 import { IsEmail, IsIn, IsString, Length, MaxLength } from 'class-validator';
 
 const demoLoginEmails = new Map([
+  ['admin01', 'admin@stayhub.local'],
+  ['guest01', 'guest@stayhub.local'],
+  ['guest02', 'guest.lan@stayhub.local'],
+  ['host01', 'host@stayhub.local'],
+  ['host02', 'host.east@stayhub.local'],
+  ['host03', 'host.south@stayhub.local'],
+  ['host04', 'host.hoangthanh@stayhub.local'],
   ['admin', 'admin@stayhub.local'],
   ['host', 'host@stayhub.local'],
   ['guest', 'guest@stayhub.local'],
@@ -10,8 +17,9 @@ const demoLoginEmails = new Map([
 
 export class LoginDto {
   @ApiProperty({
-    example: 'guest',
-    description: 'Email hoặc tên tài khoản demo: admin, host, guest',
+    example: 'guest01',
+    description:
+      'Email hoặc tên tài khoản phát triển: admin01, host01–host04, guest01–guest02',
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string'

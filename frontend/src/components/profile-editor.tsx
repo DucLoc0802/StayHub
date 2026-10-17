@@ -43,8 +43,9 @@ export function ProfileEditor() {
     >
       <h3 className="font-semibold">Thông tin liên hệ</h3>
       <p className="text-sm text-muted-foreground">
-        Họ tên và số điện thoại là bắt buộc trước khi đặt phòng. Bạn vẫn có thể
-        khám phá chỗ nghỉ.
+        {user.role === 'GUEST'
+          ? 'Họ tên và số điện thoại là bắt buộc trước khi đặt phòng. Bạn vẫn có thể khám phá chỗ nghỉ.'
+          : 'Cập nhật họ tên và số điện thoại để StayHub liên hệ khi cần.'}
       </p>
       <div className="field">
         <label htmlFor="profile-name">Họ và tên *</label>
@@ -70,10 +71,22 @@ export function ProfileEditor() {
           aria-invalid={!!phoneError}
           aria-describedby={phoneError ? 'profile-phone-error' : undefined}
           value={phone}
-          onChange={(e) => { setPhone(e.target.value); setPhoneError(''); setSaved(false); }}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            setPhoneError('');
+            setSaved(false);
+          }}
         />
       </div>
-      {phoneError && <p id="profile-phone-error" role="alert" className="text-sm text-destructive">{phoneError}</p>}
+      {phoneError && (
+        <p
+          id="profile-phone-error"
+          role="alert"
+          className="text-sm text-destructive"
+        >
+          {phoneError}
+        </p>
+      )}
       {mutation.isError && (
         <p role="alert" className="text-sm text-destructive">
           {errorMessage(mutation.error)}
@@ -82,7 +95,7 @@ export function ProfileEditor() {
       <Button disabled={mutation.isPending}>
         {mutation.isPending ? 'Đang lưu…' : 'Lưu thông tin'}
       </Button>
-      {saved && (
+      {saved && user.role === 'GUEST' && (
         <p role="status" className="text-sm text-success">
           Thông tin đã được lưu.{' '}
           <Link

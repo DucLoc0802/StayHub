@@ -1,7 +1,6 @@
 ﻿import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsIn,
   IsOptional,
   IsInt,
   IsString,
@@ -10,10 +9,6 @@ import {
   Max,
   Min,
 } from 'class-validator';
-export class DemoPayDto {
-  @IsOptional() @IsIn(['SUCCESS', 'FAILED']) outcome: 'SUCCESS' | 'FAILED' =
-    'SUCCESS';
-}
 export class HostBookingQueryDto {
   @IsOptional() @IsUUID() propertyId?: string;
 }

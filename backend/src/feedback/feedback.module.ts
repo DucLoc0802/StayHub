@@ -14,7 +14,7 @@ import { ApiBearerAuth, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsInt, IsString, Length, Max, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PrismaService } from '../prisma/prisma.service';
-import { CurrentUser, PersonalBookings, Public, Roles, SessionUser } from '../common/security';
+import { CurrentUser, Public, Roles, SessionUser } from '../common/security';
 import { InventoryModule } from '../bookings/inventory.module';
 import { InventoryService } from '../bookings/inventory.service';
 
@@ -52,11 +52,27 @@ export class FeedbackService {
     return this.inventory.forGuest(guestId, async (tx, now) => {
       const booking = await tx.booking.findFirst({
         where: { id: bookingId, guestId },
-        include: { roomType: true, feedback: true },
+        include: {
+          roomType: true,
+          feedback: true,
+          payment: true,
+          paymentAttempts: true,
+        },
       });
       if (!booking)
         throw new NotFoundException('Không tìm thấy đơn đặt phòng.');
-      if (booking.status !== 'CONFIRMED' || !checkoutPassed(booking, now))
+      if (
+        booking.status !== 'CONFIRMED' ||
+        !checkoutPassed(booking, now) ||
+        booking.payment?.status !== 'SUCCESS' ||
+        booking.payment.method !== 'MOMO_MANUAL' ||
+        !booking.paymentAttempts.some(
+          (p) =>
+            p.status === 'SUCCESS' &&
+            p.method === 'MOMO_MANUAL' &&
+            p.reviewedAt,
+        )
+      )
         throw new ConflictException(
           'Chỉ có thể đánh giá đơn đã xác nhận sau giờ trả phòng.',
         );
@@ -79,14 +95,31 @@ export class FeedbackService {
       select: { id: true },
     });
     if (!property) throw new NotFoundException('Không tìm thấy chỗ nghỉ.');
+    const where = {
+      propertyId,
+      booking: {
+        status: 'CONFIRMED' as const,
+        checkOut: { lt: new Date() },
+        payment: {
+          is: { status: 'SUCCESS' as const, method: 'MOMO_MANUAL' as const },
+        },
+        paymentAttempts: {
+          some: {
+            status: 'SUCCESS' as const,
+            method: 'MOMO_MANUAL' as const,
+            reviewedAt: { not: null },
+          },
+        },
+      },
+    };
     const [summary, items] = await this.prisma.$transaction([
       this.prisma.feedback.aggregate({
-        where: { propertyId },
+        where,
         _avg: { rating: true },
         _count: true,
       }),
       this.prisma.feedback.findMany({
-        where: { propertyId },
+        where,
         orderBy: { createdAt: 'desc' },
         take: 10,
         select: {
@@ -105,7 +138,7 @@ export class FeedbackService {
 @Controller()
 class FeedbackController {
   constructor(private readonly feedback: FeedbackService) {}
-  @ApiBearerAuth() @PersonalBookings() @Roles('GUEST', 'HOST') @Post('bookings/:id/feedback') create(
+  @ApiBearerAuth() @Roles('GUEST') @Post('bookings/:id/feedback') create(
     @CurrentUser() user: SessionUser,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: FeedbackDto,

@@ -4,6 +4,7 @@
   type Page,
   type APIRequestContext,
 } from '@playwright/test';
+import { submitAndVerifyTransfer } from './transfer-helper';
 import { createRequire } from 'node:module';
 import type { Booking, Property, Session } from '../src/lib/types';
 const api = process.env.TEST_API_URL ?? 'http://localhost:4000/api';
@@ -24,7 +25,7 @@ const future = (offset: number) =>
 const dates = { checkIn: future(0), checkOut: future(3) };
 async function setup(request: APIRequestContext, page: Page) {
   const login = await request.post(api + '/auth/login', {
-    data: { email: 'host', password: process.env.DEMO_PASSWORD },
+    data: { email: 'host01', password: process.env.DEMO_PASSWORD },
   });
   const host = (await login.json()) as Session;
   const registration = await request.post(api + '/auth/register', {
@@ -85,7 +86,8 @@ async function setup(request: APIRequestContext, page: Page) {
   expect(result.status()).toBe(201);
   const property = (await result.json()) as Property;
   properties.push(property.id);
-  await page.addInitScript(
+  await page.goto('/login');
+  await page.evaluate(
     (token) => localStorage.setItem('stayhub.accessToken', token),
     guest.accessToken,
   );
@@ -155,7 +157,7 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
   const booking = (await (await created).json()) as Booking;
   await expect(page).toHaveURL(`/bookings/${booking.id}/payment`);
   await expect(page.locator('main')).toContainText('Phòng gia đình · 2 phòng');
-  await expect(page.locator('main')).toContainText('Hạn thanh toán:');
+  await expect(page.locator('main')).toContainText('Hạn giữ phòng / xác minh');
   const remaining = async () =>
     (
       await (
@@ -166,12 +168,7 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
       ).json()
     ).availableUnits;
   expect(await remaining()).toBe(1);
-  await page
-    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
-    .click();
-  await expect(
-    page.getByRole('heading', { name: 'Thanh toán thành công' }),
-  ).toBeVisible();
+  await submitAndVerifyTransfer(page);
   await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   await expect(page.locator('article')).toContainText('Đã xác nhận');
   expect(await remaining()).toBe(1);
@@ -198,7 +195,7 @@ test('expired booking refreshes history, disables payment and releases held unit
   const booking = (await result.json()) as Booking;
   await page.goto(`/bookings/${booking.id}/payment/result`);
   await expect(
-    page.getByRole('link', { name: 'Thử thanh toán lại' }),
+    page.getByRole('link', { name: 'Tiếp tục thanh toán' }),
   ).toBeVisible();
   await prisma.booking.update({
     where: { id: booking.id },
@@ -208,7 +205,7 @@ test('expired booking refreshes history, disables payment and releases held unit
     timeout: 15000,
   });
   await expect(
-    page.getByRole('link', { name: 'Thử thanh toán lại', exact: true }),
+    page.getByRole('link', { name: 'Tiếp tục thanh toán', exact: true }),
   ).toHaveCount(0);
   const availability = await (
     await request.get(`${api}/room-types/${booking.roomTypeId}/availability`, {
@@ -222,7 +219,7 @@ test('host edits room inventory and payment window; guest sees the saved options
   request,
 }) => {
   const { property, host } = await setup(request, page);
-  await page.addInitScript(
+  await page.evaluate(
     (token) => localStorage.setItem('stayhub.accessToken', token),
     host.accessToken,
   );
@@ -236,6 +233,7 @@ test('host edits room inventory and payment window; guest sees the saved options
   );
   await page.getByRole('button', { name: 'Lưu chỗ nghỉ' }).click();
   expect((await saved).status()).toBe(200);
+  await page.evaluate(() => localStorage.clear());
   await page.goto('/properties/' + property.slug);
   await page
     .getByLabel('Loại phòng / chỗ ở')

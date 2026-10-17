@@ -128,7 +128,7 @@ async function main() {
   await request('GET', '/host/properties', guest.accessToken, undefined, 403);
   await request('GET', '/bookings/my', undefined, undefined, 401);
   const admin = await request<Session>('POST', '/auth/login', undefined, {
-    email: 'admin',
+    email: 'admin01',
     password: process.env.DEMO_PASSWORD,
   });
   const pending = await request<User[]>(
@@ -303,9 +303,9 @@ async function main() {
   await request('POST', '/bookings', guest.accessToken, bookingData, 409);
   await request(
     'POST',
-    '/bookings/' + booking.id + '/pay',
+    '/bookings/' + booking.id + '/payment-claims',
     otherGuest.accessToken,
-    undefined,
+    { transactionRef: runId + '-FOREIGN' },
     404,
   );
   const fields = property.roomTypes.map(
@@ -339,21 +339,49 @@ async function main() {
       pricePerNight: r.pricePerNight + 100000,
     })),
   });
+  const reference = runId + '-VERIFIED';
+  const submitted = await request<Booking>(
+    'POST',
+    '/bookings/' + booking.id + '/payment-claims',
+    guest.accessToken,
+    { transactionRef: reference },
+    201,
+  );
+  assert.equal(submitted.status, 'PENDING_PAYMENT');
+  assert.equal(submitted.payment, null);
+  const claimId = submitted.paymentAttempts!.at(-1)!.id;
+  await request(
+    'POST',
+    '/admin/payments/' + claimId + '/review',
+    host.accessToken,
+    {
+      decision: 'VERIFY',
+      receivedAmount: booking.depositAmount,
+      verifiedTransactionRef: reference,
+    },
+    403,
+  );
+  const review = {
+    decision: 'VERIFY',
+    receivedAmount: booking.depositAmount,
+    verifiedTransactionRef: reference,
+  };
   const paid = await request<Booking>(
     'POST',
-    '/bookings/' + booking.id + '/pay',
-    guest.accessToken,
-    undefined,
+    '/admin/payments/' + claimId + '/review',
+    admin.accessToken,
+    review,
     201,
   );
   assert.equal(paid.status, 'CONFIRMED');
   assert.equal(paid.totalAmount, booking.totalAmount);
   assert.equal(paid.payment?.amount, booking.depositAmount);
+  assert.equal(paid.payment?.method, 'MOMO_MANUAL');
   await request(
     'POST',
-    '/bookings/' + booking.id + '/pay',
-    guest.accessToken,
-    undefined,
+    '/admin/payments/' + claimId + '/review',
+    admin.accessToken,
+    review,
     201,
   );
   await request(
@@ -363,9 +391,9 @@ async function main() {
   );
   await request(
     'POST',
-    '/bookings/' + booking.id + '/pay',
+    '/bookings/' + booking.id + '/payment-claims',
     guest.accessToken,
-    undefined,
+    { transactionRef: runId + '-ALREADY-PAID' },
     409,
   );
   const late = await request<Booking>(
@@ -379,13 +407,18 @@ async function main() {
     where: { id: late.id },
     data: { paymentDeadlineAt: new Date(Date.now() - 1000) },
   });
-  await request(
+  const lateClaim = await request<Booking>(
     'POST',
-    '/bookings/' + late.id + '/pay',
+    '/bookings/' + late.id + '/payment-claims',
     guest.accessToken,
-    undefined,
-    409,
+    { transactionRef: runId + '-LATE' },
+    201,
   );
+  assert.equal(
+    lateClaim.paymentAttempts!.at(-1)!.status,
+    'RESOLUTION_REQUIRED',
+  );
+  assert.equal(lateClaim.payment, null);
   assert.equal(
     (await prisma.booking.findUniqueOrThrow({ where: { id: late.id } })).status,
     'EXPIRED',

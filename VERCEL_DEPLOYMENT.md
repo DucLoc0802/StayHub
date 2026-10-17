@@ -4,9 +4,7 @@ Frontend: https://pentabug2-stayhub.vercel.app
 
 Backend API: https://pentabug-stayhub.vercel.app/api
 
-Cấu hình đã được kiểm tra: frontend/backend build thành công, 5 migration đã áp dụng lên Aiven `defaultdb`, API `/api/amenities` và `/api/properties` trả HTTP 200, preflight đăng nhập trả HTTP 204 với đúng CORS origin frontend. Theo yêu cầu demo, đã nạp bộ dữ liệu Prisma: 38 chỗ nghỉ (12 khách sạn, 26 homestay), 62 loại phòng, 14 tiện ích và 8 đơn minh họa. API Vercel đã trả dữ liệu và cả ba tài khoản demo đăng nhập thành công.
-
-Tài khoản demo: `admin` / `admin`, `host` / `host`, `guest` / `guest` (tên đăng nhập / mật khẩu). Tiến trình seed chạy riêng một lần với chế độ development; biến môi trường và ứng dụng Vercel vẫn giữ production. Sau khi nạp dữ liệu, tải lại frontend; không cần redeploy chỉ để hiển thị dữ liệu mới.
+Trạng thái triển khai trước đây không xác nhận phiên bản hiện tại đã được đưa lên Vercel. Thay đổi vai trò/MoMo mới chỉ được kiểm chứng trên database test riêng. Xem [migration, cấu hình và checklist triển khai](ROLE_PAYMENT_CHANGES.md). Không chạy seed phát triển trên Production.
 
 ## 1. Tạo database MySQL trước
 
@@ -49,12 +47,16 @@ Trong **Settings > Build and Deployment**, chọn Root Directory `backend`, Fram
 
 Trong **Settings > Environment Variables**, thêm các biến cho **Production**:
 
-| Biến           | Giá trị                                |
-| -------------- | -------------------------------------- |
-| `NODE_ENV`     | `production`                           |
-| `FRONTEND_URL` | `https://pentabug2-stayhub.vercel.app` |
-| `DATABASE_URL` | Chuỗi kết nối MySQL thật lấy ở bước 1  |
-| `JWT_SECRET`   | Chuỗi ngẫu nhiên tối thiểu 32 ký tự    |
+| Biến                               | Giá trị                                    |
+| ---------------------------------- | ------------------------------------------ |
+| `NODE_ENV`                         | `production`                               |
+| `FRONTEND_URL`                     | `https://pentabug2-stayhub.vercel.app`     |
+| `DATABASE_URL`                     | Chuỗi kết nối MySQL thật lấy ở bước 1      |
+| `JWT_SECRET`                       | Chuỗi ngẫu nhiên tối thiểu 32 ký tự        |
+| `MOMO_RECEIVER_NAME`               | Tên chủ tài khoản nhận đã được xác nhận    |
+| `MOMO_RECEIVER_PHONE`              | Số điện thoại MoMo Việt Nam của người nhận |
+| `MOMO_VERIFICATION_WINDOW_MINUTES` | Mặc định 60, từ 5 đến 1440                 |
+| `CRON_SECRET`                      | Secret riêng cho endpoint hết hạn          |
 
 `NODE_ENV` và `FRONTEND_URL` đã có giá trị mặc định trong `backend/vercel.json`. Nếu project đang có `FRONTEND_URL` cũ, cập nhật về domain trên. Không đưa `DATABASE_URL` hoặc `JWT_SECRET` vào frontend hoặc biến có tiền tố `NEXT_PUBLIC_`. Không cần đặt `PORT` trên Vercel.
 
@@ -92,6 +94,6 @@ Sau khi MySQL đã có schema và biến môi trường đã lưu, redeploy back
 
 Preview dùng biến và database riêng. Nếu cần cho một frontend Preview gọi backend, đặt `FRONTEND_URL` của backend tương ứng thành đúng origin Preview; cấu hình hiện tại cho phép frontend production, không mở mọi domain `*.vercel.app`.
 
-Lịch quét hết hạn dùng timer chỉ chạy khi instance còn hoạt động. Các thao tác đặt phòng/thanh toán có xử lý hết hạn theo request; nếu cần quét liên tục khi không có traffic, cần một scheduler bên ngoài Vercel Function.
+Không dùng timer trong bộ nhớ. `backend/vercel.json` đã khai báo GET `/api/internal/expire-bookings` mỗi 10 phút; cần `CRON_SECRET` và gói Vercel hỗ trợ tần suất đó. Nếu gói không hỗ trợ, dùng scheduler bên ngoài với `Authorization: Bearer <CRON_SECRET>`. Request và truy vấn tồn cũng kiểm tra timestamp đã lưu; độ trễ scheduler không kéo dài giữ phòng. [Bảo vệ Cron Jobs trên Vercel](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
 
 Tài liệu tham khảo: [NestJS trên Vercel](https://vercel.com/docs/frameworks/backend/nestjs), [biến môi trường Vercel](https://vercel.com/docs/environment-variables), [Prisma 6 trên Vercel](https://www.prisma.io/docs/orm/v6/prisma-client/deployment/serverless/deploy-to-vercel), [tham số TLS của Prisma MySQL](https://docs.prisma.io/docs/orm/v6/overview/databases/mysql), [chứng chỉ Aiven](https://aiven.io/docs/platform/concepts/tls-ssl-certificates).

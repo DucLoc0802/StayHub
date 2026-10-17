@@ -7,7 +7,7 @@ export default async function Page({
 }) {
   const { id } = await params;
   return (
-    <RequireAuth>
+    <RequireAuth role="GUEST">
       <BookingScreen id={id} />
     </RequireAuth>
   );

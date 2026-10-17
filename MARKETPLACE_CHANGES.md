@@ -1,5 +1,7 @@
 # Marketplace implementation — 16 October 2026
 
+> Tài liệu mốc trước: thông tin thanh toán FAKE/QR, tài khoản và seed cũ bên dưới đã được thay thế bởi [cập nhật vai trò/MoMo](ROLE_PAYMENT_CHANGES.md). Phiên bản hiện tại không có QR hoặc API thanh toán giả lập.
+
 ## Delivered behavior
 
 1. **Admin booking history:** server-side search by reference, customer and property; booking/payment status, Host, property and check-in date filters; pagination and resettable empty states. `/admin/bookings/[id]` shows booking snapshots, payment attempts and chronological recorded events. All Admin APIs require an active Admin. No confirmation/completion mutation was added.

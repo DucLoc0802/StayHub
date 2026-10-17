@@ -172,6 +172,17 @@ export function BookingsList({
                   </p>
                 </div>
                 <StatusBadge status={b.status} />
+                {b.paymentAttempts
+                  ?.filter((p) => p.method === 'MOMO_MANUAL')
+                  .at(-1) && (
+                  <StatusBadge
+                    status={
+                      b.paymentAttempts
+                        .filter((p) => p.method === 'MOMO_MANUAL')
+                        .at(-1)!.status
+                    }
+                  />
+                )}
               </div>
               <div
                 className={
@@ -223,7 +234,10 @@ export function BookingsList({
                     <>
                       <p className="flex items-center gap-1 text-success">
                         <CreditCard size={14} />
-                        Đã thanh toán cọc {money(b.payment.amount)} ·{' '}
+                        {b.payment.method === 'FAKE'
+                          ? 'Giao dịch mô phỏng (lịch sử)'
+                          : 'Đã xác minh cọc'}{' '}
+                        {money(b.payment.amount)} ·{' '}
                         {dateLabel(b.payment.paidAt)}
                       </p>
                       {b.status === 'CANCELLED' && (
@@ -287,16 +301,23 @@ export function BookingsList({
                     </div>
                   )}
               </div>
-              {b.status === 'CONFIRMED' && b.payment?.status === 'SUCCESS' && (
-                <Button asChild variant="outline" className="mt-4">
-                  <Link href={`/bookings/${b.id}/invoice`}>Xem hóa đơn</Link>
-                </Button>
-              )}
+              {!host &&
+                b.status === 'CONFIRMED' &&
+                b.payment?.status === 'SUCCESS' && (
+                  <Button asChild variant="outline" className="mt-4">
+                    <Link href={`/bookings/${b.id}/invoice`}>Xem hóa đơn</Link>
+                  </Button>
+                )}
               <Button asChild variant="outline" className="mt-4 ml-2">
-                <Link href={`/bookings/${b.id}`}>Chi tiết đặt phòng</Link>
+                <Link
+                  href={host ? `/host/bookings/${b.id}` : `/bookings/${b.id}`}
+                >
+                  Chi tiết đặt phòng
+                </Link>
               </Button>
               {!host &&
                 b.status === 'CONFIRMED' &&
+                b.payment?.method === 'MOMO_MANUAL' &&
                 !b.feedback &&
                 new Date(
                   `${b.checkOut.slice(0, 10)}T${b.checkOutTimeSnapshot}:00+07:00`,
@@ -329,9 +350,14 @@ export function BookingsList({
             Hủy đặt chỗ
           </DialogTitle>
           <DialogDescription className="mt-4 text-sm leading-7 text-muted-foreground">
-            {displayAction?.booking.status === 'CONFIRMED'
-              ? 'Đặt phòng này đã được xác nhận. Nếu hủy, bạn sẽ mất khoản tiền cọc. Bạn có chắc chắn muốn tiếp tục?'
-              : 'Bạn có chắc muốn hủy đặt chỗ này? Bạn chưa thanh toán nên không mất tiền cọc.'}
+            {displayAction?.booking.paymentAttempts?.some(
+              (p) =>
+                p.status === 'SUBMITTED' || p.status === 'RESOLUTION_REQUIRED',
+            )
+              ? 'Bạn đã báo chuyển tiền. Hủy đơn sẽ giải phóng phòng; khoản chuyển tiền cần được kiểm tra và xử lý riêng. Hệ thống không hoàn tiền tự động.'
+              : displayAction?.booking.status === 'CONFIRMED'
+                ? 'Đặt phòng này đã được xác nhận. Nếu hủy, bạn sẽ mất khoản tiền cọc. Bạn có chắc chắn muốn tiếp tục?'
+                : 'Bạn có chắc muốn hủy đặt chỗ này? Bạn chưa thanh toán nên không mất tiền cọc.'}
           </DialogDescription>
           {mutation.isError && (
             <p role="alert" className="mt-3 text-sm text-destructive">

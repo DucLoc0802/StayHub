@@ -54,9 +54,11 @@ function AdminBookingRecord({ booking: b }: { booking: Booking }) {
         </p>
         <p className="text-xs">
           {b.payment?.status === 'SUCCESS'
-            ? 'Cọc thanh toán thành công (demo)'
+            ? b.payment.method === 'FAKE'
+              ? 'Giao dịch mô phỏng (lịch sử)'
+              : 'Cọc đã được xác minh'
             : failed
-              ? 'Thanh toán cọc thất bại (demo)'
+              ? 'Thanh toán cọc chưa thành công'
               : 'Chưa ghi nhận thanh toán cọc'}
         </p>
         {b.status === 'PENDING_PAYMENT' && (
@@ -98,7 +100,7 @@ function BookingColumns() {
   );
 }
 
-function Pager({
+export function Pager({
   page,
   limit,
   total,
@@ -145,7 +147,7 @@ export function AdminDashboard() {
   return (
     <div className="container-shell py-6 sm:py-8">
       <h1 className="mb-5 text-2xl font-semibold">Thống kê StayHub</h1>
-      <div className="grid gap-6 sm:grid-cols-[1.2fr_1fr]">
+      <div className="panel grid gap-6 p-5 sm:grid-cols-[1.2fr_1fr] sm:p-6">
         <section>
           <h2 className="mb-3 font-semibold">Đặt phòng</h2>
           <dl className="divide-y border-y tabular-nums">
@@ -186,8 +188,8 @@ export function AdminDashboard() {
           </dl>
         </section>
       </div>
-      <dl className="mt-6 flex flex-wrap items-baseline justify-between gap-2 border-b pb-4">
-        <dt className="text-sm">Tổng cọc thanh toán thành công</dt>
+      <dl className="panel mt-6 flex flex-wrap items-baseline justify-between gap-2 p-5">
+        <dt className="text-sm">Tổng cọc MoMo đã xác minh</dt>
         <dd className="text-xl font-semibold tabular-nums">
           {money(s.successfulDepositAmount)}
         </dd>
@@ -246,7 +248,7 @@ export function AdminUsers() {
   return (
     <div className="container-shell py-6 sm:py-8">
       <h1 className="mb-5 text-2xl font-semibold">Người dùng & phân quyền</h1>
-      <div className="mb-4 grid grid-cols-2 gap-3 border-b pb-4 sm:grid-cols-3">
+      <div className="panel mb-6 grid grid-cols-2 gap-4 p-5 sm:grid-cols-3">
         <div className="field col-span-2 sm:col-span-1">
           <label htmlFor="user-search">Tên hoặc email</label>
           <input
@@ -309,7 +311,7 @@ export function AdminUsers() {
         <ErrorState message={errorMessage(query.error)} />
       ) : (
         <>
-          <div className="divide-y border-y">
+          <div className="panel divide-y px-5 sm:px-6">
             <div
               aria-hidden="true"
               className="hidden grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,1.4fr)] gap-6 py-2 text-xs font-semibold text-muted-foreground lg:grid"
@@ -415,10 +417,9 @@ export function AdminBookings() {
     <div className="container-shell py-6 sm:py-8">
       <h1 className="mb-5 text-2xl font-semibold">Tra cứu đặt phòng</h1>
       <p className="mb-5 text-sm text-muted-foreground">
-        Lịch sử trên toàn hệ thống, gồm đơn chờ cọc và các giao dịch demo. Chế
-        độ chỉ xem.
+        Lịch sử đặt phòng và thanh toán trên toàn hệ thống. Chế độ chỉ xem.
       </p>
-      <div className="mb-4 grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="panel mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="field">
           <label htmlFor="admin-booking-q">
             Mã, khách, cơ sở hoặc loại phòng
@@ -545,7 +546,7 @@ export function AdminBookings() {
         <ErrorState message={errorMessage(query.error)} />
       ) : (
         <>
-          <div className="divide-y border-y">
+          <div className="panel divide-y px-5 sm:px-6">
             <BookingColumns />
             {query.data.items.map((b) => (
               <AdminBookingRecord key={b.id} booking={b} />
@@ -613,7 +614,7 @@ export function AdminCustomer({ id }: { id: string }) {
         </dl>
       </section>
       <h2 className="my-6 text-xl font-semibold">20 đặt phòng gần nhất</h2>
-      <div className="divide-y border-y">
+      <div className="panel divide-y px-5 sm:px-6">
         <BookingColumns />
         {s.recentBookings.map((b) => (
           <AdminBookingRecord key={b.id} booking={b} />
@@ -720,7 +721,7 @@ export function AdminAmenities() {
       ) : query.isError ? (
         <ErrorState message={errorMessage(query.error)} />
       ) : (
-        <div className="divide-y border-y">
+        <div className="panel divide-y px-5 sm:px-6">
           <div
             aria-hidden="true"
             className="hidden grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,1fr)_auto] gap-3 py-2 text-xs font-semibold text-muted-foreground sm:grid"
@@ -792,7 +793,7 @@ export function AdminFeedback() {
       ) : query.isError ? (
         <ErrorState message={errorMessage(query.error)} />
       ) : (
-        <div className="divide-y border-y">
+        <div className="panel divide-y px-5 sm:px-6">
           {query.data.map((f) => (
             <article
               className="grid gap-2 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-x-6"

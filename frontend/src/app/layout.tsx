@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Be_Vietnam_Pro } from 'next/font/google';
 import { Providers } from '@/components/providers';
-import { Header } from '@/components/header';
-import { Footer } from '@/components/footer';
+import { AppShell } from '@/components/app-shell';
 import './globals.css';
 const font = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
@@ -31,11 +30,7 @@ export default function RootLayout({
           >
             Đến nội dung chính
           </a>
-          <Header />
-          <main id="main" className="min-h-[65vh]">
-            {children}
-          </main>
-          <Footer />
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>

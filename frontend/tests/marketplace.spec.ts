@@ -4,7 +4,7 @@ import {
   type Page,
   type APIRequestContext,
 } from '@playwright/test';
-import type { Booking, Session } from '../src/lib/types';
+import type { Session } from '../src/lib/types';
 test.skip(
   !process.env.INVENTORY_TEST_DATABASE_URL || !process.env.DEMO_PASSWORD,
   'Requires isolated seeded marketplace database',
@@ -16,7 +16,8 @@ async function login(page: Page, request: APIRequestContext, email: string) {
   });
   expect(response.status()).toBe(200);
   const session = (await response.json()) as Session;
-  await page.addInitScript(
+  await page.goto('/login');
+  await page.evaluate(
     (token) => localStorage.setItem('stayhub.accessToken', token),
     session.accessToken,
   );
@@ -42,7 +43,7 @@ test('Admin reads cross-Host history, filters payment and property, and sees onl
   page,
   request,
 }) => {
-  await login(page, request, 'admin');
+  await login(page, request, 'admin01');
   await page.goto('/admin/bookings');
   await expect(
     page.getByRole('heading', { name: 'Tra cứu đặt phòng' }),
@@ -57,7 +58,7 @@ test('Admin reads cross-Host history, filters payment and property, and sees onl
     await expect(
       page.getByRole('heading', { name, exact: true }).first(),
     ).toBeVisible();
-  await capture(page, 'admin');
+  await capture(page, 'admin01');
   await page
     .getByLabel('Cơ sở / chi nhánh')
     .selectOption('71000000-0000-4000-8000-000000000003');
@@ -72,7 +73,7 @@ test('Admin reads cross-Host history, filters payment and property, and sees onl
     page.getByRole('heading', { name: 'Lịch sử đặt phòng & thanh toán' }),
   ).toBeVisible();
   await expect(
-    page.getByText('Thanh toán cọc thành công (demo)', { exact: false }),
+    page.getByText('Giao dịch mô phỏng thành công', { exact: false }),
   ).toBeVisible();
   await expect(page.getByText('Hủy đặt phòng', { exact: true })).toBeVisible();
   await expect(page.getByText('Hoàn tất lưu trú', { exact: true })).toHaveCount(
@@ -80,34 +81,11 @@ test('Admin reads cross-Host history, filters payment and property, and sees onl
   );
   await capture(page, 'history');
 });
-test('real QR and pending result remain honest on mobile and desktop', async ({
-  page,
-  request,
-}) => {
-  const session = await login(page, request, 'guest');
-  const response = await request.get(`${api}/bookings/pending-payments`, {
-    headers: { Authorization: `Bearer ${session.accessToken}` },
-  });
-  const bookings = (await response.json()) as Booking[];
-  const booking = bookings.find((b) => b.bookingCode === 'STB-DEMO-V2-5')!;
-  expect(booking).toBeTruthy();
-  await page.goto(`/bookings/${booking.id}/payment`);
-  await expect(page.getByRole('img', { name: /QR demo/ })).toBeVisible();
-  await capture(page, 'payment');
-  await page.goto(`/bookings/${booking.id}/payment/result?success=true`);
-  await expect(
-    page.getByRole('heading', { name: 'Chưa ghi nhận thanh toán' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Xem đặt phòng của tôi', exact: true }),
-  ).toHaveCount(0);
-  await capture(page, 'result');
-});
 test('seeded multi-property Host switches only its two branches and single owner needs no selector', async ({
   page,
   request,
 }) => {
-  await login(page, request, 'host.hoangthanh@stayhub.local');
+  await login(page, request, 'host04');
   await page.goto('/host');
   await expect(
     page.getByLabel('Cơ sở đang quản lý').locator('option'),
@@ -128,7 +106,7 @@ test('seeded multi-property Host switches only its two branches and single owner
   await expect(
     page.getByRole('heading', { name: 'Khách sạn Hoàng Thành 1', exact: true }),
   ).toHaveCount(0);
-  await capture(page, 'host');
+  await capture(page, 'host01');
   await page
     .getByRole('link', { name: 'Chỗ nghỉ của tôi', exact: true })
     .click();
@@ -146,7 +124,7 @@ test('seeded multi-property Host switches only its two branches and single owner
     'Khách sạn Hoàng Thành 1',
   );
   await page.evaluate(() => localStorage.clear());
-  await login(page, request, 'host');
+  await login(page, request, 'host01');
   await page.goto('/host');
   await expect(page.getByLabel('Cơ sở đang quản lý')).toHaveCount(0);
   await expect(

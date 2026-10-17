@@ -7,8 +7,9 @@ export default function Page() {
       <div className="container-shell page-section">
         <h1 className="page-title">Chờ thanh toán</h1>
         <p className="mt-3 mb-6 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Các đơn giữ phòng tạm còn hiệu lực. Hoàn tất tiền cọc trước hạn để đơn
-          xuất hiện trong Đặt phòng của tôi.
+          Các đơn giữ phòng tạm còn hiệu lực và thông báo chuyển tiền đang được
+          kiểm tra. Chỉ khoản cọc đã xác minh mới xuất hiện trong Đặt phòng của
+          tôi.
         </p>
         <Link
           href="/bookings"

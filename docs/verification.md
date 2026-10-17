@@ -1,5 +1,7 @@
 # Kiểm chứng triển khai
 
+> Tài liệu mốc trước: thông tin thanh toán FAKE/QR, tài khoản và seed cũ bên dưới đã được thay thế bởi [cập nhật vai trò/MoMo](../ROLE_PAYMENT_CHANGES.md). Phiên bản hiện tại không có QR hoặc API thanh toán giả lập.
+
 Môi trường kiểm tra ngày 05/10/2026: Windows, Node.js, MySQL 8.0.46 tại cổng 3307, Prisma 6.19.2, NestJS 11, Next.js 16 và Playwright Microsoft Edge headless. Không triển khai ra dịch vụ bên ngoài.
 
 ## Phân tách dữ liệu

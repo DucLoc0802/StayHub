@@ -19,6 +19,8 @@ test(
       /^\/stayhub_(inventory|seed)_test$/,
     );
     process.env.DATABASE_URL = database;
+    process.env.MOMO_RECEIVER_NAME = 'Synthetic receiver';
+    process.env.MOMO_RECEIVER_PHONE = '0900000009';
     process.env.JWT_SECRET =
       'synthetic-test-secret-with-at-least-32-characters';
     // Use Nest's compiled decorator metadata, which tsx/esbuild does not emit.
@@ -360,26 +362,16 @@ test(
             `/bookings/lookup/${booking.bookingCode}`,
             strangerHost.token,
             undefined,
-            404,
+            403,
           );
           assert.equal(
-            (
-              await request(
-                'GET',
-                `/bookings/lookup/${booking.bookingCode}`,
-                host.token,
-              )
-            ).id,
+            (await request('GET', `/host/bookings/${booking.id}`, host.token))
+              .id,
             booking.id,
           );
           assert.equal(
-            (
-              await request(
-                'GET',
-                `/bookings/lookup/${booking.bookingCode}`,
-                admin.token,
-              )
-            ).id,
+            (await request('GET', `/admin/bookings/${booking.id}`, admin.token))
+              .id,
             booking.id,
           );
           await assert.rejects(
@@ -468,7 +460,7 @@ test(
         },
       );
       await t.test(
-        'QR contains exact deposit/reference; timely payment confirms once and pending invoice is refused',
+        'manual claim stays unpaid until an authorized Admin verifies the actual reference and amount',
         async () => {
           await request(
             'GET',
@@ -477,37 +469,76 @@ test(
             undefined,
             409,
           );
-          const demo = await request(
+          const checkout = await request(
             'GET',
-            `/bookings/${booking.id}/payment-demo`,
+            `/bookings/${booking.id}/payment`,
             guest.token,
           );
-          assert.equal(demo.payload.amount, booking.depositAmount);
-          assert.equal(demo.payload.reference, booking.bookingCode);
-          assert.equal(demo.payload.mode, 'DEMO');
-          assert.match(demo.qrDataUrl, /^data:image\/png;base64,/);
+          assert.equal(checkout.recipient.available, true);
+          assert.equal(checkout.qrDataUrl, undefined);
           await request(
             'GET',
-            `/bookings/${booking.id}/payment-demo`,
+            `/bookings/${booking.id}/payment`,
             stranger.token,
             undefined,
             404,
           );
+          const submitted = await request(
+            'POST',
+            `/bookings/${booking.id}/payment-claims`,
+            guest.token,
+            { transactionRef: 'HTTP-' + booking.id },
+            201,
+          );
+          assert.equal(submitted.status, 'PENDING_PAYMENT');
+          assert.equal(submitted.payment, null);
+          assert.ok(
+            !(await request('GET', '/bookings/my', guest.token)).some(
+              (b: { id: string }) => b.id === booking.id,
+            ),
+          );
+          const claim = submitted.paymentAttempts.at(-1);
+          const body = {
+            decision: 'VERIFY',
+            receivedAmount: booking.depositAmount,
+            verifiedTransactionRef: claim.transactionRef,
+          };
+          await request(
+            'POST',
+            `/admin/payments/${claim.id}/review`,
+            guest.token,
+            body,
+            403,
+          );
+          await request(
+            'POST',
+            `/admin/payments/${claim.id}/review`,
+            host.token,
+            body,
+            403,
+          );
           const paid = await request(
             'POST',
-            `/bookings/${booking.id}/pay`,
-            guest.token,
-            undefined,
+            `/admin/payments/${claim.id}/review`,
+            admin.token,
+            body,
             201,
           );
           assert.equal(paid.status, 'CONFIRMED');
           assert.equal(paid.payment.amount, booking.depositAmount);
           await request(
             'POST',
+            `/admin/payments/${claim.id}/review`,
+            admin.token,
+            body,
+            201,
+          );
+          await request(
+            'POST',
             `/bookings/${booking.id}/pay`,
             guest.token,
             undefined,
-            201,
+            404,
           );
         },
       );
@@ -624,7 +655,7 @@ test(
         },
       );
       await t.test(
-        'late payment commits expiration and returns 409 without a Payment',
+        'late reported transfer stays expired and is retained for manual resolution',
         async () => {
           const late = await request(
             'POST',
@@ -637,25 +668,18 @@ test(
             where: { id: late.id },
             data: { paymentDeadlineAt: new Date(Date.now() - 1000) },
           });
-          const error = await request(
+          const result = await request(
             'POST',
-            `/bookings/${late.id}/pay`,
+            `/bookings/${late.id}/payment-claims`,
             stranger.token,
-            undefined,
-            409,
+            { transactionRef: 'LATE-' + late.id },
+            201,
           );
+          assert.equal(result.status, 'EXPIRED');
+          assert.equal(result.payment, null);
           assert.equal(
-            error.message,
-            'Đơn đặt phòng đã hết thời gian thanh toán.',
-          );
-          assert.equal(
-            (await prisma.booking.findUniqueOrThrow({ where: { id: late.id } }))
-              .status,
-            'EXPIRED',
-          );
-          assert.equal(
-            await prisma.payment.count({ where: { bookingId: late.id } }),
-            0,
+            result.paymentAttempts.at(-1).status,
+            'RESOLUTION_REQUIRED',
           );
         },
       );
@@ -673,7 +697,7 @@ test(
             stats.successfulDepositAmount,
             (
               await prisma.payment.aggregate({
-                where: { status: 'SUCCESS' },
+                where: { status: 'SUCCESS', method: 'MOMO_MANUAL' },
                 _sum: { amount: true },
               })
             )._sum.amount ?? 0,
@@ -805,184 +829,29 @@ test(
         },
       );
       await t.test(
-        'paid Guest converted to pending/active Host retains only owned history, invoice and eligible feedback',
+        'converting a Guest to Host preserves records but immediately removes access to Guest workflows',
         async () => {
-          const own = await request('GET', '/bookings/my', guest.token);
-          assert.ok(own.some((item: { id: string }) => item.id === booking.id));
           await request('PATCH', `/admin/users/${guest.id}`, admin.token, {
             role: 'HOST',
           });
-          await request('PATCH', `/admin/users/${stranger.id}`, admin.token, {
-            role: 'HOST',
-          });
-          assert.ok(
-            (await request('GET', '/bookings/my', stranger.token)).every(
-              (item: { guestId: string }) => item.guestId === stranger.id,
-            ),
-          );
-          const noBookings = await makeUser('GUEST');
-          await request('PATCH', `/admin/users/${noBookings.id}`, admin.token, {
-            role: 'HOST',
-          });
-          assert.deepEqual(
-            await request('GET', '/bookings/my', noBookings.token),
-            [],
-          );
+          for (const route of [
+            '/bookings/my',
+            `/bookings/${booking.id}`,
+            `/bookings/${booking.id}/invoice`,
+            '/bookings/pending-payments',
+          ])
+            await request('GET', route, guest.token, undefined, 403);
           await request(
             'PATCH',
-            `/admin/hosts/${noBookings.id}/approve`,
+            `/admin/hosts/${guest.id}/approve`,
             admin.token,
           );
-          assert.deepEqual(
-            await request('GET', '/host/properties', noBookings.token),
-            [],
+          await request('GET', '/bookings/my', guest.token, undefined, 403);
+          assert.equal(
+            (await request('GET', `/admin/bookings/${booking.id}`, admin.token))
+              .id,
+            booking.id,
           );
-          for (const approved of [false, true]) {
-            if (approved)
-              await request(
-                'PATCH',
-                `/admin/hosts/${guest.id}/approve`,
-                admin.token,
-              );
-            const history = await request('GET', '/bookings/my', guest.token);
-            assert.ok(
-              history.some((item: { id: string }) => item.id === booking.id),
-            );
-            assert.equal(
-              (await request('GET', `/bookings/${booking.id}`, guest.token)).id,
-              booking.id,
-            );
-            assert.equal(
-              (
-                await request(
-                  'GET',
-                  `/bookings/${booking.id}/invoice`,
-                  guest.token,
-                )
-              ).id,
-              booking.id,
-            );
-            assert.equal(
-              (
-                await request(
-                  'GET',
-                  `/bookings/lookup/${booking.bookingCode}`,
-                  guest.token,
-                )
-              ).id,
-              booking.id,
-            );
-            await request(
-              'GET',
-              `/bookings/${booking.id}`,
-              stranger.token,
-              undefined,
-              404,
-            );
-            await request(
-              'GET',
-              `/bookings/${booking.id}/invoice`,
-              stranger.token,
-              undefined,
-              404,
-            );
-            await request(
-              'GET',
-              '/admin/statistics',
-              guest.token,
-              undefined,
-              403,
-            );
-            if (!approved) {
-              for (const path of [
-                '/host/properties',
-                '/host/bookings',
-                `/host/properties/${property.id}`,
-              ])
-                await request('GET', path, guest.token, undefined, 403);
-              await request(
-                'POST',
-                '/host/properties',
-                guest.token,
-                propertyPayload,
-                403,
-              );
-              await request('GET', `/bookings/${booking.id}`, host.token);
-              const outsiderBooking = await prisma.booking.create({
-                data: {
-                  guestId: stranger.id,
-                  roomTypeId: property.roomTypes[0].id,
-                  bookingCode: `STB-${randomUUID()}`,
-                  roomTypeNameSnapshot: 'Room',
-                  quantity: 1,
-                  guestCount: 1,
-                  checkIn: new Date('2020-01-01'),
-                  checkOut: new Date('2020-01-02'),
-                  nightlyPriceSnapshot: 1,
-                  totalNights: 1,
-                  totalAmount: 1,
-                  depositPercentSnapshot: 0,
-                  depositAmount: 0,
-                  remainingAmount: 1,
-                  paymentDeadlineAt: new Date('2020-01-01'),
-                  status: 'CONFIRMED',
-                },
-              });
-              await request(
-                'GET',
-                `/bookings/${outsiderBooking.id}`,
-                guest.token,
-                undefined,
-                404,
-              );
-              await request(
-                'POST',
-                `/bookings/${outsiderBooking.id}/feedback`,
-                guest.token,
-                { rating: 5, content: 'Not my booking' },
-                404,
-              );
-              const ownPast = await prisma.booking.create({
-                data: {
-                  guestId: guest.id,
-                  roomTypeId: property.roomTypes[0].id,
-                  bookingCode: `STB-${randomUUID()}`,
-                  roomTypeNameSnapshot: 'Room',
-                  quantity: 1,
-                  guestCount: 1,
-                  checkIn: new Date('2020-02-01'),
-                  checkOut: new Date('2020-02-02'),
-                  nightlyPriceSnapshot: 1,
-                  totalNights: 1,
-                  totalAmount: 1,
-                  depositPercentSnapshot: 0,
-                  depositAmount: 0,
-                  remainingAmount: 1,
-                  paymentDeadlineAt: new Date('2020-02-01'),
-                  status: 'CONFIRMED',
-                },
-              });
-              await request(
-                'POST',
-                `/bookings/${ownPast.id}/feedback`,
-                guest.token,
-                { rating: 5, content: 'Historical stay is accessible' },
-                201,
-              );
-            } else {
-              assert.deepEqual(
-                await request('GET', '/host/bookings', guest.token),
-                [],
-              );
-              await request(
-                'GET',
-                `/host/properties/${property.id}`,
-                guest.token,
-                undefined,
-                404,
-              );
-            }
-          }
         },
       );
       await t.test(

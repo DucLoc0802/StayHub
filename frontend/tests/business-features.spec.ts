@@ -116,7 +116,7 @@ async function mock(
       checkOut: '2027-10-03',
       payment: {
         id: 'payment',
-        method: 'FAKE',
+        method: 'MOMO_MANUAL',
         status: 'SUCCESS',
         amount: current.depositAmount,
         paidAt: '2027-09-30T03:00:00Z',
@@ -206,50 +206,30 @@ async function mock(
         availableUnits: 4,
         serverNow: '2027-10-05T03:00:00Z',
       };
-    else if (path.endsWith('/payment-demo'))
+    else if (path.endsWith('/payment'))
       data = {
         booking: current,
-        payload: {
-          mode: 'DEMO',
-          currency: 'VND',
-          amount: current.depositAmount,
-          reference: current.bookingCode,
-          description: `STAYHUB ${current.bookingCode}`,
+        recipient: {
+          available: true,
+          receiverName: 'Test receiver',
+          receiverPhone: '0900000009',
+          verificationWindowMinutes: 60,
         },
-        qrDataUrl:
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB1sAAAAASUVORK5CYII=',
         serverNow: '2027-10-05T03:00:00Z',
       };
-    else if (
-      path.endsWith('/pay') &&
-      request.postDataJSON()?.outcome === 'FAILED'
-    ) {
+    else if (path.endsWith('/payment-claims')) {
       current = {
         ...current,
         paymentAttempts: [
           {
-            id: 'failed-attempt',
-            status: 'FAILED',
+            id: 'claim',
+            method: 'MOMO_MANUAL',
+            status: 'SUBMITTED',
             amount: current.depositAmount,
+            transactionRef: request.postDataJSON().transactionRef,
             createdAt: '2027-10-05T03:00:00Z',
-            method: 'FAKE',
-            failureReason: 'Thanh toán demo thất bại.',
           },
         ],
-      };
-      data = current;
-      status = 201;
-    } else if (path.endsWith('/pay')) {
-      current = {
-        ...current,
-        status: 'CONFIRMED',
-        payment: {
-          id: 'payment',
-          method: 'FAKE',
-          status: 'SUCCESS',
-          amount: current.depositAmount,
-          paidAt: '2027-10-05T03:00:00Z',
-        },
       };
       data = current;
       status = 201;
@@ -259,7 +239,7 @@ async function mock(
         status: 'CONFIRMED',
         payment: {
           id: 'payment',
-          method: 'FAKE',
+          method: 'MOMO_MANUAL',
           status: 'SUCCESS',
           amount: current.depositAmount,
           paidAt: '2027-10-05T03:00:00Z',
@@ -387,37 +367,21 @@ test('profile accepts formatted Vietnamese phones, submits canonical digits and 
 });
 
 for (const status of ['PENDING', 'ACTIVE'] as const) {
-  test(`converted ${status} Host can navigate personal history, invoice and feedback`, async ({
+  test(`converted ${status} Host is redirected away from Guest history`, async ({
     page,
   }) => {
     await mock(page, 'HOST', true, 'completed', status);
     await page.goto('/bookings');
+    await expect(page).toHaveURL('/host');
     await expect(
-      page.getByText(`Mã đặt chỗ · ${booking.bookingCode}`),
-    ).toBeVisible();
+      page.getByRole('link', { name: 'Đặt phòng của tôi', exact: true }),
+    ).toHaveCount(0);
     await expect(
-      page.getByLabel('Điểm đánh giá', { exact: true }),
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Mở menu tài khoản' }).click();
-    await expect(
-      page.getByRole('menuitem', { name: 'Đặt phòng của tôi' }),
-    ).toBeVisible();
-    if (status === 'PENDING')
-      await expect(
-        page.getByRole('menuitem', { name: 'Quản lý chỗ nghỉ' }),
-      ).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await page.getByRole('link', { name: 'Xem hóa đơn' }).click();
-    await expect(
-      page.getByRole('button', { name: 'In / Xuất PDF' }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(booking.bookingCode, { exact: true }),
-    ).toBeVisible();
+      page.getByRole('link', { name: 'Tìm chỗ nghỉ', exact: true }),
+    ).toHaveCount(0);
   });
 }
-
-for (const role of ['ANONYMOUS', 'GUEST', 'HOST', 'ADMIN'] as const) {
+for (const role of ['ANONYMOUS', 'GUEST'] as const) {
   test(`public lookup is visible and limited for ${role}`, async ({ page }) => {
     await mock(page, role === 'ANONYMOUS' ? 'GUEST' : role);
     if (role === 'ANONYMOUS') {
@@ -480,7 +444,7 @@ for (const role of ['ANONYMOUS', 'GUEST', 'HOST', 'ADMIN'] as const) {
       page.getByRole('heading', { name: booking.bookingCode }),
     ).toBeVisible();
     await expect(
-      page.getByText('Đã thanh toán cọc', { exact: true }),
+      page.getByText('Đã xác minh thanh toán cọc', { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText(booking.customerPhoneSnapshot, { exact: true }),
@@ -643,42 +607,68 @@ test('incomplete guest browses, is prompted only when booking and completes prof
     page.getByRole('link', { name: 'Tiếp tục đặt phòng' }),
   ).toBeVisible();
 });
-test('QR payment, confirmation, invoice snapshots and print layout work at mobile size', async ({
+test('deposit opens a QR-free claim dialog and never confirms merely on submission', async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 375, height: 900 });
   await mock(page);
+  await page.setViewportSize({ width: 375, height: 900 });
   await page.goto(`/bookings/${booking.id}/payment`);
-  await expect(
-    page.getByRole('img', { name: /QR demo STB-BROWSERDEMO/ }),
-  ).toBeVisible();
-  await expect(
-    page.getByText('STAYHUB STB-BROWSERDEMO', { exact: true }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: '../.local/business-payment-mobile.png',
-    fullPage: true,
-  });
+  await expect(page.getByRole('img', { name: /QR/ })).toHaveCount(0);
   await page
-    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
+    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
+    .click();
+  await expect(page.getByRole('dialog')).toContainText(
+    'chưa xác nhận đã nhận tiền',
+  );
+  await page.getByLabel('Mã giao dịch MoMo *').fill('UI-TRANSFER-123');
+  await page
+    .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán thành công' }),
+    page.getByRole('heading', { name: 'Đang chờ xác nhận thanh toán' }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
-  await expect(page.getByRole('link', { name: 'Xem hóa đơn' })).toBeVisible();
-  await page.getByRole('link', { name: 'Xem hóa đơn' }).click();
-  await expect(page.getByText('0901234567', { exact: true })).toBeVisible();
   await expect(
-    page.getByText('STB-BROWSERDEMO', { exact: true }),
+    page.getByRole('link', { name: 'Xem đặt phòng của tôi', exact: true }),
+  ).toHaveCount(0);
+});
+test('missing recipient shows controlled unavailable state and disables transfer claims', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.route(`**/api/bookings/${booking.id}/payment`, (route) =>
+    route.fulfill({
+      json: {
+        booking,
+        recipient: {
+          available: false,
+          receiverName: null,
+          receiverPhone: null,
+          verificationWindowMinutes: 60,
+        },
+        serverNow: '2027-10-05T03:00:00Z',
+      },
+    }),
+  );
+  await page.goto(`/bookings/${booking.id}/payment`);
+  await expect(
+    page.getByText('Thanh toán đang tạm ngừng', { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Thanh toán cọc', exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByRole('img', { name: /QR/i })).toHaveCount(0);
+});
+
+test('verified invoice preserves snapshots and supports print layout on mobile', async ({
+  page,
+}) => {
+  await mock(page, 'GUEST', true, 'completed');
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto(`/bookings/${booking.id}/invoice`);
+  await expect(page.getByText('0901234567', { exact: true })).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'In / Xuất PDF' }),
   ).toBeVisible();
-  await page.screenshot({
-    path: '../.local/business-invoice-mobile.png',
-    fullPage: true,
-  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -688,7 +678,6 @@ test('QR payment, confirmation, invoice snapshots and print layout work at mobil
   await expect(page.locator('.invoice-content')).toBeVisible();
   await expect(page.locator('.invoice-actions')).toBeHidden();
 });
-
 test('booking review creates a hold and routes directly into payment', async ({
   page,
 }) => {
@@ -706,11 +695,11 @@ test('booking review creates a hold and routes directly into payment', async ({
   await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   await expect(page).toHaveURL(new RegExp(`/bookings/${booking.id}/payment$`));
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán cọc', exact: true }),
+    page.getByRole('heading', { name: 'Thanh toán qua MoMo', exact: true }),
   ).toBeVisible();
 });
 
-test('unfinished checkout stays outside paid history, failure is retryable, and success URL alone does not pay', async ({
+test('success URL alone cannot pay and unpaid bookings recover outside the paid history', async ({
   page,
 }) => {
   await mock(page);
@@ -718,9 +707,6 @@ test('unfinished checkout stays outside paid history, failure is retryable, and 
   await expect(
     page.getByRole('heading', { name: 'Chưa ghi nhận thanh toán' }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Thanh toán thành công' }),
-  ).toHaveCount(0);
   await page.goto('/bookings');
   await expect(
     page.getByText('Bạn chưa có đặt phòng đã thanh toán nào.'),
@@ -729,28 +715,10 @@ test('unfinished checkout stays outside paid history, failure is retryable, and 
   await page
     .getByRole('link', { name: 'Tiếp tục thanh toán', exact: true })
     .click();
-  await page
-    .getByRole('button', { name: 'Thử tình huống thanh toán thất bại' })
-    .click();
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán chưa thành công' }),
-  ).toBeVisible();
-  await expect(
-    page.getByText('Thanh toán demo thất bại.', { exact: true }),
-  ).toBeVisible();
-  await page.getByRole('link', { name: 'Thử thanh toán lại' }).click();
-  await page
-    .getByRole('button', { name: 'Thanh toán cọc demo', exact: true })
-    .click();
-  await expect(
-    page.getByRole('heading', { name: 'Thanh toán thành công' }),
-  ).toBeVisible();
-  await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
-  await expect(
-    page.getByText(`Mã đặt chỗ · ${booking.bookingCode}`),
+    page.getByRole('heading', { name: 'Thanh toán qua MoMo' }),
   ).toBeVisible();
 });
-
 test('multi-property Host selection follows the chosen branch across management tabs', async ({
   page,
 }) => {

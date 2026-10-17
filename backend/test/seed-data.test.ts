@@ -71,7 +71,7 @@ test('catalog matches app validation and sensible capacities and varied faciliti
     }
     assert.equal(data.roomTypes.length, data.type === 'HOTEL' ? 3 : 1);
     if (data.type === 'HOMESTAY') assert.equal(data.roomTypes[0].totalUnits, 1);
-    assert.match(data.description, /dữ liệu tổng hợp/);
+    assert.match(data.description, /dữ liệu minh họa/);
     assert.match(data.address, /Khu vực đường .+, TP\. Hồ Chí Minh/);
     assert.equal(new Set(codes).size, codes.length);
     assert.equal(images.length, 3);

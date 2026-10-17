@@ -4,8 +4,14 @@ import type { Booking } from '@/lib/types';
 
 const labels: Record<string, string> = {
   CREATED: 'Tạo đơn, giữ phòng tạm',
-  PAYMENT_SUCCESS: 'Thanh toán cọc thành công (demo)',
-  PAYMENT_FAILED: 'Thanh toán thất bại (demo)',
+  PAYMENT_SUCCESS: 'Thanh toán đã được xác nhận',
+  PAYMENT_FAILED: 'Thanh toán thất bại',
+  PAYMENT_SUBMITTED: 'Khách đã báo chuyển tiền · Chờ xác minh',
+  PAYMENT_REJECTED: 'Thông báo thanh toán bị từ chối',
+  PAYMENT_RESOLUTION_REQUIRED: 'Khoản chuyển tiền cần xử lý riêng',
+  SIMULATED_PAYMENT_SUCCESS:
+    'Giao dịch mô phỏng thành công · Không thu tiền thật',
+  SIMULATED_PAYMENT_FAILED: 'Giao dịch mô phỏng thất bại · Không thu tiền thật',
   CONFIRMED: 'Xác nhận đặt phòng',
   CANCELLED: 'Hủy đặt phòng',
   EXPIRED: 'Hết hạn thanh toán',

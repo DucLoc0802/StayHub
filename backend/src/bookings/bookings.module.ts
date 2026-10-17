@@ -10,18 +10,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import {
-  CurrentUser,
-  PersonalBookings,
-  Public,
-  Roles,
-  SessionUser,
-} from '../common/security';
-import { PaymentsService } from '../payments/payments.service';
+import { CurrentUser, Public, Roles, SessionUser } from '../common/security';
+import { PaymentsModule } from '../payments/payments.module';
 import {
   AvailabilityQueryDto,
   CreateBookingDto,
-  DemoPayDto,
   HostBookingQueryDto,
   QuoteQueryDto,
 } from './booking.dto';
@@ -45,27 +38,15 @@ class BookingsController {
   @Get('eligibility') eligibility(@CurrentUser() user: SessionUser) {
     return this.bookings.eligibility(user.id);
   }
-  constructor(
-    private readonly bookings: BookingsService,
-    private readonly payments: PaymentsService,
-  ) {}
+  constructor(private readonly bookings: BookingsService) {}
   @Post() create(
     @CurrentUser() user: SessionUser,
     @Body() dto: CreateBookingDto,
   ) {
     return this.bookings.create(user.id, dto);
   }
-  @PersonalBookings() @Roles('GUEST', 'HOST', 'ADMIN') @Get('my') mine(
-    @CurrentUser() user: SessionUser,
-  ) {
+  @Get('my') mine(@CurrentUser() user: SessionUser) {
     return this.bookings.mine(user.id);
-  }
-  @Post(':id/pay') pay(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: SessionUser,
-    @Body() dto: DemoPayDto,
-  ) {
-    return this.payments.pay(id, user.id, dto?.outcome);
   }
   @Patch(':id/cancel') cancel(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -82,7 +63,16 @@ class BookingsController {
 @Roles('HOST')
 @Controller('host/bookings')
 class HostBookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly access: BookingAccessService,
+  ) {}
+  @Get(':id') detail(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: SessionUser,
+  ) {
+    return this.access.find(user, { id });
+  }
   @Get() list(
     @CurrentUser() user: SessionUser,
     @Query() dto: HostBookingQueryDto,
@@ -90,10 +80,9 @@ class HostBookingsController {
     return this.bookings.host(user.id, dto.propertyId);
   }
 }
-@ApiTags('Tra cứu, thanh toán demo và hóa đơn')
+@ApiTags('Thông tin đặt phòng và hóa đơn')
 @ApiBearerAuth()
-@Roles('GUEST', 'HOST', 'ADMIN')
-@PersonalBookings()
+@Roles('GUEST')
 @Controller('bookings')
 class BookingAccessController {
   constructor(private readonly access: BookingAccessService) {}
@@ -108,12 +97,6 @@ class BookingAccessController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.access.invoice(user, id);
-  }
-  @Roles('GUEST') @Get(':id/payment-demo') payment(
-    @CurrentUser() user: SessionUser,
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
-    return this.access.paymentDemo(user, id);
   }
   @Get(':id') detail(
     @CurrentUser() user: SessionUser,
@@ -152,7 +135,7 @@ class PropertyCalendarController {
   }
 }
 @Module({
-  imports: [InventoryModule],
+  imports: [InventoryModule, PaymentsModule],
   controllers: [
     BookingsController,
     HostBookingsController,
@@ -163,7 +146,6 @@ class PropertyCalendarController {
   ],
   providers: [
     BookingsService,
-    PaymentsService,
     BookingAccessService,
     PublicLookupService,
     LookupRateLimit,
