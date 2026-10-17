@@ -20,11 +20,11 @@ export const demoAmenities = [
 export const demoAccounts: [string, string, Role, AccountStatus][] = [
   ['admin@stayhub.local', 'admin01', 'ADMIN', 'ACTIVE'],
   ['guest@stayhub.local', 'guest01', 'GUEST', 'ACTIVE'],
-  ['guest.lan@stayhub.local', 'guest02', 'GUEST', 'ACTIVE'],
   ['host@stayhub.local', 'host01', 'HOST', 'ACTIVE'],
   ['host.east@stayhub.local', 'host02', 'HOST', 'ACTIVE'],
   ['host.south@stayhub.local', 'host03', 'HOST', 'ACTIVE'],
   ['host.hoangthanh@stayhub.local', 'host04', 'HOST', 'ACTIVE'],
+  ['host.hoanggia@stayhub.local', 'host05', 'HOST', 'ACTIVE'],
 ];
 const specs = [
   [
@@ -61,7 +61,7 @@ const specs = [
   ],
   [
     'Khách sạn Hoàng Thành 2',
-    'host.hoangthanh@stayhub.local',
+    'host.hoanggia@stayhub.local',
     'HOTEL',
     'Bình Thạnh',
     'Nguyễn Gia Trí',

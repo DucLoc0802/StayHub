@@ -8,7 +8,6 @@ import { PropertiesModule } from './properties/properties.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthGuard } from './common/security';
-import { FeedbackModule } from './feedback/feedback.module';
 @Module({
   imports: [
     PrismaModule,
@@ -24,7 +23,6 @@ import { FeedbackModule } from './feedback/feedback.module';
     AmenitiesModule,
     PropertiesModule,
     BookingsModule,
-    FeedbackModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: AuthGuard }],
 })

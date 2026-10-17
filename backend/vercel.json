@@ -3,7 +3,7 @@
   "framework": "nestjs",
   "buildCommand": "npm run build:vercel",
   "crons": [
-    { "path": "/api/internal/expire-bookings", "schedule": "*/10 * * * *" }
+    { "path": "/api/internal/expire-bookings", "schedule": "0 0 * * *" }
   ],
   "env": {
     "NODE_ENV": "production",

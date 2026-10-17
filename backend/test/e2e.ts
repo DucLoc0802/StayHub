@@ -352,7 +352,11 @@ async function main() {
   const claimId = submitted.paymentAttempts!.at(-1)!.id;
   await request(
     'POST',
-    '/admin/payments/' + claimId + '/review',
+    '/admin/bookings/' +
+      booking.id +
+      '/payment-claims/' +
+      claimId +
+      '/reconcile',
     host.accessToken,
     {
       decision: 'VERIFY',
@@ -368,7 +372,11 @@ async function main() {
   };
   const paid = await request<Booking>(
     'POST',
-    '/admin/payments/' + claimId + '/review',
+    '/admin/bookings/' +
+      booking.id +
+      '/payment-claims/' +
+      claimId +
+      '/reconcile',
     admin.accessToken,
     review,
     201,
@@ -379,7 +387,11 @@ async function main() {
   assert.equal(paid.payment?.method, 'MOMO_MANUAL');
   await request(
     'POST',
-    '/admin/payments/' + claimId + '/review',
+    '/admin/bookings/' +
+      booking.id +
+      '/payment-claims/' +
+      claimId +
+      '/reconcile',
     admin.accessToken,
     review,
     201,

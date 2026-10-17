@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public, Roles, SessionUser } from '../common/security';
 import { PaymentsModule } from '../payments/payments.module';
+import { bookingIdPipe } from '../common/validation';
 import {
   AvailabilityQueryDto,
   CreateBookingDto,
@@ -100,7 +101,7 @@ class BookingAccessController {
   }
   @Get(':id') detail(
     @CurrentUser() user: SessionUser,
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', bookingIdPipe()) id: string,
   ) {
     return this.access.find(user, { id });
   }

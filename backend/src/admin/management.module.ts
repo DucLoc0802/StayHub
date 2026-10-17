@@ -101,6 +101,7 @@ export class ManagementService {
   ) {}
   users(dto: AdminQueryDto) {
     const where: Prisma.UserWhereInput = {
+      archivedAt: null,
       role: dto.role,
       status: dto.accountStatus,
       ...(dto.q
@@ -174,10 +175,10 @@ export class ManagementService {
         states,
         payments,
       ] = await Promise.all([
-        tx.user.count({ where: { role: 'GUEST' } }),
-        tx.user.count({ where: { role: 'HOST' } }),
-        tx.property.count(),
-        tx.roomType.count(),
+        tx.user.count({ where: { role: 'GUEST', archivedAt: null } }),
+        tx.user.count({ where: { role: 'HOST', archivedAt: null } }),
+        tx.property.count({ where: { archivedAt: null } }),
+        tx.roomType.count({ where: { property: { archivedAt: null } } }),
         tx.booking.count(),
         tx.booking.groupBy({ by: ['status'], _count: true }),
         tx.payment.aggregate({
@@ -311,16 +312,6 @@ export class ManagementService {
       limit: dto.limit,
     }));
   }
-  feedback() {
-    return this.prisma.feedback.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      include: {
-        guest: { select: publicUser },
-        property: { select: { id: true, name: true } },
-      },
-    });
-  }
   async booking(id: string) {
     const initial = await this.prisma.booking.findUnique({
       where: { id },
@@ -349,6 +340,7 @@ export class ManagementService {
   }
   properties(dto: AdminQueryDto) {
     const where: Prisma.PropertyWhereInput = {
+      archivedAt: null,
       hostId: dto.hostId,
       ...(dto.q ? { name: { contains: dto.q } } : {}),
     };
@@ -380,6 +372,17 @@ export class ManagementService {
       page: dto.page,
       limit: dto.limit,
     }));
+  }
+  async property(id: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id },
+      include: {
+        ...propertyInclude,
+        host: { select: { id: true, fullName: true } },
+      },
+    });
+    if (!property) throw new NotFoundException('Không tìm thấy cơ sở lưu trú.');
+    return property;
   }
 }
 @ApiTags('Quản trị người dùng và thống kê')
@@ -415,11 +418,13 @@ export class ManagementController {
   @Get('properties') properties(@Query() dto: AdminQueryDto) {
     return this.management.properties(dto);
   }
+  @Get('properties/:id') property(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.management.property(id);
+  }
   @Get('bookings/:id') booking(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.management.booking(id);
-  }
-  @Get('feedback') feedback() {
-    return this.management.feedback();
   }
 }
 @Module({

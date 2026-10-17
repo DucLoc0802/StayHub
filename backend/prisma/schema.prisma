@@ -51,6 +51,7 @@ model User {
   status       AccountStatus
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  archivedAt   DateTime?
   bookingBlockedUntil DateTime?
   expirationStrikeResetAt DateTime?
   properties   Property[]
@@ -76,6 +77,7 @@ model Property {
   status         PropertyStatus @default(ACTIVE)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  archivedAt     DateTime?
   images         PropertyImage[]
   amenities      PropertyAmenity[]
   roomTypes      RoomType[]

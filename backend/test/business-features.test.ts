@@ -441,7 +441,11 @@ test(
             { ...body, bookingCode: 'STB-UNKNOWN' },
             404,
           );
-          assert.deepEqual(wrongEmail, wrongCode);
+          assert.match(wrongEmail.requestId, /^[a-f0-9-]{36}$/);
+          assert.deepEqual(
+            { ...wrongEmail, requestId: undefined },
+            { ...wrongCode, requestId: undefined },
+          );
           await request(
             'POST',
             '/booking-lookup',
@@ -503,23 +507,31 @@ test(
             receivedAmount: booking.depositAmount,
             verifiedTransactionRef: claim.transactionRef,
           };
+          await request('GET', '/admin/payments', admin.token, undefined, 404);
           await request(
             'POST',
-            `/admin/payments/${claim.id}/review`,
+            `/admin/bookings/${randomUUID()}/payment-claims/${claim.id}/reconcile`,
+            admin.token,
+            body,
+            404,
+          );
+          await request(
+            'POST',
+            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
             guest.token,
             body,
             403,
           );
           await request(
             'POST',
-            `/admin/payments/${claim.id}/review`,
+            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
             host.token,
             body,
             403,
           );
           const paid = await request(
             'POST',
-            `/admin/payments/${claim.id}/review`,
+            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
             admin.token,
             body,
             201,
@@ -528,7 +540,7 @@ test(
           assert.equal(paid.payment.amount, booking.depositAmount);
           await request(
             'POST',
-            `/admin/payments/${claim.id}/review`,
+            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
             admin.token,
             body,
             201,
@@ -594,64 +606,23 @@ test(
         },
       );
       await t.test(
-        'feedback requires ownership, confirmed state and checkout; duplicates refused and property summary updated',
+        'review routes are disabled while historical records remain intact',
         async () => {
-          const feedback = {
-            rating: 5,
-            content: 'Nội dung đánh giá tổng hợp cho kiểm thử.',
-          };
           await request(
             'POST',
             `/bookings/${booking.id}/feedback`,
             guest.token,
-            feedback,
-            409,
-          );
-          await request(
-            'POST',
-            `/bookings/${booking.id}/feedback`,
-            stranger.token,
-            feedback,
+            { rating: 5, content: 'Disabled review' },
             404,
           );
           await request(
-            'POST',
-            `/bookings/${booking.id}/feedback`,
-            undefined,
-            feedback,
-            401,
-          );
-          await prisma.booking.update({
-            where: { id: booking.id },
-            data: {
-              checkIn: new Date('2020-01-01'),
-              checkOut: new Date('2020-01-03'),
-            },
-          });
-          const saved = await request(
-            'POST',
-            `/bookings/${booking.id}/feedback`,
-            guest.token,
-            feedback,
-            201,
-          );
-          assert.equal(saved.propertyId, property.id);
-          await request(
-            'POST',
-            `/bookings/${booking.id}/feedback`,
-            guest.token,
-            feedback,
-            409,
-          );
-          const summary = await request(
             'GET',
             `/properties/${property.id}/feedback`,
             undefined,
+            undefined,
+            404,
           );
-          assert.equal(summary.count, 1);
-          assert.equal(summary.averageRating, 5);
-          assert.equal(summary.items[0].content, feedback.content);
-          assert.equal(summary.items[0].guest.email, undefined);
+          await request('GET', '/admin/feedback', admin.token, undefined, 404);
         },
       );
       await t.test(
@@ -690,9 +661,16 @@ test(
           assert.equal(stats.totalBookings, await prisma.booking.count());
           assert.equal(
             stats.guests,
-            await prisma.user.count({ where: { role: 'GUEST' } }),
+            await prisma.user.count({
+              where: { role: 'GUEST', archivedAt: null },
+            }),
           );
-          assert.equal(stats.roomTypes, await prisma.roomType.count());
+          assert.equal(
+            stats.roomTypes,
+            await prisma.roomType.count({
+              where: { property: { archivedAt: null } },
+            }),
+          );
           assert.equal(
             stats.successfulDepositAmount,
             (
@@ -733,7 +711,6 @@ test(
             '/admin/bookings',
             '/admin/users',
             `/admin/customers/${guest.id}/history`,
-            '/admin/feedback',
           ])
             await request('GET', path, guest.token, undefined, 403);
         },

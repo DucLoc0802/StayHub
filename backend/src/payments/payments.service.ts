@@ -11,11 +11,7 @@ import { InventoryService } from '../bookings/inventory.service';
 import { bookingInclude, bookingResponse } from '../bookings/bookings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { momoConfig } from './momo-config';
-import {
-  PaymentQueryDto,
-  ReviewTransferDto,
-  SubmitTransferDto,
-} from './payment.dto';
+import { ReviewTransferDto, SubmitTransferDto } from './payment.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -141,12 +137,17 @@ export class PaymentsService {
     }
   }
 
-  async review(attemptId: string, reviewerId: string, dto: ReviewTransferDto) {
+  async review(
+    attemptId: string,
+    reviewerId: string,
+    dto: ReviewTransferDto,
+    bookingId?: string,
+  ) {
     const initial = await this.prisma.paymentAttempt.findUnique({
       where: { id: attemptId },
-      select: { booking: { select: { guestId: true } } },
+      select: { bookingId: true, booking: { select: { guestId: true } } },
     });
-    if (!initial)
+    if (!initial || (bookingId && initial.bookingId !== bookingId))
       throw new NotFoundException('Không tìm thấy thông báo thanh toán.');
     if (dto.decision !== 'VERIFY' && !dto.reason?.trim())
       throw new BadRequestException('Vui lòng ghi lý do xử lý.');
@@ -292,48 +293,5 @@ export class PaymentsService {
         }),
       );
     });
-  }
-
-  async list(dto: PaymentQueryDto) {
-    await this.inventory.sweep();
-    const where: Prisma.PaymentAttemptWhereInput = {
-      method: 'MOMO_MANUAL',
-      status: dto.status,
-    };
-    return this.prisma.$transaction(async (tx) => ({
-      items: await tx.paymentAttempt.findMany({
-        where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        skip: (dto.page - 1) * dto.limit,
-        take: dto.limit,
-        include: {
-          reviewedBy: { select: { id: true, fullName: true } },
-          booking: {
-            select: {
-              id: true,
-              bookingCode: true,
-              status: true,
-              customerNameSnapshot: true,
-              depositAmount: true,
-              propertyNameSnapshot: true,
-              roomType: {
-                select: {
-                  property: {
-                    select: {
-                      id: true,
-                      name: true,
-                      host: { select: { id: true, fullName: true } },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      }),
-      total: await tx.paymentAttempt.count({ where }),
-      page: dto.page,
-      limit: dto.limit,
-    }));
   }
 }

@@ -123,7 +123,7 @@ export class PropertiesService implements OnModuleInit {
   async mine(hostId: string) {
     return (
       await this.prisma.property.findMany({
-        where: { hostId },
+        where: { hostId, archivedAt: null },
         include: propertyInclude,
         orderBy: { createdAt: 'desc' },
       })
@@ -131,7 +131,7 @@ export class PropertiesService implements OnModuleInit {
   }
   async owned(id: string, hostId: string) {
     const property = await this.prisma.property.findFirst({
-      where: { id, hostId },
+      where: { id, hostId, archivedAt: null },
       include: propertyInclude,
     });
     if (!property) throw new NotFoundException('Không tìm thấy chỗ nghỉ.');

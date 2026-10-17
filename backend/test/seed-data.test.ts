@@ -12,8 +12,8 @@ import {
   SearchPropertyDto,
 } from '../src/properties/property.dto';
 
-test('four independent Host accounts own five properties with only Hoàng Thành sharing a brand', () => {
-  assert.equal(demoAccounts.filter((a) => a[2] === 'HOST').length, 4);
+test('five Host accounts each own one property, with one Admin and one Guest', () => {
+  assert.equal(demoAccounts.filter((a) => a[2] === 'HOST').length, 5);
   assert.equal(demoAccommodations.length, 5);
   assert.equal(new Set(demoAccommodations.map((p) => p.id)).size, 5);
   assert.equal(new Set(demoAccommodations.map((p) => p.name)).size, 5);
@@ -22,13 +22,10 @@ test('four independent Host accounts own five properties with only Hoàng Thành
     ownership.set(p.hostEmail, [...(ownership.get(p.hostEmail) ?? []), p]);
   assert.deepEqual(
     [...ownership.values()].map((p) => p.length).sort(),
-    [1, 1, 1, 2],
+    [1, 1, 1, 1, 1],
   );
-  const branches = [...ownership.values()].find((p) => p.length === 2)!;
-  assert.deepEqual(
-    branches.map((p) => p.name),
-    ['Khách sạn Hoàng Thành 1', 'Khách sạn Hoàng Thành 2'],
-  );
+  assert.equal(demoAccounts.filter((a) => a[2] === 'GUEST').length, 1);
+  assert.equal(demoAccounts.filter((a) => a[2] === 'ADMIN').length, 1);
 });
 
 test('catalog matches app validation and sensible capacities and varied facilities', () => {

@@ -23,6 +23,15 @@ async function main() {
       'Set DEMO_PASSWORD (8+ characters, at most 72 UTF-8 bytes) for local demo accounts.',
     );
   const hash = await bcrypt.hash(password, 12);
+  for (const [email, names] of [
+    ['guest.lan@stayhub.local', ['guest02', 'Phạm Ngọc Lan']],
+    ['pendinghost@stayhub.local', ['Chủ nhà demo chờ duyệt']],
+    ['inventory-demo@stayhub.local', ['Khách minh họa lịch phòng']],
+  ] as [string, string[]][])
+    await prisma.user.updateMany({
+      where: { email, fullName: { in: names }, archivedAt: null },
+      data: { archivedAt: new Date() },
+    });
   await prisma.feedback.deleteMany({
     where: {
       id: '60000000-0000-4000-8000-000000000001',
@@ -61,7 +70,6 @@ async function main() {
   for (const [email, legacyName] of [
     ['admin@stayhub.local', 'Quản trị demo StayHub'],
     ['guest@stayhub.local', 'Nguyễn Minh Anh'],
-    ['guest.lan@stayhub.local', 'Phạm Ngọc Lan'],
     ['host@stayhub.local', 'Trần Thảo An'],
     ['host.east@stayhub.local', 'Nguyễn Minh Châu'],
     ['host.south@stayhub.local', 'Lê Bình An'],
@@ -102,9 +110,10 @@ async function main() {
         name: old.name,
         description: old.description,
         address: old.address,
-        status: 'ACTIVE',
+        status: { in: ['ACTIVE', 'INACTIVE'] },
+        archivedAt: null,
       },
-      data: { status: 'INACTIVE' },
+      data: { status: 'INACTIVE', archivedAt: new Date() },
     });
   }
   for (const {
@@ -121,6 +130,32 @@ async function main() {
       where: { id: property.id },
       select: { hostId: true },
     });
+    if (
+      existing &&
+      existing.hostId !== host.id &&
+      property.id === '71000000-0000-4000-8000-000000000005'
+    ) {
+      const oldOwner = users.get('host.hoangthanh@stayhub.local')!;
+      const realPayments = await prisma.payment.count({
+        where: {
+          method: 'MOMO_MANUAL',
+          booking: { roomType: { propertyId: property.id } },
+        },
+      });
+      const changed = realPayments
+        ? { count: 0 }
+        : await prisma.property.updateMany({
+            where: {
+              id: property.id,
+              hostId: oldOwner.id,
+              name: property.name,
+              address: property.address,
+              description: property.description,
+            },
+            data: { hostId: host.id },
+          });
+      if (changed.count) existing.hostId = host.id;
+    }
     if (existing && existing.hostId !== host.id)
       throw new Error(
         `Seed property ownership differs: ${property.id}. Existing data was preserved.`,
@@ -174,9 +209,7 @@ async function main() {
     const id = `75000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
     if (await prisma.booking.findUnique({ where: { id } })) continue;
     const roomId = demoAccommodations[index % 5].roomTypes[0].id;
-    const customer = users.get(
-      index % 2 ? 'guest.lan@stayhub.local' : 'guest@stayhub.local',
-    )!;
+    const customer = users.get('guest@stayhub.local')!;
     await prisma.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT id FROM User WHERE id = ${customer.id} FOR UPDATE`;
@@ -307,7 +340,7 @@ async function main() {
     );
   }
   console.info(
-    'Fictional StayHub demo: four Hosts, five properties, seven booking scenarios; no generated public reviews. Existing accounts and host edits preserved.',
+    'Fictional StayHub demo: five Hosts, five properties, seven booking scenarios; no generated public reviews. Existing accounts and host edits preserved.',
   );
 }
 main()

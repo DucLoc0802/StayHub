@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -32,11 +32,4 @@ export class ReviewTransferDto {
   @IsString()
   @Length(4, 100)
   verifiedTransactionRef?: string;
-}
-export class PaymentQueryDto {
-  @IsOptional()
-  @IsIn(['SUBMITTED', 'SUCCESS', 'FAILED', 'RESOLUTION_REQUIRED'])
-  status?: 'SUBMITTED' | 'SUCCESS' | 'FAILED' | 'RESOLUTION_REQUIRED';
-  @Type(() => Number) @IsInt() @Min(1) @Max(100000) page = 1;
-  @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 20;
 }

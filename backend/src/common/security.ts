@@ -67,7 +67,7 @@ export class AuthGuard implements CanActivate {
       );
     }
     const user = await this.prisma.user.findUnique({
-      where: { id: sub },
+      where: { id: sub, archivedAt: null },
       select: publicUser,
     });
     if (!user) throw new UnauthorizedException('Phiên đăng nhập không hợp lệ.');

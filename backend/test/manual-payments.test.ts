@@ -26,7 +26,7 @@ import {
 test('short account aliases preserve emails and centralized role redirects never enter another workspace', () => {
   assert.deepEqual(
     demoAccounts.map((a) => a[1]),
-    ['admin01', 'guest01', 'guest02', 'host01', 'host02', 'host03', 'host04'],
+    ['admin01', 'guest01', 'host01', 'host02', 'host03', 'host04', 'host05'],
   );
   for (const [email, name] of demoAccounts) {
     const login = plainToInstance(LoginDto, {

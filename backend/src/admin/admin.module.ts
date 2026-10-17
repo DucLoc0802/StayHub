@@ -17,7 +17,7 @@ class AdminService {
   constructor(private readonly prisma: PrismaService) {}
   pending() {
     return this.prisma.user.findMany({
-      where: { role: 'HOST', status: 'PENDING' },
+      where: { role: 'HOST', status: 'PENDING', archivedAt: null },
       select: publicUser,
       orderBy: { createdAt: 'asc' },
     });

@@ -10,6 +10,7 @@ const demoLoginEmails = new Map([
   ['host02', 'host.east@stayhub.local'],
   ['host03', 'host.south@stayhub.local'],
   ['host04', 'host.hoangthanh@stayhub.local'],
+  ['host05', 'host.hoanggia@stayhub.local'],
   ['admin', 'admin@stayhub.local'],
   ['host', 'host@stayhub.local'],
   ['guest', 'guest@stayhub.local'],
@@ -19,7 +20,7 @@ export class LoginDto {
   @ApiProperty({
     example: 'guest01',
     description:
-      'Email hoặc tên tài khoản phát triển: admin01, host01–host04, guest01–guest02',
+      'Email hoặc tên tài khoản phát triển: admin01, host01–host05, guest01',
   })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string'

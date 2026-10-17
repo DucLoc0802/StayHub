@@ -1,4 +1,17 @@
-import { BadRequestException, ValidationError } from '@nestjs/common';
+import {
+  BadRequestException,
+  ValidationError,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+export const bookingIdPipe = () =>
+  new ParseUUIDPipe({
+    exceptionFactory: () =>
+      new BadRequestException({
+        code: 'INVALID_BOOKING_ID',
+        message:
+          'Mã đặt phòng không hợp lệ. Vui lòng mở lại đơn từ danh sách đặt phòng.',
+      }),
+  });
 const labels: Record<string, string> = {
   email: 'email',
   password: 'mật khẩu',

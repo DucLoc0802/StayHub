@@ -6,17 +6,13 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles, SessionUser } from '../common/security';
 import { InventoryModule } from '../bookings/inventory.module';
+import { bookingIdPipe } from '../common/validation';
 import { PaymentsService } from './payments.service';
-import {
-  PaymentQueryDto,
-  ReviewTransferDto,
-  SubmitTransferDto,
-} from './payment.dto';
+import { ReviewTransferDto, SubmitTransferDto } from './payment.dto';
 @ApiBearerAuth()
 @ApiTags('Thanh toán')
 @Roles('GUEST')
@@ -24,13 +20,13 @@ import {
 export class CustomerPaymentsController {
   constructor(private readonly payments: PaymentsService) {}
   @Get(':id/payment') checkout(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', bookingIdPipe()) id: string,
     @CurrentUser() user: SessionUser,
   ) {
     return this.payments.checkout(id, user.id);
   }
   @Post(':id/payment-claims') submit(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id', bookingIdPipe()) id: string,
     @CurrentUser() user: SessionUser,
     @Body() dto: SubmitTransferDto,
   ) {
@@ -38,20 +34,18 @@ export class CustomerPaymentsController {
   }
 }
 @ApiBearerAuth()
-@ApiTags('Xác minh thanh toán')
+@ApiTags('Đối chiếu khoản cọc trong đặt phòng')
 @Roles('ADMIN')
-@Controller('admin/payments')
+@Controller('admin/bookings')
 export class AdminPaymentsController {
   constructor(private readonly payments: PaymentsService) {}
-  @Get() list(@Query() dto: PaymentQueryDto) {
-    return this.payments.list(dto);
-  }
-  @Post(':id/review') review(
+  @Post(':bookingId/payment-claims/:id/reconcile') review(
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: SessionUser,
     @Body() dto: ReviewTransferDto,
   ) {
-    return this.payments.review(id, user.id, dto);
+    return this.payments.review(id, user.id, dto, bookingId);
   }
 }
 @Module({

@@ -56,7 +56,12 @@ export class AuthService {
       user?.passwordHash ??
         '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxIiD4gb9SVqVY5iGmE3jD1vG7K',
     );
-    if (!user || !valid || Buffer.byteLength(dto.password, 'utf8') > 72)
+    if (
+      !user ||
+      user.archivedAt ||
+      !valid ||
+      Buffer.byteLength(dto.password, 'utf8') > 72
+    )
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng.');
     const { passwordHash: _passwordHash, ...safeUser } = user;
     void _passwordHash;
