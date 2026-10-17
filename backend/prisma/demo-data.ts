@@ -1,4 +1,5 @@
 import type { AccountStatus, Role } from '@prisma/client';
+import { demoImageUrl, demoPhotoSets } from './demo-images';
 export const demoAmenities = [
   ['WIFI', 'Wi-Fi'],
   ['AIR_CONDITIONING', 'Máy lạnh'],
@@ -88,12 +89,8 @@ export const demoAccommodations = specs.map(
         type === 'HOMESTAY'
           ? ['WIFI', 'AIR_CONDITIONING', 'HOT_WATER', 'KITCHEN', 'BALCONY']
           : ['WIFI', 'AIR_CONDITIONING', 'HOT_WATER', 'TV', 'WORKSPACE'],
-      images: [
-        'photo-1611892440504-42a792e24d32',
-        'photo-1600210492486-724fe5c67fb0',
-        'photo-1600566753086-00f18fb6b3ea',
-      ].map((photo, sortOrder) => ({
-        url: `https://images.unsplash.com/${photo}?auto=format&fit=crop&w=1400&q=85`,
+      images: demoPhotoSets[index].map((photo, sortOrder) => ({
+        url: demoImageUrl(photo),
         sortOrder,
       })),
       roomTypes: (type === 'HOMESTAY' ? [0] : [0, 1, 2]).map((n) => ({

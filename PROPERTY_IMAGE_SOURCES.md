@@ -1,0 +1,19 @@
+# 15 ảnh minh họa cho 5 cơ sở StayHub
+
+Cập nhật ngày 17/10/2026: mỗi cơ sở có 3 ảnh riêng; tổng cộng 15 ảnh không trùng nhau. Ảnh minh họa từ Unsplash, không phải ảnh xác nhận của cơ sở thật. [Nguồn tìm ảnh](https://unsplash.com/s/photos/hotel-room) · [Unsplash License](https://unsplash.com/license).
+
+| Cơ sở                   | Ảnh bìa / phòng ngủ                                                                                    | Ảnh 2                                                                                                  | Ảnh 3                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Homestay An Nhiên       | [Ảnh 1](https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1400&q=85) | [Ảnh 2](https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=1400&q=85) | [Ảnh 3](https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=1400&q=85)    |
+| Khách sạn Minh Châu     | [Ảnh 1](https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1400&q=85) | [Ảnh 2](https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=1400&q=85) | [Ảnh 3](https://images.unsplash.com/photo-1560448075-bb485b067938?auto=format&fit=crop&w=1400&q=85)    |
+| Nhà nghỉ Bình An        | [Ảnh 1](https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=1400&q=85) | [Ảnh 2](https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1400&q=85) | [Ảnh 3](https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1400&q=85) |
+| Khách sạn Hoàng Thành 1 | [Ảnh 1](https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1400&q=85) | [Ảnh 2](https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1400&q=85) | [Ảnh 3](https://images.unsplash.com/photo-1564540583246-934409427776?auto=format&fit=crop&w=1400&q=85) |
+| Khách sạn Hoàng Thành 2 | [Ảnh 1](https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1400&q=85) | [Ảnh 2](https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=85) | [Ảnh 3](https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1400&q=85)    |
+
+Danh mục mới được lưu tại `backend/prisma/demo-images.ts` và dùng trong seed khi tạo cơ sở mới. Với dữ liệu đã có, `backend/scripts/refresh-demo-images.ts` mặc định chỉ preview; apply yêu cầu bản sao lưu có chứng cứ restore, chỉ đổi URL của đúng 15 image fixture, giữ ID và thứ tự, từ chối ghi đè ảnh Host đã tùy chỉnh.
+
+Đã tải thử đủ 15 URL ở kích thước 1400px: HTTP 200, content-type image, 15 SHA-256 khác nhau; kiểm tra trực quan ảnh nội thất trước khi chọn. Các kiểm tra catalog hiện có đạt 3/3; TypeScript và lint đạt.
+
+Backup trước thay đổi: `.local/aiven-before-photo-refresh.sql` (ignored), SHA-256 `6fb13b965d57c32ff922596069b00499a928f9653ef106987e799fa56bfcd5e4`. Đã phục hồi và đối chiếu đủ 12 bảng trên database riêng `stayhub_photo_rehearsal_test`.
+
+Đã cập nhật Aiven: đúng 15 URL ảnh thay đổi, 114 ảnh lịch sử và toàn bộ 11 bảng còn lại giữ nguyên hash; ID và thứ tự ảnh giữ nguyên. Preview sau cập nhật không còn thay đổi. API production trả đúng 5 cơ sở × 3 ảnh = 15 URL riêng biệt. Browser trên website thật kiểm tra đủ 15 ảnh tải được ở desktop và khi chuyển ảnh trong gallery mobile, không có pageerror. Bằng chứng: `.local/photo-selection/live-verification.json`, ảnh danh sách và từng gallery trong cùng thư mục.

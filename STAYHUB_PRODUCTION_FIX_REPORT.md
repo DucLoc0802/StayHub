@@ -154,3 +154,7 @@ Nếu production chưa cấu hình `MOMO_RECEIVER_NAME` và `MOMO_RECEIVER_PHONE
 Cron daily tương thích Hobby. Timestamp expiry trong truy vấn và transaction vẫn loại hold hết hạn ngay, không đợi cron; cần CRON_SECRET được cấu hình để bảo vệ cron. Không công khai giá trị secret.
 
 Không rollback schema bằng cách drop bảng audit/payment attempt. Nếu cần phục hồi, giữ backup riêng, review delta sau thời điểm backup và bảo toàn giao dịch phát sinh; restore rehearsal chứng minh bản sao phục hồi được, không tự động ghi đè production.
+
+## Cập nhật bộ ảnh ngày 17/10/2026
+
+Theo yêu cầu bổ sung, đã thay bộ 3 ảnh dùng chung thành **15 ảnh khác nhau, mỗi cơ sở 3 ảnh**. Đã cập nhật trực tiếp Aiven và kiểm tra trên website thật ở desktop/mobile. Chỉ 15 URL ảnh thay đổi; ID ảnh, thứ tự, 114 ảnh lịch sử và 11 bảng dữ liệu khác giữ nguyên. [Nguồn ảnh và kiểm chứng](PROPERTY_IMAGE_SOURCES.md).
