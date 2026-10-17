@@ -381,11 +381,15 @@ export function AdminUsers() {
     </div>
   );
 }
-export function AdminBookings() {
+export function AdminBookings({
+  initialPropertyId = '',
+}: {
+  initialPropertyId?: string;
+}) {
   const [q, setQ] = useState(''),
     [status, setStatus] = useState(''),
     [paymentStatus, setPaymentStatus] = useState(''),
-    [propertyId, setPropertyId] = useState(''),
+    [propertyId, setPropertyId] = useState(initialPropertyId),
     [hostId, setHostId] = useState(''),
     [from, setFrom] = useState(''),
     [to, setTo] = useState(''),
@@ -498,6 +502,7 @@ export function AdminBookings() {
           <label htmlFor="admin-host">Chủ cơ sở</label>
           <select
             id="admin-host"
+            disabled={filters.isError || filters.isPending}
             value={hostId}
             onChange={(e) => {
               setHostId(e.target.value);
@@ -517,6 +522,7 @@ export function AdminBookings() {
           <label htmlFor="admin-property">Cơ sở / chi nhánh</label>
           <select
             id="admin-property"
+            disabled={filters.isError || filters.isPending}
             value={propertyId}
             onChange={(e) => {
               setPropertyId(e.target.value);
@@ -535,15 +541,26 @@ export function AdminBookings() {
         </div>
       </div>
       {filters.isError && (
-        <ErrorState
-          message={errorMessage(filters.error)}
-          retry={() => void filters.refetch()}
-        />
+        <div
+          role="status"
+          className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border bg-white p-4 text-sm"
+        >
+          <p className="min-w-0 flex-1">
+            Chưa tải được bộ lọc chủ cơ sở / chi nhánh. Danh sách đặt phòng và
+            các bộ lọc còn lại vẫn sử dụng được.
+          </p>
+          <Button variant="outline" onClick={() => void filters.refetch()}>
+            Tải lại bộ lọc
+          </Button>
+        </div>
       )}
       {query.isPending ? (
         <Loading />
       ) : query.isError ? (
-        <ErrorState message={errorMessage(query.error)} />
+        <ErrorState
+          message={errorMessage(query.error)}
+          retry={() => void query.refetch()}
+        />
       ) : (
         <>
           <div className="panel divide-y px-5 sm:px-6">
@@ -777,44 +794,6 @@ export function AdminAmenities() {
         Ngừng hoạt động không xóa liên kết với chỗ nghỉ cũ. Host chỉ thêm tiện
         ích đang hoạt động.
       </p>
-    </div>
-  );
-}
-export function AdminFeedback() {
-  const query = useQuery({
-    queryKey: ['admin-feedback'],
-    queryFn: api.adminFeedback,
-  });
-  return (
-    <div className="container-shell py-6 sm:py-8">
-      <h1 className="mb-5 text-2xl font-semibold">Đánh giá của khách</h1>
-      {query.isPending ? (
-        <Loading />
-      ) : query.isError ? (
-        <ErrorState message={errorMessage(query.error)} />
-      ) : (
-        <div className="panel divide-y px-5 sm:px-6">
-          {query.data.map((f) => (
-            <article
-              className="grid gap-2 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-x-6"
-              key={f.id}
-            >
-              <div className="min-w-0 space-y-1">
-                <h2 className="font-semibold">
-                  {f.property.name} · {f.rating}/5
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {f.guest.fullName} · {dateLabel(f.createdAt)}
-                </p>
-              </div>
-              <p className="whitespace-pre-line break-words text-sm">
-                {f.content}
-              </p>
-            </article>
-          ))}
-          {!query.data.length && <p>Chưa có đánh giá.</p>}
-        </div>
-      )}
     </div>
   );
 }

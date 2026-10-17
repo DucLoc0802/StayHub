@@ -17,7 +17,7 @@ import {
 import { BookingCard } from './booking-card';
 import { PropertyImage } from './property-image';
 import { SectionReveal } from './ui/section-reveal';
-import { PropertyFeedback, RoomAvailabilityLabel } from './booking-extras';
+import { RoomAvailabilityLabel } from './booking-extras';
 export function PropertyDetail({ id }: { id: string }) {
   const router = useRouter();
   const property = useQuery({
@@ -221,7 +221,6 @@ export function PropertyDetail({ id }: { id: string }) {
           <BookingCard property={p} onDatesChange={setDates} />
         </div>
       </div>
-      <PropertyFeedback id={p.id} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { AdminPayments } from '@/components/admin-payments';
+import { redirect } from 'next/navigation';
 export default function Page() {
-  return <AdminPayments />;
+  redirect('/admin/bookings');
 }

@@ -13,7 +13,7 @@ export async function submitAndVerifyTransfer(page: Page) {
     .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Đang chờ xác nhận thanh toán' }),
+    page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
   ).toBeVisible();
   const token = await page.evaluate(() =>
     localStorage.getItem('stayhub.accessToken'),
@@ -34,7 +34,7 @@ export async function submitAndVerifyTransfer(page: Page) {
     (p) => p.transactionRef === reference.toUpperCase(),
   )!;
   const verified = await page.request.post(
-    `${api}/admin/payments/${claim.id}/review`,
+    `${api}/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
     {
       headers: { Authorization: `Bearer ${admin.accessToken}` },
       data: {

@@ -70,14 +70,15 @@ Các biến cấu hình lead time/chống lạm dụng nằm trong `backend/.env
 
 Đặt `DEMO_PASSWORD` (ít nhất 8 ký tự, tối đa 72 byte UTF-8) trong môi trường backend trước khi chạy seed. Tài khoản mới dùng mật khẩu này, băm bcrypt; tài khoản đã tồn tại giữ nguyên mật khẩu và chỉnh sửa. Không chạy seed trên production.
 
-| Tài khoản Host                         | Cơ sở tổng hợp               |
-| -------------------------------------- | ---------------------------- |
-| host01 — host@stayhub.local            | Homestay An Nhiên            |
-| host02 — host.east@stayhub.local       | Khách sạn Minh Châu          |
-| host03 — host.south@stayhub.local      | Nhà nghỉ Bình An             |
-| host04 — host.hoangthanh@stayhub.local | Khách sạn Hoàng Thành 1 và 2 |
+| Tài khoản Host                         | Cơ sở tổng hợp          |
+| -------------------------------------- | ----------------------- |
+| host01 — host@stayhub.local            | Homestay An Nhiên       |
+| host02 — host.east@stayhub.local       | Khách sạn Minh Châu     |
+| host03 — host.south@stayhub.local      | Nhà nghỉ Bình An        |
+| host04 — host.hoangthanh@stayhub.local | Khách sạn Hoàng Thành 1 |
+| host05 — host.hoanggia@stayhub.local   | Khách sạn Hoàng Thành 2 |
 
-Thêm `admin01` (`admin@stayhub.local`), `guest01` (`guest@stayhub.local`) và `guest02` (`guest.lan@stayhub.local`). Email/ID/mật khẩu cũ được giữ nguyên; UI dùng tên đăng nhập mới, API giữ bí danh cũ để tương thích. Database mới có **4 Host, 5 cơ sở, 13 loại phòng, 37 đơn vị, 14 tiện ích và 7 đơn minh họa** trên hai khách hàng, gồm đã thanh toán, đã hủy sau thanh toán, hết hạn, chờ cọc và giao dịch thất bại có thể thử lại. Không tạo đánh giá công khai hoặc chỉ số phổ biến giả.
+Thêm `admin01` (`admin@stayhub.local`) và `guest01` (`guest@stayhub.local`). Bộ dữ liệu mới có **5 Host, mỗi Host một cơ sở; 1 Admin; 1 Guest; 13 loại phòng, 37 đơn vị và 14 tiện ích**. Email/ID/mật khẩu tài khoản hiện có được giữ nguyên. Lịch sử booking/thanh toán cũ được bảo toàn; các fixture cũ được lưu trữ thay vì xóa. Không tạo đánh giá công khai hoặc chỉ số phổ biến giả.
 
 Seed dùng ID cố định, giữ lịch sử và chỉnh sửa. Chỉ ngừng bán các fixture cũ khớp đầy đủ dấu vân tay; cơ sở đã chỉnh sửa và dữ liệu người dùng được giữ. Database nâng cấp có thể còn cơ sở cũ để bảo toàn lịch sử. Địa chỉ, giá và ảnh đều là minh họa. [Thay đổi marketplace, API, migration và triển khai lịch hết hạn](MARKETPLACE_CHANGES.md).
 
@@ -97,3 +98,5 @@ API end-to-end: đặt `DATABASE_URL` và `TEST_API_URL` trỏ database/API test
 Browser: frontend/backend test đang chạy, đặt `PLAYWRIGHT_BASE_URL`, `TEST_API_URL`; đặt thêm `INVENTORY_TEST_DATABASE_URL` để chạy ba bài live inventory (tự dọn dữ liệu). Chạy `npm.cmd run test:e2e --prefix frontend`. Playwright mặc định Microsoft Edge; có thể đổi cấu hình trình duyệt trên máy khác.
 
 [Kết quả kiểm chứng](docs/verification.md). MoMo được đối chiếu thủ công: không có merchant API, xác nhận tự động, hoàn tiền tự động hoặc chi trả tự động cho Host. Chưa có email, số phòng vật lý, housekeeping hay kết nối OTA.
+
+Bản sửa production ngày 17/10/2026: [báo cáo triển khai và đồng bộ Aiven](STAYHUB_PRODUCTION_FIX_REPORT.md). Admin đối chiếu giao dịch trong chi tiết booking; `/admin/payments` chuyển về `/admin/bookings`. Giao diện và API đánh giá đã ngừng sử dụng; lịch sử trong database được giữ lại. Cron Vercel chạy hằng ngày, còn kiểm tra hết hạn theo timestamp vẫn áp dụng ngay khi truy vấn/đặt phòng.

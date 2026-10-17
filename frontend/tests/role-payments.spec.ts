@@ -29,7 +29,7 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 async function capture(page: Page, name: string) {
-  for (const width of [1440, 375]) {
+  for (const width of [1440, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 });
     const adminNav = page.getByRole('navigation', {
       name: 'Quản trị StayHub',
@@ -70,7 +70,7 @@ for (const name of [
   'host03',
   'host04',
   'guest01',
-  'guest02',
+  'host05',
 ]) {
   test(`${name} logs in and stays in its role on navigation and refresh`, async ({
     page,
@@ -199,7 +199,7 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
   const depositButton = await page
     .getByRole('button', { name: 'Thanh toán cọc', exact: true })
     .boundingBox();
-  expect(depositButton!.y + depositButton!.height).toBeLessThanOrEqual(1000);
+  expect(depositButton!.height).toBeGreaterThanOrEqual(44);
   const adminSession = (await (
     await request.post(api + '/auth/login', {
       data: { email: 'admin01', password: process.env.DEMO_PASSWORD },
@@ -215,7 +215,10 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
     for (const rejected of [true, false]) {
       const ref = `UI-${Date.now()}-${rejected ? 'REJECT' : 'VERIFY'}`;
       await page
-        .getByRole('button', { name: 'Thanh toán cọc', exact: true })
+        .getByRole('button', {
+          name: rejected ? 'Thanh toán cọc' : 'Gửi lại thông tin thanh toán',
+          exact: true,
+        })
         .click();
       await page.getByLabel('Mã giao dịch MoMo *').fill(ref);
       if (rejected) await capture(page, 'claim-dialog');
@@ -223,7 +226,7 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
         .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
         .click();
       await expect(
-        page.getByRole('heading', { name: 'Đang chờ xác nhận thanh toán' }),
+        page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
       ).toBeVisible();
       expect(
         (
@@ -232,10 +235,10 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
           ).json()) as Booking[]
         ).some((b) => b.id === booking.id),
       ).toBe(false);
-      await admin.goto('/admin/payments');
-      const row = admin.locator('article').filter({ hasText: ref });
+      await admin.goto(`/admin/bookings/${booking.id}`);
+      const row = admin.locator('article').filter({ hasText: ref }).last();
       await expect(row).toContainText('Chờ xác minh');
-      if (rejected) await capture(admin, 'admin-payments');
+      if (rejected) await capture(admin, 'booking-reconciliation');
       await row.getByRole('button', { name: 'Kiểm tra giao dịch' }).click();
       if (rejected) {
         await admin.getByLabel('Kết quả kiểm tra').selectOption('REJECT');
@@ -257,7 +260,7 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
       await expect(
         page.getByRole('heading', {
           name: rejected
-            ? 'Thông báo thanh toán chưa được chấp nhận'
+            ? 'Chưa xác minh được khoản chuyển tiền'
             : 'Thanh toán đã được xác nhận',
           exact: true,
         }),
@@ -267,7 +270,10 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
           'Không thấy giao dịch',
         );
         await page
-          .getByRole('link', { name: 'Tiếp tục thanh toán', exact: true })
+          .getByRole('link', {
+            name: 'Kiểm tra và gửi lại thông tin',
+            exact: true,
+          })
           .click();
       }
     }

@@ -1,13 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import { api, errorMessage } from '@/lib/api';
 import { dateLabel, money } from '@/lib/utils';
 import type { Booking } from '@/lib/types';
 import { Button } from './ui/button';
-import { ErrorState, Loading, StatusBadge } from './ui/states';
+import { Loading, StatusBadge } from './ui/states';
 export function RoomAvailabilityLabel({
   id,
   dates,
@@ -67,101 +66,6 @@ export function BookingSummary({ booking: b }: { booking: Booking }) {
         <dd className="text-right">{money(b.remainingAmount)}</dd>
       </dl>
     </div>
-  );
-}
-export function FeedbackForm({ booking }: { booking: Booking }) {
-  const [rating, setRating] = useState(5),
-    [content, setContent] = useState('');
-  const client = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: () =>
-      api.feedback(booking.id, { rating, content: content.trim() }),
-    onSuccess: () => {
-      toast.success('Đã gửi đánh giá.');
-      void client.invalidateQueries({ queryKey: ['bookings'] });
-      void client.invalidateQueries({ queryKey: ['feedback'] });
-    },
-  });
-  return (
-    <form
-      className="mt-5 space-y-3 border-t pt-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        mutation.mutate();
-      }}
-    >
-      <h3 className="font-semibold">Đánh giá chuyến lưu trú</h3>
-      <div className="field">
-        <label htmlFor={`rating-${booking.id}`}>Điểm đánh giá</label>
-        <select
-          id={`rating-${booking.id}`}
-          value={rating}
-          onChange={(e) => setRating(Number(e.target.value))}
-        >
-          {[5, 4, 3, 2, 1].map((n) => (
-            <option key={n} value={n}>
-              {n} / 5
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label htmlFor={`feedback-${booking.id}`}>Nội dung</label>
-        <textarea
-          id={`feedback-${booking.id}`}
-          required
-          minLength={5}
-          maxLength={2000}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-      </div>
-      {mutation.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {errorMessage(mutation.error)}
-        </p>
-      )}
-      <Button disabled={mutation.isPending || mutation.isSuccess}>
-        {mutation.isSuccess ? 'Đã gửi đánh giá' : 'Gửi đánh giá'}
-      </Button>
-    </form>
-  );
-}
-export function PropertyFeedback({ id }: { id: string }) {
-  const query = useQuery({
-    queryKey: ['feedback', id],
-    queryFn: () => api.propertyFeedback(id),
-  });
-  return (
-    <section className="mt-7 border-t py-7">
-      <h2 className="text-xl font-semibold">Đánh giá của khách</h2>
-      {query.isPending ? (
-        <Loading />
-      ) : query.isError ? (
-        <ErrorState message={errorMessage(query.error)} />
-      ) : (
-        <>
-          <p className="my-4 text-sm">
-            {query.data.count
-              ? `${query.data.averageRating?.toFixed(1)} / 5 · ${query.data.count} đánh giá`
-              : 'Chưa có đánh giá. Khách có thể đánh giá sau khi trả phòng.'}
-          </p>
-          {query.data.items.map((item) => (
-            <article className="mb-3 rounded-xl border p-4" key={item.id}>
-              <p className="text-sm font-medium">
-                {item.guest.fullName} · {item.rating}/5
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {dateLabel(item.createdAt)}
-              </p>
-              <p className="mt-3 whitespace-pre-line break-words text-sm">
-                {item.content}
-              </p>
-            </article>
-          ))}
-        </>
-      )}
-    </section>
   );
 }
 export function BookingLookup() {

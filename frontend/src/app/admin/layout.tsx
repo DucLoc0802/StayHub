@@ -41,9 +41,7 @@ export default function AdminLayout({
           ['/admin/users', 'Người dùng & phân quyền'],
           ['/admin/properties', 'Cơ sở lưu trú'],
           ['/admin/bookings', 'Tra cứu đặt phòng'],
-          ['/admin/payments', 'Xác minh thanh toán'],
           ['/admin/amenities', 'Tiện ích'],
-          ['/admin/feedback', 'Đánh giá'],
         ].map(([href, label]) => {
           const active =
             href === '/admin'

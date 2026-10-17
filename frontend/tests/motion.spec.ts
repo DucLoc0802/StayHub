@@ -412,7 +412,7 @@ test('gallery, calendar, booking totals, payment and cancellation work with moti
     .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Đang chờ xác nhận thanh toán' }),
+    page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
   ).toBeVisible();
   await page.goto('/bookings/pending-payments');
   await expect(page.locator('article')).toContainText('Chờ thanh toán');

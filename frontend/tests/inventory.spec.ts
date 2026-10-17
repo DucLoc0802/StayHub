@@ -157,7 +157,7 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
   const booking = (await (await created).json()) as Booking;
   await expect(page).toHaveURL(`/bookings/${booking.id}/payment`);
   await expect(page.locator('main')).toContainText('Phòng gia đình · 2 phòng');
-  await expect(page.locator('main')).toContainText('Hạn giữ phòng / xác minh');
+  await expect(page.locator('main')).toContainText('Hạn giữ phòng:');
   const remaining = async () =>
     (
       await (
@@ -201,9 +201,9 @@ test('expired booking refreshes history, disables payment and releases held unit
     where: { id: booking.id },
     data: { paymentDeadlineAt: new Date(Date.now() - 1) },
   });
-  await expect(page.locator('article')).toContainText('hết hạn thanh toán', {
-    timeout: 15000,
-  });
+  await expect(
+    page.getByRole('heading', { name: 'Đã hết hạn giữ phòng', exact: true }),
+  ).toBeVisible({ timeout: 15000 });
   await expect(
     page.getByRole('link', { name: 'Tiếp tục thanh toán', exact: true }),
   ).toHaveCount(0);

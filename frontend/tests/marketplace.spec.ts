@@ -24,7 +24,7 @@ async function login(page: Page, request: APIRequestContext, email: string) {
   return session;
 }
 async function capture(page: Page, name: string) {
-  for (const width of [1440, 375]) {
+  for (const width of [1440, 768, 375]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.evaluate(() => window.scrollTo(0, 0));
     expect(
@@ -81,53 +81,23 @@ test('Admin reads cross-Host history, filters payment and property, and sees onl
   );
   await capture(page, 'history');
 });
-test('seeded multi-property Host switches only its two branches and single owner needs no selector', async ({
+test('five seeded Hosts each manage exactly one property', async ({
   page,
   request,
 }) => {
-  await login(page, request, 'host04');
-  await page.goto('/host');
-  await expect(
-    page.getByLabel('Cơ sở đang quản lý').locator('option'),
-  ).toHaveCount(2);
-  await page
-    .getByLabel('Cơ sở đang quản lý')
-    .selectOption('71000000-0000-4000-8000-000000000004');
-  await expect(
-    page.getByRole('heading', { name: 'Khách sạn Hoàng Thành 1', exact: true }),
-  ).toBeVisible();
-  await page
-    .getByLabel('Cơ sở đang quản lý')
-    .selectOption('71000000-0000-4000-8000-000000000005');
-  await page.getByRole('link', { name: 'Đặt phòng', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Khách sạn Hoàng Thành 2', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Khách sạn Hoàng Thành 1', exact: true }),
-  ).toHaveCount(0);
-  await capture(page, 'host01');
-  await page
-    .getByRole('link', { name: 'Chỗ nghỉ của tôi', exact: true })
-    .click();
-  await page.getByRole('link', { name: 'Phòng & giá' }).click();
-  await expect(page).toHaveURL(
-    '/host/properties/71000000-0000-4000-8000-000000000005/edit',
-  );
-  await page
-    .getByLabel('Cơ sở đang quản lý')
-    .selectOption('71000000-0000-4000-8000-000000000004');
-  await expect(page).toHaveURL(
-    '/host/properties/71000000-0000-4000-8000-000000000004/edit',
-  );
-  await expect(page.getByLabel('Tên chỗ nghỉ', { exact: true })).toHaveValue(
-    'Khách sạn Hoàng Thành 1',
-  );
-  await page.evaluate(() => localStorage.clear());
-  await login(page, request, 'host01');
-  await page.goto('/host');
-  await expect(page.getByLabel('Cơ sở đang quản lý')).toHaveCount(0);
-  await expect(
-    page.getByRole('heading', { name: 'Homestay An Nhiên', exact: true }),
-  ).toBeVisible();
+  for (const [name, property] of [
+    ['host01', 'Homestay An Nhiên'],
+    ['host02', 'Khách sạn Minh Châu'],
+    ['host03', 'Nhà nghỉ Bình An'],
+    ['host04', 'Khách sạn Hoàng Thành 1'],
+    ['host05', 'Khách sạn Hoàng Thành 2'],
+  ]) {
+    await page.evaluate(() => localStorage.clear()).catch(() => {});
+    await login(page, request, name);
+    await page.goto('/host');
+    await expect(page.getByLabel('Cơ sở đang quản lý')).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: property, exact: true }),
+    ).toBeVisible();
+  }
 });

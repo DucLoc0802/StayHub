@@ -11,10 +11,7 @@ import type {
   Property,
   Session,
   User,
-  Feedback,
-  FeedbackSummary,
   CheckoutPayment,
-  PaymentAttempt,
   AdminStatistics,
   AdminPage,
   CustomerHistory,
@@ -97,27 +94,30 @@ export const api = {
   booking: (id: string) => get<Booking>(`/bookings/${id}`),
   checkout: (id: string) => get<CheckoutPayment>(`/bookings/${id}/payment`),
   hostBooking: (id: string) => get<Booking>(`/host/bookings/${id}`),
-  adminPayments: (params?: object) =>
-    get<AdminPage<PaymentAttempt>>('/admin/payments', params),
-  reviewPayment: (
-    id: string,
+  reconcilePayment: (
+    bookingId: string,
+    claimId: string,
     body: {
       decision: 'VERIFY' | 'REJECT' | 'RESOLUTION_REQUIRED';
       reason?: string;
       receivedAmount?: number;
       verifiedTransactionRef?: string;
     },
-  ) => post<Booking>(`/admin/payments/${id}/review`, body),
+  ) =>
+    post<Booking>(
+      `/admin/bookings/${bookingId}/payment-claims/${claimId}/reconcile`,
+      body,
+    ),
+  adminProperty: (id: string) =>
+    get<Property & { host: { id: string; fullName: string } }>(
+      `/admin/properties/${id}`,
+    ),
   adminProperties: (params?: object) =>
     get<AdminPage<Property & { host: { id: string; fullName: string } }>>(
       '/admin/properties',
       params,
     ),
   invoice: (id: string) => get<Booking>(`/bookings/${id}/invoice`),
-  feedback: (id: string, body: { rating: number; content: string }) =>
-    post<Feedback>(`/bookings/${id}/feedback`, body),
-  propertyFeedback: (id: string) =>
-    get<FeedbackSummary>(`/properties/${id}/feedback`),
   adminStatistics: () => get<AdminStatistics>('/admin/statistics'),
   adminUsers: (params?: object) => get<AdminPage<User>>('/admin/users', params),
   changeUser: (
@@ -141,10 +141,6 @@ export const api = {
     id
       ? patch<Amenity>(`/admin/amenities/${id}`, body)
       : post<Amenity>('/admin/amenities', body),
-  adminFeedback: () =>
-    get<(Feedback & { guest: User; property: { id: string; name: string } })[]>(
-      '/admin/feedback',
-    ),
   cancel: (id: string) => patch<Booking>(`/bookings/${id}/cancel`),
   pendingHosts: () => get<User[]>('/admin/hosts'),
   decideHost: (id: string, action: 'approve' | 'reject') =>
@@ -152,6 +148,15 @@ export const api = {
 };
 export function errorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    if (!error.response)
+      return 'Không thể kết nối máy chủ. Kiểm tra kết nối và thử lại; thông tin đặt phòng đã lưu sẽ được giữ nguyên.';
+    if (status === 401)
+      return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    if (status === 403)
+      return 'Tài khoản này không có quyền truy cập thông tin được yêu cầu.';
+    if (status === 502 || status === 504)
+      return 'Máy chủ phản hồi chậm hoặc đang tạm ngừng. Vui lòng thử lại sau.';
     const message = error.response?.data?.message;
     if (Array.isArray(message)) return message.join(' ');
     if (typeof message === 'string') return message;

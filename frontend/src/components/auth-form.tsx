@@ -23,7 +23,7 @@ const schema = (register: boolean) =>
           .max(191, 'Tài khoản tối đa 191 ký tự.')
           .refine(
             (value) =>
-              /^(admin01|host0[1-4]|guest0[12])$/.test(value) ||
+              /^(admin01|host0[1-5]|guest01)$/.test(value) ||
               z.email().safeParse(value).success,
             'Nhập email hoặc tên tài khoản hợp lệ.',
           ),

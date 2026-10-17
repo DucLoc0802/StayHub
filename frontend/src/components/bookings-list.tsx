@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Users, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '@/lib/api';
+import { paymentState } from '@/lib/payment-state';
 import type { Booking } from '@/lib/types';
 import { dateLabel, money, timestampLabel } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -15,7 +16,7 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Empty, ErrorState, Loading, StatusBadge } from './ui/states';
-import { BookingLookup, FeedbackForm } from './booking-extras';
+import { BookingLookup } from './booking-extras';
 import { useAuth } from './providers';
 import { useHostProperty } from './host-property-scope';
 export function BookingsList({
@@ -246,31 +247,17 @@ export function BookingsList({
                     </>
                   ) : (
                     <div>
-                      {b.status === 'PENDING_PAYMENT' ? (
-                        <>
+                      <p className="font-medium">
+                        {paymentState(b, now).title}
+                      </p>
+                      <p>{paymentState(b, now).description}</p>
+                      {b.status === 'PENDING_PAYMENT' &&
+                        Date.parse(b.paymentDeadlineAt) > now && (
                           <p>
-                            Phòng đang được giữ tạm. Hạn cọc:{' '}
-                            {timestampLabel(b.paymentDeadlineAt)}.
+                            Hạn giữ phòng: {timestampLabel(b.paymentDeadlineAt)}
+                            .
                           </p>
-                          <p>
-                            {new Date(b.paymentDeadlineAt).getTime() > now
-                              ? 'Còn ' +
-                                Math.ceil(
-                                  (new Date(b.paymentDeadlineAt).getTime() -
-                                    now) /
-                                    60000,
-                                ) +
-                                ' phút để thanh toán.'
-                              : 'Đã hết thời gian thanh toán. Đang cập nhật trạng thái…'}
-                          </p>
-                        </>
-                      ) : (
-                        <p>
-                          {b.status === 'EXPIRED'
-                            ? 'Đơn đã hết hạn thanh toán. Phòng đã được giải phóng.'
-                            : 'Đơn đã hủy. Phòng đã được giải phóng.'}
-                        </p>
-                      )}
+                        )}
                     </div>
                   )}
                 </div>
@@ -291,7 +278,7 @@ export function BookingsList({
                       >
                         Hủy đặt chỗ
                       </Button>
-                      {b.status === 'PENDING_PAYMENT' && (
+                      {paymentState(b, now).canPay && (
                         <Button asChild>
                           <Link href={`/bookings/${b.id}/payment`}>
                             Tiếp tục thanh toán
@@ -308,6 +295,13 @@ export function BookingsList({
                     <Link href={`/bookings/${b.id}/invoice`}>Xem hóa đơn</Link>
                   </Button>
                 )}
+              {pending && !paymentState(b, now).canPay && (
+                <Button asChild variant="outline" className="mt-4">
+                  <Link href={`/bookings/${b.id}/payment/result`}>
+                    Xem trạng thái xử lý
+                  </Link>
+                </Button>
+              )}
               <Button asChild variant="outline" className="mt-4 ml-2">
                 <Link
                   href={host ? `/host/bookings/${b.id}` : `/bookings/${b.id}`}
@@ -315,18 +309,6 @@ export function BookingsList({
                   Chi tiết đặt phòng
                 </Link>
               </Button>
-              {!host &&
-                b.status === 'CONFIRMED' &&
-                b.payment?.method === 'MOMO_MANUAL' &&
-                !b.feedback &&
-                new Date(
-                  `${b.checkOut.slice(0, 10)}T${b.checkOutTimeSnapshot}:00+07:00`,
-                ).getTime() <= now && <FeedbackForm booking={b} />}
-              {b.feedback && (
-                <p className="mt-4 text-sm">
-                  Đã đánh giá: {b.feedback.rating}/5 · {b.feedback.content}
-                </p>
-              )}
             </article>
           ))}
         </div>

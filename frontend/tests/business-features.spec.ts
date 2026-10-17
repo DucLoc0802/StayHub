@@ -523,23 +523,18 @@ test('homestay occupied dates are disabled and free dates remain selectable', as
   );
 });
 
-test('completed stay accepts one feedback and replaces the form with its rating', async ({
+test('review controls and public rating displays are absent', async ({
   page,
 }) => {
   await mock(page, 'GUEST', true, 'completed');
   await page.goto('/bookings');
-  await page.getByLabel('Điểm đánh giá', { exact: true }).selectOption('4');
-  await page
-    .getByLabel('Nội dung', { exact: true })
-    .fill('Phòng sạch và thời gian rõ ràng.');
-  await page.getByRole('button', { name: 'Gửi đánh giá', exact: true }).click();
-  await expect(
-    page.getByText('Phòng sạch và thời gian rõ ràng.', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Gửi đánh giá', exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByLabel('Điểm đánh giá', { exact: true })).toHaveCount(
+    0,
+  );
+  await page.goto('/properties/business-ui-demo');
+  await expect(page.getByText('Đánh giá tổng hợp rất rõ ràng.')).toHaveCount(0);
 });
+
 test('calendar colors, labels, sold-out disabling and per-room-type switching', async ({
   page,
 }) => {
@@ -625,7 +620,7 @@ test('deposit opens a QR-free claim dialog and never confirms merely on submissi
     .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Đang chờ xác nhận thanh toán' }),
+    page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
   ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Xem đặt phòng của tôi', exact: true }),
@@ -692,6 +687,13 @@ test('booking review creates a hold and routes directly into payment', async ({
   await expect(
     page.getByRole('region', { name: 'Kiểm tra thông tin đặt phòng' }),
   ).toContainText('Khách tổng hợp');
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({
+      path: '../.local/production-fixed-review-' + width + '.png',
+      fullPage: true,
+    });
+  }
   await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   await expect(page).toHaveURL(new RegExp(`/bookings/${booking.id}/payment$`));
   await expect(
@@ -705,13 +707,24 @@ test('success URL alone cannot pay and unpaid bookings recover outside the paid 
   await mock(page);
   await page.goto(`/bookings/${booking.id}/payment/result?success=true`);
   await expect(
-    page.getByRole('heading', { name: 'Chưa ghi nhận thanh toán' }),
+    page.getByRole('heading', { name: 'Chờ thanh toán cọc', exact: true }),
   ).toBeVisible();
   await page.goto('/bookings');
   await expect(
     page.getByText('Bạn chưa có đặt phòng đã thanh toán nào.'),
   ).toBeVisible();
   await page.getByRole('link', { name: 'Tiếp tục đơn chờ thanh toán' }).click();
+  await expect(
+    page.getByRole('link', { name: 'Tiếp tục thanh toán', exact: true }),
+  ).toBeVisible();
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({
+      path: '../.local/production-fixed-pending-' + width + '.png',
+      fullPage: true,
+    });
+  }
+
   await page
     .getByRole('link', { name: 'Tiếp tục thanh toán', exact: true })
     .click();
@@ -759,7 +772,7 @@ test('booking lookup and public feedback render', async ({ page }) => {
     page.getByRole('link', { name: 'Xem đơn đặt phòng' }),
   ).toBeVisible();
   await page.goto('/properties/business-ui-demo');
-  await expect(page.getByText('Đánh giá tổng hợp rất rõ ràng.')).toBeVisible();
+  await expect(page.getByText('Đánh giá tổng hợp rất rõ ràng.')).toHaveCount(0);
 });
 test('admin statistics, users, customer history, search and amenities remain responsive', async ({
   page,
@@ -773,7 +786,6 @@ test('admin statistics, users, customer history, search and amenities remain res
       '/admin/customers/guest',
       '/admin/bookings',
       '/admin/amenities',
-      '/admin/feedback',
     ]) {
       await page.goto(path);
       await expect(page.locator('h1')).toBeVisible();
