@@ -47,6 +47,8 @@ export async function renderInvoice(
     size: 'A4',
     margin: 44,
     bufferPages: true,
+    // Register the embedded font below without loading PDFKit's optional fonts.
+    font: '',
     info: {
       Title: `StayHub ${b.bookingCode}`,
       Author: 'StayHub',
