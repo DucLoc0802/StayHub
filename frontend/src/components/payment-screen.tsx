@@ -1,33 +1,20 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Clock3,
-  Copy,
-  ShieldCheck,
-  Smartphone,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowLeft, ArrowRight, Clock3, ShieldCheck } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
 import { money, dateLabel, timestampLabel } from '@/lib/utils';
 import { paymentState } from '@/lib/payment-state';
 import type { Booking } from '@/lib/types';
 import { Button } from './ui/button';
 import { ErrorState, StatusBadge } from './ui/states';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from './ui/dialog';
 import { PaymentError } from './payment-error';
+import { InvoiceDownload } from './invoice-download';
 
+const disclosure =
+  'Thanh toán mô phỏng phục vụ đồ án. Không phát sinh giao dịch tiền thật.';
 function useNow() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -36,16 +23,26 @@ function useNow() {
   }, []);
   return now;
 }
-function Summary({ booking: b }: { booking: Booking }) {
+function Summary({
+  booking: b,
+  className = '',
+}: {
+  booking: Booking;
+  className?: string;
+}) {
+  const paid = b.payment?.status === 'SUCCESS';
   return (
-    <aside className="panel self-start p-5 sm:p-6">
+    <aside
+      className={`self-start rounded-xl border bg-white p-5 sm:p-7 ${className}`}
+      aria-label="Thông tin đặt phòng"
+    >
       <h2 className="mb-5 text-lg font-semibold">Thông tin đặt phòng</h2>
       <p className="break-words text-xl font-semibold">
-        {b.propertyNameSnapshot || b.property.name}
+        {b.propertyNameSnapshot || 'Chỗ nghỉ theo đơn đã lưu'}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
-        {b.roomTypeNameSnapshot} · {b.quantity}{' '}
-        {b.property.type === 'HOTEL' ? 'phòng' : 'căn'} · {b.guestCount} khách
+        {b.roomTypeNameSnapshot} · {b.quantity} phòng / căn · {b.guestCount}{' '}
+        khách
       </p>
       <dl className="my-5 grid grid-cols-2 gap-4 border-y py-5 text-sm">
         <div>
@@ -62,55 +59,43 @@ function Summary({ booking: b }: { booking: Booking }) {
       <p className="text-xs text-muted-foreground">
         Giờ Việt Nam (UTC+7) · {b.totalNights} đêm
       </p>
-      <dl className="mt-5 space-y-3 text-sm">
+      <dl className="mt-5 space-y-4 text-sm">
         {[
-          ['Tổng tiền', b.totalAmount],
-          ['Tiền cọc', b.depositAmount],
-          ['Còn lại tại chỗ nghỉ', b.remainingAmount],
+          ['Tổng giá trị đặt phòng', b.totalAmount],
+          [
+            paid
+              ? 'Cọc đã ghi nhận'
+              : `Tiền cọc (${b.depositPercentSnapshot}%)`,
+            paid ? b.payment!.amount : b.depositAmount,
+          ],
+          [
+            'Còn lại tại chỗ nghỉ',
+            b.totalAmount - (paid ? b.payment!.amount : b.depositAmount),
+          ],
         ].map(([label, amount]) => (
-          <div key={label} className="flex justify-between gap-3">
+          <div key={label} className="flex justify-between gap-4">
             <dt className="text-muted-foreground">{label}</dt>
-            <dd className={label === 'Tiền cọc' ? 'font-bold' : 'font-medium'}>
+            <dd className="shrink-0 font-semibold tabular-nums">
               {money(Number(amount))}
             </dd>
           </div>
         ))}
       </dl>
-      <div className="mt-5 border-t pt-5 text-sm">
-        <p className="font-semibold">{b.customerNameSnapshot}</p>
-        <p className="mt-1 text-muted-foreground">{b.customerPhoneSnapshot}</p>
-        <p className="mt-3 break-all text-xs text-muted-foreground">
-          Mã đặt phòng: {b.bookingCode}
+      <div className="mt-6 space-y-2 border-t pt-5 text-sm">
+        <p className="break-all">
+          Mã đặt phòng: <strong>{b.bookingCode}</strong>
         </p>
-        <div className="mt-3">
-          <StatusBadge status={b.status} />
-        </div>
+        <StatusBadge status={b.status} />
       </div>
     </aside>
   );
 }
 function PaymentLoading() {
   return (
-    <div
-      className="container-shell page-section"
-      role="status"
-      aria-label="Đang tải thanh toán"
-    >
-      <h1 className="page-title">Đang mở thanh toán</h1>
-      <p className="my-4 text-sm text-muted-foreground">
-        Đang lấy thông tin đặt phòng và khoản cọc của bạn…
+    <div className="container-shell page-section">
+      <p role="status" className="py-16 text-center text-muted-foreground">
+        Đang tải thông tin thanh toán…
       </p>
-      <div aria-hidden="true" className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="panel space-y-5 p-6">
-          <div className="skeleton h-12 w-2/3 rounded-lg" />
-          <div className="skeleton h-44 rounded-lg" />
-          <div className="skeleton h-11 rounded-lg" />
-        </div>
-        <div className="panel space-y-4 p-6">
-          <div className="skeleton h-8 rounded-lg" />
-          <div className="skeleton h-40 rounded-lg" />
-        </div>
-      </div>
     </div>
   );
 }
@@ -118,27 +103,33 @@ export function PaymentScreen({ id }: { id: string }) {
   const router = useRouter(),
     client = useQueryClient(),
     now = useNow();
-  const [open, setOpen] = useState(false),
-    [transactionRef, setReference] = useState(''),
-    [note, setNote] = useState('');
+  const inFlight = useRef(false);
   const query = useQuery({
     queryKey: ['checkout', id],
     queryFn: () => api.checkout(id),
     retry: false,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
-  const mutation = useMutation({
-    mutationFn: () =>
-      api.submitTransfer(id, {
-        transactionRef: transactionRef.trim(),
-        evidenceNote: note.trim() || undefined,
-      }),
+  const payment = useMutation({
+    mutationFn: () => api.pay(id),
     onSuccess: (booking) => {
       client.setQueryData(['booking', id], booking);
-      void client.invalidateQueries({ queryKey: ['pending-payments'] });
-      void client.invalidateQueries({ queryKey: ['checkout', id] });
-      setOpen(false);
-      router.push(`/bookings/${id}/payment/result`);
+      for (const key of [
+        'checkout',
+        'bookings',
+        'pending-payments',
+        'eligibility',
+        'availability',
+        'quote',
+      ])
+        void client.invalidateQueries({ queryKey: [key] });
+      router.replace(`/bookings/${id}/payment/result`);
+    },
+    onError: () => {
+      void query.refetch();
+    },
+    onSettled: () => {
+      inFlight.current = false;
     },
   });
   if (query.isPending) return <PaymentLoading />;
@@ -146,286 +137,127 @@ export function PaymentScreen({ id }: { id: string }) {
     return (
       <PaymentError error={query.error} retry={() => void query.refetch()} />
     );
-  const { booking: b, recipient } = query.data,
-    state = paymentState(b, now);
-  const terminal = state.kind === 'expired' || state.kind === 'cancelled';
-  const canReport = b.payment?.status !== 'SUCCESS' && !state.claim && terminal;
-  const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success('Đã sao chép.');
-    } catch {
-      toast.error('Không thể sao chép. Bạn có thể chọn nội dung để sao chép.');
-    }
-  };
-  const action = terminal
-    ? 'Báo khoản đã chuyển'
-    : state.kind === 'rejected'
-      ? 'Gửi lại thông tin thanh toán'
-      : 'Thanh toán cọc';
+  const b = query.data.booking;
+  const serverOffset = Date.parse(query.data.serverNow) - query.dataUpdatedAt;
+  const state = paymentState(b, now + serverOffset);
   return (
-    <div className="container-shell page-section">
-      <div className="mx-auto max-w-6xl">
-        <Link
-          href="/bookings/pending-payments"
-          className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground underline"
-        >
-          <ArrowLeft size={16} />
-          Đơn chờ thanh toán
-        </Link>
-        <h1 className="page-title">Thanh toán qua MoMo</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Hoàn tất khoản cọc để giữ lịch lưu trú. Gửi thông báo sau khi chuyển
-          tiền; StayHub sẽ đối chiếu trước khi xác nhận phòng.
-        </p>
-        <ol
-          aria-label="Tiến trình đặt phòng"
-          className="my-6 flex flex-wrap gap-x-6 gap-y-3 border-y py-4 text-sm"
-        >
-          <li className="flex items-center gap-2">
-            <Check size={17} className="text-success" />
-            Thông tin đặt phòng
-          </li>
-          <li
-            aria-current="step"
-            className="flex items-center gap-2 font-semibold text-secondary-foreground"
+    <div className="bg-cream">
+      <div className="container-shell page-section">
+        <div className="mx-auto max-w-5xl">
+          <Link
+            href={`/bookings/${id}`}
+            className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm underline"
           >
-            <Smartphone size={17} />
-            Thanh toán cọc
-          </li>
-          <li className="flex items-center gap-2 text-muted-foreground">
-            <ShieldCheck size={17} />
-            Đối chiếu & xác nhận
-          </li>
-        </ol>
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <section className="panel min-w-0 p-5 sm:p-7">
-            <div className="flex items-center gap-3 border-b pb-5">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-[#a50064]/10 text-[#8b0054]">
-                <Smartphone size={24} />
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold">Chuyển tiền qua MoMo</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Khoản cọc do StayHub thu tập trung
-                </p>
-              </div>
-            </div>
-            <div className="py-6">
-              <p className="text-sm text-muted-foreground">
-                Số tiền cần thanh toán
-              </p>
-              <p className="mt-2 text-3xl font-bold tabular-nums sm:text-4xl">
-                {money(b.depositAmount)}
-              </p>
-              {state.canPay && (
-                <p className="mt-3 flex items-start gap-2 text-sm text-warning">
-                  <Clock3 size={16} className="mt-0.5 shrink-0" />
-                  <span>
-                    Hạn giữ phòng: {timestampLabel(b.paymentDeadlineAt)}
-                  </span>
-                </p>
-              )}
-            </div>
-            {state.kind !== 'unpaid' && (
-              <div className="mb-5 border-y py-4" role="status">
-                <h3 className="font-semibold">{state.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {state.description}
-                </p>
-                {state.claim?.transactionRef && (
-                  <p className="mt-3 break-all text-sm">
-                    Mã giao dịch: <strong>{state.claim.transactionRef}</strong>
-                  </p>
-                )}
-              </div>
-            )}
-            {(state.canPay || canReport) && (
-              <>
-                {!recipient.available ? (
-                  <div role="status" className="border-y py-5 text-sm">
-                    <h3 className="font-semibold">Thanh toán đang tạm ngừng</h3>
-                    <p className="mt-2 leading-6 text-muted-foreground">
-                      Chưa có thông tin người nhận được xác nhận. Vui lòng liên
-                      hệ hỗ trợ và không chuyển tiền vào tài khoản khác. Đơn và
-                      thời hạn giữ phòng vẫn được lưu.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border-y py-5">
-                    <h3 className="mb-4 font-semibold">Thông tin người nhận</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Tên tài khoản MoMo
-                    </p>
-                    <p className="mb-4 mt-1 font-semibold">
-                      {recipient.receiverName}
-                    </p>
-                    <dl className="space-y-4 text-sm">
-                      {[
-                        ['Số điện thoại MoMo', recipient.receiverPhone!],
-                        ['Số tiền cần thanh toán', String(b.depositAmount)],
-                        ['Nội dung chuyển tiền', b.bookingCode],
-                      ].map(([label, value]) => (
-                        <div key={label}>
-                          <dt className="text-muted-foreground">{label}</dt>
-                          <dd className="mt-1 flex items-center justify-between gap-3">
-                            <span className="break-all font-semibold tabular-nums">
-                              {label === 'Số tiền cần thanh toán'
-                                ? money(b.depositAmount)
-                                : value}
-                            </span>
-                            <Button
-                              size="sm"
-                              className="min-h-11 shrink-0"
-                              variant="outline"
-                              aria-label={`Sao chép ${label.toLowerCase()}`}
-                              onClick={() => void copy(value)}
-                            >
-                              <Copy size={15} />
-                              <span className="hidden sm:inline">Sao chép</span>
-                            </Button>
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-                )}
-                <div className="mt-5 text-sm leading-6">
-                  <h3 className="font-semibold">
-                    {terminal
-                      ? 'Bạn đã chuyển tiền trước đó?'
-                      : 'Sau khi chuyển tiền'}
-                  </h3>
-                  <p className="mt-2 text-muted-foreground">
-                    {terminal
-                      ? 'Chỉ báo khoản tiền đã chuyển để được kiểm tra riêng. Đơn này không còn giữ phòng; không chuyển thêm tiền.'
-                      : 'Kiểm tra người nhận, số tiền và mã đặt phòng trong MoMo. Mở lịch sử giao dịch để lấy mã giao dịch, rồi gửi thông báo bên dưới.'}
-                  </p>
+            <ArrowLeft size={16} aria-hidden="true" />
+            Chi tiết đặt phòng
+          </Link>
+          <h1 className="page-title">Thanh toán đặt phòng</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+            Kiểm tra thông tin và xác nhận khoản cọc. Đặt phòng được xác nhận
+            ngay sau khi thanh toán mô phỏng thành công.
+          </p>
+          <div className="mt-7 grid items-start gap-6 lg:grid-cols-[1.15fr_1fr]">
+            <section
+              className="rounded-xl border bg-white p-5 sm:p-8"
+              aria-labelledby="payment-info"
+            >
+              <h2 id="payment-info" className="text-lg font-semibold">
+                Thông tin thanh toán
+              </h2>
+              <dl className="mt-5 space-y-3 border-b pb-5 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Khách đặt phòng</dt>
+                  <dd className="mt-1 break-words font-semibold">
+                    {b.customerNameSnapshot || 'Không có trong bản ghi'}
+                  </dd>
                 </div>
-                <Dialog
-                  open={open}
-                  onOpenChange={(value) => {
-                    if (!mutation.isPending) {
-                      setOpen(value);
-                      mutation.reset();
-                    }
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button
-                      className="mt-5 w-full"
-                      disabled={!recipient.available}
-                    >
-                      {action}
-                      <ArrowRight size={17} />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogTitle className="pr-6 text-xl font-semibold">
-                      Xác nhận thông báo thanh toán
-                    </DialogTitle>
-                    <DialogDescription className="mt-3 text-sm leading-6 text-muted-foreground">
-                      Chỉ gửi khi đã chuyển {money(b.depositAmount)} cho{' '}
-                      {recipient.receiverName}. Thông báo này chưa xác nhận đã
-                      nhận tiền. StayHub cần kiểm tra tài khoản nhận trước khi
-                      xác nhận phòng.
-                    </DialogDescription>
-                    <form
-                      className="mt-5 space-y-4"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        mutation.mutate();
-                      }}
-                    >
-                      <p className="break-words text-sm font-semibold">
-                        Mã đặt phòng: {b.bookingCode}
-                      </p>
-                      <div className="field">
-                        <label htmlFor="transfer-ref">
-                          Mã giao dịch MoMo *
-                        </label>
-                        <input
-                          id="transfer-ref"
-                          required
-                          minLength={4}
-                          maxLength={100}
-                          pattern="[A-Za-z0-9][A-Za-z0-9_-]{3,99}"
-                          autoComplete="off"
-                          value={transactionRef}
-                          onChange={(e) => setReference(e.target.value)}
-                          aria-describedby="transfer-help"
-                        />
-                        <p
-                          id="transfer-help"
-                          className="text-xs text-muted-foreground"
-                        >
-                          Lấy từ lịch sử giao dịch MoMo; mã này khác mã đặt
-                          phòng.
-                        </p>
-                      </div>
-                      <div className="field">
-                        <label htmlFor="transfer-note">
-                          Ghi chú (không bắt buộc)
-                        </label>
-                        <textarea
-                          id="transfer-note"
-                          maxLength={1000}
-                          value={note}
-                          onChange={(e) => setNote(e.target.value)}
-                        />
-                      </div>
-                      {mutation.isError && (
-                        <ErrorState message={errorMessage(mutation.error)} />
-                      )}
-                      <div className="flex flex-wrap justify-end gap-3">
-                        <Button
-                          variant="outline"
-                          type="button"
-                          disabled={mutation.isPending}
-                          onClick={() => setOpen(false)}
-                        >
-                          Quay lại
-                        </Button>
-                        <Button disabled={mutation.isPending}>
-                          {mutation.isPending
-                            ? 'Đang gửi…'
-                            : 'Tôi đã thanh toán'}
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </>
-            )}
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t pt-4 text-sm">
-              <Link
-                className="inline-flex min-h-11 items-center underline"
-                href={`/bookings/${id}/payment/result`}
-              >
-                Xem trạng thái thanh toán
-              </Link>
-              <Link
-                className="inline-flex min-h-11 items-center underline"
-                href={`/bookings/${id}`}
-              >
-                Chi tiết đặt phòng
-              </Link>
-            </div>
-          </section>
-          <Summary booking={b} />
+                {b.customerPhoneSnapshot && (
+                  <div>
+                    <dt className="text-muted-foreground">Điện thoại</dt>
+                    <dd className="mt-1">{b.customerPhoneSnapshot}</dd>
+                  </div>
+                )}
+                {b.customerEmailSnapshot && (
+                  <div>
+                    <dt className="text-muted-foreground">Email</dt>
+                    <dd className="mt-1 break-all">
+                      {b.customerEmailSnapshot}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {state.canPay ? (
+                <>
+                  <p className="mt-6 text-sm text-muted-foreground">
+                    Số tiền cọc cần ghi nhận
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold tabular-nums sm:text-4xl">
+                    {money(b.depositAmount)}
+                  </p>
+                  <p className="mt-4 flex items-start gap-2 text-sm leading-6 text-muted-foreground">
+                    <Clock3
+                      size={17}
+                      className="mt-1 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>
+                      Thanh toán trước {timestampLabel(b.paymentDeadlineAt)}
+                    </span>
+                  </p>
+                  <Button
+                    className="mt-7 min-h-12 w-full"
+                    disabled={payment.isPending}
+                    aria-busy={payment.isPending}
+                    onClick={() => {
+                      if (inFlight.current) return;
+                      inFlight.current = true;
+                      payment.mutate();
+                    }}
+                  >
+                    {payment.isPending
+                      ? 'Đang xử lý thanh toán…'
+                      : 'Tôi đã thanh toán'}
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </Button>
+                </>
+              ) : (
+                <div className="mt-6 space-y-3" role="status">
+                  <h3 className="font-semibold">{state.title}</h3>
+                  <p className="text-sm leading-7 text-muted-foreground">
+                    {state.description}
+                  </p>
+                  <Button asChild variant="outline">
+                    <Link href={`/bookings/${id}/payment/result`}>
+                      Xem trạng thái thanh toán
+                    </Link>
+                  </Button>
+                </div>
+              )}
+              {payment.isError && (
+                <div className="mt-4">
+                  <ErrorState message={errorMessage(payment.error)} />
+                </div>
+              )}
+              <p className="mt-5 text-xs leading-6 text-muted-foreground">
+                {disclosure}
+              </p>
+            </section>
+            <Summary booking={b} className="order-first lg:order-last" />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 export function PaymentResultScreen({ id }: { id: string }) {
-  const now = useNow(),
-    query = useQuery({
-      queryKey: ['booking', id],
-      queryFn: () => api.booking(id),
-      retry: false,
-      refetchInterval: 5000,
-    });
+  const query = useQuery({
+    queryKey: ['booking', id],
+    queryFn: () => api.booking(id),
+    retry: false,
+    refetchOnMount: 'always',
+    refetchInterval: 5000,
+  });
+  const now = useNow();
   if (query.isPending) return <PaymentLoading />;
   if (query.isError)
     return (
@@ -433,77 +265,88 @@ export function PaymentResultScreen({ id }: { id: string }) {
     );
   const b = query.data,
     state = paymentState(b, now),
-    verified = state.kind === 'verified',
-    terminal = state.kind === 'expired' || state.kind === 'cancelled';
+    paid = b.payment?.status === 'SUCCESS';
   return (
-    <div className="container-shell page-section">
-      <div className="mx-auto grid max-w-5xl items-start gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <section className="panel space-y-5 p-6 sm:p-8">
-          <span
-            className={`inline-flex size-12 items-center justify-center rounded-xl ${verified ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}
-          >
-            {verified ? <ShieldCheck size={26} /> : <Clock3 size={26} />}
-          </span>
-          <h1 className="page-title">{state.title}</h1>
-          <p role="status" className="text-sm leading-7 text-muted-foreground">
-            {state.description}
-          </p>
-          {state.claim?.transactionRef && (
-            <dl className="space-y-3 border-y py-5 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Mã giao dịch đã báo</dt>
-                <dd className="mt-1 break-all font-semibold">
-                  {state.claim.transactionRef}
-                </dd>
-              </div>
-              {state.kind === 'reported' && (
-                <div>
-                  <dt className="text-muted-foreground">
-                    Hạn đối chiếu / giữ phòng
+    <div className="bg-cream">
+      <div className="container-shell page-section">
+        <div className="mx-auto grid max-w-5xl items-start gap-6 lg:grid-cols-[1.15fr_1fr]">
+          <section className="space-y-5 rounded-xl border bg-white p-5 sm:p-8">
+            {paid ? (
+              <ShieldCheck
+                size={40}
+                className="text-success"
+                aria-hidden="true"
+              />
+            ) : (
+              <Clock3 size={40} className="text-warning" aria-hidden="true" />
+            )}
+            <h1 className="page-title">{state.title}</h1>
+            <p
+              role="status"
+              className="text-sm leading-7 text-muted-foreground"
+            >
+              {state.description}
+            </p>
+            {paid && (
+              <dl className="space-y-3 border-y py-5 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt>
+                    Cọc đã ghi nhận
+                    {b.payment!.method === 'FAKE' ? ' (mô phỏng)' : ''}
                   </dt>
-                  <dd className="mt-1">
-                    {timestampLabel(b.paymentDeadlineAt)}
+                  <dd className="font-semibold tabular-nums">
+                    {money(b.payment!.amount)}
                   </dd>
                 </div>
+                <div>
+                  <dt className="text-muted-foreground">
+                    Thời điểm thanh toán
+                  </dt>
+                  <dd className="mt-1">{timestampLabel(b.payment!.paidAt)}</dd>
+                </div>
+              </dl>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {paid && (
+                <>
+                  <Button asChild>
+                    <Link href="/bookings">Xem đặt phòng của tôi</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={`/bookings/${id}/invoice`}>Xem hóa đơn</Link>
+                  </Button>
+                  <InvoiceDownload id={id} />
+                </>
               )}
-            </dl>
-          )}
-          <div className="flex flex-wrap gap-3">
-            {(verified ||
-              state.kind === 'simulated' ||
-              b.payment?.status === 'SUCCESS') && (
-              <Button asChild>
-                <Link href="/bookings">Xem đặt phòng của tôi</Link>
-              </Button>
+              {state.canPay && (
+                <Button asChild>
+                  <Link href={`/bookings/${id}/payment`}>
+                    Tiếp tục thanh toán
+                  </Link>
+                </Button>
+              )}
+              {!paid && (
+                <Button asChild variant="outline">
+                  <Link href="/bookings/pending-payments">
+                    Đơn chờ thanh toán
+                  </Link>
+                </Button>
+              )}
+            </div>
+            {(!paid || b.payment!.method === 'FAKE') && (
+              <p className="text-xs leading-6 text-muted-foreground">
+                {disclosure}
+              </p>
             )}
-            {state.canPay && (
-              <Button asChild>
-                <Link href={`/bookings/${id}/payment`}>
-                  {state.kind === 'rejected'
-                    ? 'Kiểm tra và gửi lại thông tin'
-                    : 'Tiếp tục thanh toán'}
-                </Link>
-              </Button>
-            )}
-            {terminal && !b.payment && !state.claim && (
-              <Button asChild variant="outline">
-                <Link href={`/bookings/${id}/payment`}>
-                  Báo khoản đã chuyển
-                </Link>
-              </Button>
-            )}
-            <Button asChild variant="outline">
-              <Link href="/bookings/pending-payments">Đơn chờ thanh toán</Link>
-            </Button>
             <Link
-              href="/properties"
+              href={`/bookings/${id}`}
               className="inline-flex min-h-11 items-center text-sm underline"
             >
-              Khám phá chỗ nghỉ
+              Chi tiết đặt phòng
             </Link>
-          </div>
-        </section>
-        <Summary booking={b} />
+          </section>
+          <Summary booking={b} />
+        </div>
       </div>
     </div>
   );

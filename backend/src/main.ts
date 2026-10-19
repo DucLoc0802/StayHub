@@ -25,6 +25,7 @@ async function bootstrap() {
     origin: runtime.origin,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalPipes(
     new ValidationPipe({
@@ -38,7 +39,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('StayHub API')
     .setDescription(
-      'Nền tảng đặt chỗ nghỉ tại TP. Hồ Chí Minh. Khoản cọc MoMo được đối chiếu thủ công trong chi tiết đặt phòng.',
+      'Nền tảng đặt chỗ nghỉ tại TP. Hồ Chí Minh. Thanh toán mô phỏng cho đồ án; không phát sinh giao dịch tiền thật.',
     )
     .setVersion('1.0')
     .addBearerAuth()

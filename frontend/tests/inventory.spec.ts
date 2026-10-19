@@ -4,7 +4,7 @@
   type Page,
   type APIRequestContext,
 } from '@playwright/test';
-import { submitAndVerifyTransfer } from './transfer-helper';
+import { completeSimulatedPayment } from './payment-helper';
 import { createRequire } from 'node:module';
 import type { Booking, Property, Session } from '../src/lib/types';
 const api = process.env.TEST_API_URL ?? 'http://localhost:4000/api';
@@ -157,7 +157,7 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
   const booking = (await (await created).json()) as Booking;
   await expect(page).toHaveURL(`/bookings/${booking.id}/payment`);
   await expect(page.locator('main')).toContainText('Phòng gia đình · 2 phòng');
-  await expect(page.locator('main')).toContainText('Hạn giữ phòng:');
+  await expect(page.locator('main')).toContainText('Thanh toán trước');
   const remaining = async () =>
     (
       await (
@@ -168,7 +168,7 @@ test('hotel room choice and quantity update quote; pending, paid and cancelled i
       ).json()
     ).availableUnits;
   expect(await remaining()).toBe(1);
-  await submitAndVerifyTransfer(page);
+  await completeSimulatedPayment(page);
   await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   await expect(page.locator('article')).toContainText('Đã xác nhận');
   expect(await remaining()).toBe(1);

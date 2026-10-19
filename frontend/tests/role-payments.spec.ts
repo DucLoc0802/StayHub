@@ -57,7 +57,7 @@ async function capture(page: Page, name: string) {
       )
       .toBe(true);
     await page.screenshot({
-      path: `../.local/momo-${name}-${width}.png`,
+      path: `../.local/payment-invoice-${name}-${width}.png`,
       fullPage: true,
       animations: 'disabled',
     });
@@ -148,15 +148,14 @@ for (const name of [
   });
 }
 
-test('QR-free claim, Admin rejection, retry and verification keep all role views consistent', async ({
+test('one-click simulated payment, valid PDF, refresh and history agree with MySQL', async ({
   page,
   request,
-  browser,
 }) => {
   const registration = await request.post(api + '/auth/register', {
     data: {
-      email: `manual-browser-${Date.now()}@example.test`,
-      fullName: 'Khách kiểm thử MoMo',
+      email: 'simulated-browser-' + Date.now() + '@example.test',
+      fullName: 'Nguyễn Thị Ánh',
       password: 'StayHub123!',
       role: 'GUEST',
     },
@@ -164,7 +163,7 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
   expect(registration.status()).toBe(201);
   const guest = (await registration.json()) as Session;
   guests.push(guest.user.id);
-  const headers = { Authorization: `Bearer ${guest.accessToken}` };
+  const headers = { Authorization: 'Bearer ' + guest.accessToken };
   await request.patch(api + '/auth/profile', {
     headers,
     data: { fullName: guest.user.fullName, phoneNumber: '0901234567' },
@@ -172,7 +171,7 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
   const property = (await (
     await request.get(api + '/properties/71000000-0000-4000-8000-000000000002')
   ).json()) as Property;
-  const future = (offset: number) =>
+  const date = (offset: number) =>
     new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
   const response = await request.post(api + '/bookings', {
     headers,
@@ -180,119 +179,79 @@ test('QR-free claim, Admin rejection, retry and verification keep all role views
       roomTypeId: property.roomTypes[0].id,
       quantity: 1,
       guestCount: 1,
-      checkIn: future(180),
-      checkOut: future(182),
+      checkIn: date(180),
+      checkOut: date(182),
     },
   });
   expect(response.status()).toBe(201);
-  const booking = (await response.json()) as Booking;
+  const b = (await response.json()) as Booking;
   await page.addInitScript(
     (token) => localStorage.setItem('stayhub.accessToken', token),
     guest.accessToken,
   );
-  await page.goto(`/bookings/${booking.id}/payment`);
+  await page.goto('/bookings/' + b.id + '/payment');
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán qua MoMo' }),
+    page.getByRole('heading', { name: 'Thanh toán đặt phòng' }),
   ).toBeVisible();
-  await expect(page.getByRole('img', { name: /QR/i })).toHaveCount(0);
-  await capture(page, 'payment');
-  const depositButton = await page
-    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
-    .boundingBox();
-  expect(depositButton!.height).toBeGreaterThanOrEqual(44);
-  const adminSession = (await (
-    await request.post(api + '/auth/login', {
-      data: { email: 'admin01', password: process.env.DEMO_PASSWORD },
-    })
-  ).json()) as Session;
-  const adminContext = await browser.newContext();
-  await adminContext.addInitScript(
-    (token) => localStorage.setItem('stayhub.accessToken', token),
-    adminSession.accessToken,
+  await capture(page, 'checkout');
+  const button = page.getByRole('button', {
+    name: 'Tôi đã thanh toán',
+    exact: true,
+  });
+  expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await button.click();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công!' }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công!' }),
+  ).toBeVisible();
+  await capture(page, 'success');
+  const download = page.waitForEvent('download');
+  await page
+    .getByRole('button', { name: 'Tải hóa đơn PDF', exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toBe(
+    'StayHub-' + b.bookingCode + '.pdf',
   );
-  const admin = await adminContext.newPage();
-  try {
-    for (const rejected of [true, false]) {
-      const ref = `UI-${Date.now()}-${rejected ? 'REJECT' : 'VERIFY'}`;
-      await page
-        .getByRole('button', {
-          name: rejected ? 'Thanh toán cọc' : 'Gửi lại thông tin thanh toán',
-          exact: true,
-        })
-        .click();
-      await page.getByLabel('Mã giao dịch MoMo *').fill(ref);
-      if (rejected) await capture(page, 'claim-dialog');
-      await page
-        .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
-        .click();
-      await expect(
-        page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
-      ).toBeVisible();
-      expect(
-        (
-          (await (
-            await request.get(api + '/bookings/my', { headers })
-          ).json()) as Booking[]
-        ).some((b) => b.id === booking.id),
-      ).toBe(false);
-      await admin.goto(`/admin/bookings/${booking.id}`);
-      const row = admin.locator('article').filter({ hasText: ref }).last();
-      await expect(row).toContainText('Chờ xác minh');
-      if (rejected) await capture(admin, 'booking-reconciliation');
-      await row.getByRole('button', { name: 'Kiểm tra giao dịch' }).click();
-      if (rejected) {
-        await admin.getByLabel('Kết quả kiểm tra').selectOption('REJECT');
-        await admin
-          .getByLabel('Ghi chú / lý do', { exact: false })
-          .fill('Không thấy giao dịch trong tài khoản nhận.');
-      } else {
-        await admin
-          .getByLabel('Số tiền thực nhận (₫) *')
-          .fill(String(booking.depositAmount));
-        await admin.getByLabel('Mã giao dịch trong tài khoản nhận *').fill(ref);
-        await admin
-          .getByLabel('Tôi đã kiểm tra giao dịch trong tài khoản nhận tiền.')
-          .check();
-      }
-      await admin.getByRole('button', { name: 'Lưu kết quả xác minh' }).click();
-      await expect(admin.getByRole('dialog')).toHaveCount(0);
-      await page.reload();
-      await expect(
-        page.getByRole('heading', {
-          name: rejected
-            ? 'Chưa xác minh được khoản chuyển tiền'
-            : 'Thanh toán đã được xác nhận',
-          exact: true,
-        }),
-      ).toBeVisible();
-      if (rejected) {
-        await expect(page.getByRole('status').first()).toContainText(
-          'Không thấy giao dịch',
-        );
-        await page
-          .getByRole('link', {
-            name: 'Kiểm tra và gửi lại thông tin',
-            exact: true,
-          })
-          .click();
-      }
-    }
-    await capture(page, 'verified-result');
-    await admin.goto('/admin/properties');
-    await expect(admin.locator('h1')).toBeVisible();
-    await capture(admin, 'admin-properties');
-    const final = (await (
-      await request.get(`${api}/bookings/${booking.id}`, { headers })
-    ).json()) as Booking;
-    expect(final.status).toBe('CONFIRMED');
-    expect(final.paymentAttempts!.map((p) => p.status)).toEqual([
-      'FAILED',
-      'SUCCESS',
-    ]);
-    expect(final.paymentAttempts!.at(-1)!.reviewedById).toBe(
-      adminSession.user.id,
-    );
-  } finally {
-    await adminContext.close();
-  }
+  await page.getByRole('link', { name: 'Xem hóa đơn', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'PHIẾU XÁC NHẬN ĐẶT PHÒNG' }),
+  ).toBeVisible();
+  await expect(page.locator('.invoice-content')).toContainText(
+    'Nguyễn Thị Ánh',
+  );
+  await capture(page, 'invoice');
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.invoice-actions')).toBeHidden();
+  await page.emulateMedia({ media: 'screen' });
+  const pdf = await request.get(api + '/bookings/' + b.id + '/invoice.pdf', {
+    headers,
+  });
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()['content-type']).toBe('application/pdf');
+  expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
+  await page.goto('/bookings');
+  await expect(
+    page.locator('article').filter({ hasText: b.bookingCode }),
+  ).toContainText('Đã xác nhận');
+  await page.goto('/bookings/' + b.id);
+  await expect(
+    page.getByRole('link', { name: 'Xem hóa đơn', exact: true }),
+  ).toBeVisible();
+  const detailDownload = page.waitForEvent('download');
+  await page
+    .getByRole('button', { name: 'Tải hóa đơn PDF', exact: true })
+    .click();
+  expect((await detailDownload).suggestedFilename()).toBe(
+    'StayHub-' + b.bookingCode + '.pdf',
+  );
+  await request.patch(api + '/bookings/' + b.id + '/cancel', { headers });
+  await page.goto('/bookings/' + b.id + '/invoice');
+  await expect(page.locator('.invoice-content')).toContainText('Đã hủy');
+  await expect(page.locator('.invoice-content')).toContainText(
+    'Giữ nguyên lịch sử thanh toán',
+  );
+  expect(await prisma.payment.count({ where: { bookingId: b.id } })).toBe(1);
 });

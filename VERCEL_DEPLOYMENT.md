@@ -4,7 +4,7 @@ Frontend: https://pentabug2-stayhub.vercel.app
 
 Backend API: https://pentabug-stayhub.vercel.app/api
 
-Trạng thái triển khai trước đây không xác nhận phiên bản hiện tại đã được đưa lên Vercel. Thay đổi vai trò/MoMo mới chỉ được kiểm chứng trên database test riêng. Xem [migration, cấu hình và checklist triển khai](ROLE_PAYMENT_CHANGES.md). Không chạy seed phát triển trên Production.
+Trạng thái triển khai trước đây không xác nhận phiên bản hiện tại đã được đưa lên Vercel. Luồng thanh toán mô phỏng và PDF mới cần triển khai theo PAYMENT_AND_INVOICE_IMPLEMENTATION.md. Xem [migration, cấu hình và checklist triển khai](ROLE_PAYMENT_CHANGES.md). Không chạy seed phát triển trên Production.
 
 ## 1. Tạo database MySQL trước
 
@@ -47,16 +47,13 @@ Trong **Settings > Build and Deployment**, chọn Root Directory `backend`, Fram
 
 Trong **Settings > Environment Variables**, thêm các biến cho **Production**:
 
-| Biến                               | Giá trị                                    |
-| ---------------------------------- | ------------------------------------------ |
-| `NODE_ENV`                         | `production`                               |
-| `FRONTEND_URL`                     | `https://pentabug2-stayhub.vercel.app`     |
-| `DATABASE_URL`                     | Chuỗi kết nối MySQL thật lấy ở bước 1      |
-| `JWT_SECRET`                       | Chuỗi ngẫu nhiên tối thiểu 32 ký tự        |
-| `MOMO_RECEIVER_NAME`               | Tên chủ tài khoản nhận đã được xác nhận    |
-| `MOMO_RECEIVER_PHONE`              | Số điện thoại MoMo Việt Nam của người nhận |
-| `MOMO_VERIFICATION_WINDOW_MINUTES` | Mặc định 60, từ 5 đến 1440                 |
-| `CRON_SECRET`                      | Secret riêng cho endpoint hết hạn          |
+| Biến           | Giá trị                                |
+| -------------- | -------------------------------------- |
+| `NODE_ENV`     | `production`                           |
+| `FRONTEND_URL` | `https://pentabug2-stayhub.vercel.app` |
+| `DATABASE_URL` | Chuỗi kết nối MySQL thật lấy ở bước 1  |
+| `JWT_SECRET`   | Chuỗi ngẫu nhiên tối thiểu 32 ký tự    |
+| `CRON_SECRET`  | Secret riêng cho endpoint hết hạn      |
 
 `NODE_ENV` và `FRONTEND_URL` đã có giá trị mặc định trong `backend/vercel.json`. Nếu project đang có `FRONTEND_URL` cũ, cập nhật về domain trên. Không đưa `DATABASE_URL` hoặc `JWT_SECRET` vào frontend hoặc biến có tiền tố `NEXT_PUBLIC_`. Không cần đặt `PORT` trên Vercel.
 

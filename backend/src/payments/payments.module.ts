@@ -1,20 +1,12 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Module,
-  Param,
-  ParseUUIDPipe,
-  Post,
-} from '@nestjs/common';
+import { Controller, Get, Module, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles, SessionUser } from '../common/security';
 import { InventoryModule } from '../bookings/inventory.module';
 import { bookingIdPipe } from '../common/validation';
 import { PaymentsService } from './payments.service';
-import { ReviewTransferDto, SubmitTransferDto } from './payment.dto';
+
 @ApiBearerAuth()
-@ApiTags('Thanh toán')
+@ApiTags('Thanh toán mô phỏng')
 @Roles('GUEST')
 @Controller('bookings')
 export class CustomerPaymentsController {
@@ -25,32 +17,16 @@ export class CustomerPaymentsController {
   ) {
     return this.payments.checkout(id, user.id);
   }
-  @Post(':id/payment-claims') submit(
+  @Post(':id/pay') pay(
     @Param('id', bookingIdPipe()) id: string,
     @CurrentUser() user: SessionUser,
-    @Body() dto: SubmitTransferDto,
   ) {
-    return this.payments.submit(id, user.id, dto);
-  }
-}
-@ApiBearerAuth()
-@ApiTags('Đối chiếu khoản cọc trong đặt phòng')
-@Roles('ADMIN')
-@Controller('admin/bookings')
-export class AdminPaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
-  @Post(':bookingId/payment-claims/:id/reconcile') review(
-    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: SessionUser,
-    @Body() dto: ReviewTransferDto,
-  ) {
-    return this.payments.review(id, user.id, dto, bookingId);
+    return this.payments.pay(id, user.id);
   }
 }
 @Module({
   imports: [InventoryModule],
-  controllers: [CustomerPaymentsController, AdminPaymentsController],
+  controllers: [CustomerPaymentsController],
   providers: [PaymentsService],
   exports: [PaymentsService],
 })

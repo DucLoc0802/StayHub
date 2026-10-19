@@ -83,10 +83,7 @@ export const api = {
   hostBookings: (propertyId?: string) =>
     get<Booking[]>('/host/bookings', { propertyId }),
   createBooking: (body: unknown) => post<Booking>('/bookings', body),
-  submitTransfer: (
-    id: string,
-    body: { transactionRef: string; evidenceNote?: string },
-  ) => post<Booking>(`/bookings/${id}/payment-claims`, body),
+  pay: (id: string) => post<Booking>(`/bookings/${id}/pay`),
   lookupBooking: (code: string) =>
     get<Booking>(`/bookings/lookup/${encodeURIComponent(code)}`),
   publicLookup: (body: { bookingCode: string; email: string }) =>
@@ -94,20 +91,6 @@ export const api = {
   booking: (id: string) => get<Booking>(`/bookings/${id}`),
   checkout: (id: string) => get<CheckoutPayment>(`/bookings/${id}/payment`),
   hostBooking: (id: string) => get<Booking>(`/host/bookings/${id}`),
-  reconcilePayment: (
-    bookingId: string,
-    claimId: string,
-    body: {
-      decision: 'VERIFY' | 'REJECT' | 'RESOLUTION_REQUIRED';
-      reason?: string;
-      receivedAmount?: number;
-      verifiedTransactionRef?: string;
-    },
-  ) =>
-    post<Booking>(
-      `/admin/bookings/${bookingId}/payment-claims/${claimId}/reconcile`,
-      body,
-    ),
   adminProperty: (id: string) =>
     get<Property & { host: { id: string; fullName: string } }>(
       `/admin/properties/${id}`,
@@ -118,6 +101,37 @@ export const api = {
       params,
     ),
   invoice: (id: string) => get<Booking>(`/bookings/${id}/invoice`),
+  downloadInvoice: async (id: string) => {
+    const response = await client
+      .get<Blob>(`/bookings/${id}/invoice.pdf`, {
+        responseType: 'blob',
+        timeout: 30000,
+      })
+      .catch(async (error: unknown) => {
+        if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+          try {
+            error.response.data = JSON.parse(await error.response.data.text());
+          } catch {
+            /* Preserve the original HTTP error. */
+          }
+        }
+        throw error;
+      });
+    if (!String(response.headers['content-type']).includes('application/pdf'))
+      throw new Error('Máy chủ chưa trả về tệp PDF. Vui lòng thử lại.');
+    const filename =
+      response.headers['content-disposition']?.match(
+        /filename="([A-Za-z0-9_.-]+)"/,
+      )?.[1] ?? `StayHub-${id}.pdf`;
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  },
   adminStatistics: () => get<AdminStatistics>('/admin/statistics'),
   adminUsers: (params?: object) => get<AdminPage<User>>('/admin/users', params),
   changeUser: (

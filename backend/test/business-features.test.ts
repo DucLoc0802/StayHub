@@ -19,8 +19,6 @@ test(
       /^\/stayhub_(inventory|seed)_test$/,
     );
     process.env.DATABASE_URL = database;
-    process.env.MOMO_RECEIVER_NAME = 'Synthetic receiver';
-    process.env.MOMO_RECEIVER_PHONE = '0900000009';
     process.env.JWT_SECRET =
       'synthetic-test-secret-with-at-least-32-characters';
     // Use Nest's compiled decorator metadata, which tsx/esbuild does not emit.
@@ -464,93 +462,103 @@ test(
         },
       );
       await t.test(
-        'manual claim stays unpaid until an authorized Admin verifies the actual reference and amount',
+        'simulated payment is atomic, role restricted, idempotent and removes manual routes',
         async () => {
-          await request(
-            'GET',
-            `/bookings/${booking.id}/invoice`,
-            guest.token,
-            undefined,
-            409,
-          );
+          for (const suffix of ['invoice', 'invoice.pdf'])
+            await request(
+              'GET',
+              '/bookings/' + booking.id + '/' + suffix,
+              guest.token,
+              undefined,
+              409,
+            );
           const checkout = await request(
             'GET',
-            `/bookings/${booking.id}/payment`,
+            '/bookings/' + booking.id + '/payment',
             guest.token,
           );
-          assert.equal(checkout.recipient.available, true);
-          assert.equal(checkout.qrDataUrl, undefined);
+          assert.equal(checkout.recipient, undefined);
+          for (const token of [host.token, admin.token])
+            await request(
+              'POST',
+              '/bookings/' + booking.id + '/pay',
+              token,
+              undefined,
+              403,
+            );
           await request(
-            'GET',
-            `/bookings/${booking.id}/payment`,
+            'POST',
+            '/bookings/' + booking.id + '/pay',
+            undefined,
+            undefined,
+            401,
+          );
+          await request(
+            'POST',
+            '/bookings/' + booking.id + '/pay',
             stranger.token,
             undefined,
             404,
           );
-          const submitted = await request(
+          await request(
             'POST',
-            `/bookings/${booking.id}/payment-claims`,
+            '/bookings/' + booking.id + '/payment-claims',
             guest.token,
-            { transactionRef: 'HTTP-' + booking.id },
-            201,
+            {},
+            404,
           );
-          assert.equal(submitted.status, 'PENDING_PAYMENT');
-          assert.equal(submitted.payment, null);
+          await request(
+            'POST',
+            '/admin/bookings/' +
+              booking.id +
+              '/payment-claims/' +
+              randomUUID() +
+              '/reconcile',
+            admin.token,
+            {},
+            404,
+          );
+          const [paid, retry] = await Promise.all([
+            request(
+              'POST',
+              '/bookings/' + booking.id + '/pay',
+              guest.token,
+              undefined,
+              201,
+            ),
+            request(
+              'POST',
+              '/bookings/' + booking.id + '/pay',
+              guest.token,
+              undefined,
+              201,
+            ),
+          ]);
+          assert.equal(paid.status, 'CONFIRMED');
+          assert.equal(paid.payment.method, 'FAKE');
+          assert.equal(paid.payment.id, retry.payment.id);
+          assert.equal(paid.payment.amount, booking.depositAmount);
           assert.ok(
-            !(await request('GET', '/bookings/my', guest.token)).some(
+            (await request('GET', '/bookings/my', guest.token)).some(
               (b: { id: string }) => b.id === booking.id,
             ),
           );
-          const claim = submitted.paymentAttempts.at(-1);
-          const body = {
-            decision: 'VERIFY',
-            receivedAmount: booking.depositAmount,
-            verifiedTransactionRef: claim.transactionRef,
-          };
-          await request('GET', '/admin/payments', admin.token, undefined, 404);
-          await request(
-            'POST',
-            `/admin/bookings/${randomUUID()}/payment-claims/${claim.id}/reconcile`,
-            admin.token,
-            body,
-            404,
+          const pdf = await fetch(
+            base + '/bookings/' + booking.id + '/invoice.pdf',
+            { headers: { Authorization: 'Bearer ' + guest.token } },
           );
-          await request(
-            'POST',
-            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
-            guest.token,
-            body,
-            403,
+          assert.equal(pdf.status, 200);
+          assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+          assert.match(pdf.headers.get('cache-control')!, /no-store/);
+          assert.match(
+            pdf.headers.get('content-disposition')!,
+            /StayHub-STB-.*\.pdf/,
           );
-          await request(
-            'POST',
-            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
-            host.token,
-            body,
-            403,
-          );
-          const paid = await request(
-            'POST',
-            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
-            admin.token,
-            body,
-            201,
-          );
-          assert.equal(paid.status, 'CONFIRMED');
-          assert.equal(paid.payment.amount, booking.depositAmount);
-          await request(
-            'POST',
-            `/admin/bookings/${booking.id}/payment-claims/${claim.id}/reconcile`,
-            admin.token,
-            body,
-            201,
-          );
-          await request(
-            'POST',
-            `/bookings/${booking.id}/pay`,
-            guest.token,
-            undefined,
-            404,
+          assert.equal(
+            Buffer.from(await pdf.arrayBuffer())
+              .subarray(0, 5)
+              .toString(),
+            '%PDF-',
           );
         },
       );
@@ -596,6 +604,28 @@ test(
           assert.equal(invoice.customerEmailSnapshot, guest.email);
           assert.equal(invoice.propertyNameSnapshot, property.name);
           assert.equal(invoice.propertyAddressSnapshot, property.address);
+          for (const token of [host.token, admin.token])
+            await request(
+              'GET',
+              '/bookings/' + booking.id + '/invoice.pdf',
+              token,
+              undefined,
+              403,
+            );
+          await request(
+            'GET',
+            '/bookings/' + booking.id + '/invoice.pdf',
+            stranger.token,
+            undefined,
+            404,
+          );
+          await request(
+            'GET',
+            '/bookings/' + booking.id + '/invoice.pdf',
+            undefined,
+            undefined,
+            401,
+          );
           await request(
             'GET',
             `/bookings/${booking.id}/invoice`,
@@ -626,7 +656,7 @@ test(
         },
       );
       await t.test(
-        'late reported transfer stays expired and is retained for manual resolution',
+        'expired payment is rejected without a new payment or attempt',
         async () => {
           const late = await request(
             'POST',
@@ -639,19 +669,21 @@ test(
             where: { id: late.id },
             data: { paymentDeadlineAt: new Date(Date.now() - 1000) },
           });
-          const result = await request(
+          await request(
             'POST',
-            `/bookings/${late.id}/payment-claims`,
+            '/bookings/' + late.id + '/pay',
             stranger.token,
-            { transactionRef: 'LATE-' + late.id },
-            201,
+            undefined,
+            409,
+          );
+          const result = await request(
+            'GET',
+            '/bookings/' + late.id,
+            stranger.token,
           );
           assert.equal(result.status, 'EXPIRED');
           assert.equal(result.payment, null);
-          assert.equal(
-            result.paymentAttempts.at(-1).status,
-            'RESOLUTION_REQUIRED',
-          );
+          assert.equal(result.paymentAttempts.length, 0);
         },
       );
       await t.test(
@@ -704,7 +736,8 @@ test(
           );
           assert.equal(history.user.id, guest.id);
           assert.equal(history.confirmed, 1);
-          assert.equal(history.successfulDepositAmount, booking.depositAmount);
+          // Simulated deposits must never inflate the real MoMo aggregate.
+          assert.equal(history.successfulDepositAmount, 0);
           assert.equal(history.user.passwordHash, undefined);
           for (const path of [
             '/admin/statistics',

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { submitAndVerifyTransfer } from './transfer-helper';
+import { completeSimulatedPayment } from './payment-helper';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -150,7 +150,7 @@ test('search and mobile filter navigation', async ({ page }) => {
   await expect(page).toHaveURL(/minPrice=500000/);
   await expect(page.getByRole('dialog')).not.toBeVisible();
 });
-test('guest login, property calendar, verified deposit and cancellation', async ({
+test('guest login, property calendar, simulated deposit and cancellation', async ({
   page,
 }) => {
   await page.goto('/login');
@@ -240,16 +240,16 @@ test('guest login, property calendar, verified deposit and cancellation', async 
     .click();
   await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   await expect(page).toHaveURL(/\/bookings\/.+\/payment$/);
-  await submitAndVerifyTransfer(page);
+  await completeSimulatedPayment(page);
   await page.getByRole('link', { name: 'Xem đặt phòng của tôi' }).click();
   const card = page.locator('article').first();
   await expect(card.getByText('Đã xác nhận', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('mất khoản tiền cọc');
+  await expect(page.getByRole('dialog')).toContainText('thanh toán mô phỏng');
   await page.getByRole('button', { name: 'Xác nhận hủy' }).click();
   await expect(card.getByText('Đã hủy', { exact: true })).toBeVisible();
   await expect(
-    card.getByText('Tiền cọc được giữ lại, không hoàn tiền.'),
+    card.getByText('Đơn đã hủy. Lịch sử thanh toán vẫn được lưu.'),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Mở menu tài khoản' }).click();
   await page.getByRole('menuitem', { name: 'Đăng xuất' }).click();

@@ -1,6 +1,7 @@
 'use client';
 import { money, timestampLabel } from '@/lib/utils';
 import type { Booking } from '@/lib/types';
+import { StatusBadge } from './ui/states';
 
 const labels: Record<string, string> = {
   CREATED: 'Tạo đơn, giữ phòng tạm',
@@ -57,6 +58,50 @@ export function BookingHistory({ booking }: { booking: Booking }) {
         <p className="mt-4 text-sm text-muted-foreground">
           Chưa có sự kiện lịch sử được ghi nhận.
         </p>
+      )}
+      {!!booking.paymentAttempts?.length && (
+        <div className="mt-6 border-t pt-5">
+          <h3 className="font-semibold">Bản ghi thanh toán</h3>
+          <ul className="mt-3 divide-y">
+            {booking.paymentAttempts.map((attempt) => (
+              <li key={attempt.id} className="space-y-2 py-4 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium">
+                    {attempt.method === 'FAKE'
+                      ? 'Thanh toán mô phỏng · Không thu tiền thật'
+                      : 'MoMo thủ công · Lịch sử'}
+                  </p>
+                  {attempt.method === 'FAKE' && attempt.status === 'SUCCESS' ? (
+                    <span className="rounded-md bg-success/10 px-2 py-1 text-xs font-medium text-success">
+                      Đã ghi nhận (mô phỏng)
+                    </span>
+                  ) : (
+                    <StatusBadge status={attempt.status} />
+                  )}
+                </div>
+                <p className="text-muted-foreground">
+                  {timestampLabel(attempt.createdAt)} · {money(attempt.amount)}
+                </p>
+                {attempt.transactionRef && (
+                  <p className="break-all">
+                    Mã giao dịch lịch sử: {attempt.transactionRef}
+                  </p>
+                )}
+                {attempt.reviewedAt && (
+                  <p className="text-muted-foreground">
+                    Thời điểm xử lý lịch sử:{' '}
+                    {timestampLabel(attempt.reviewedAt)}
+                  </p>
+                )}
+                {attempt.failureReason && (
+                  <p className="break-words text-muted-foreground">
+                    {attempt.failureReason}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );

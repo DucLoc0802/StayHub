@@ -217,19 +217,17 @@ async function mock(
         },
         serverNow: '2027-10-05T03:00:00Z',
       };
-    else if (path.endsWith('/payment-claims')) {
+    else if (path.endsWith('/pay')) {
       current = {
         ...current,
-        paymentAttempts: [
-          {
-            id: 'claim',
-            method: 'MOMO_MANUAL',
-            status: 'SUBMITTED',
-            amount: current.depositAmount,
-            transactionRef: request.postDataJSON().transactionRef,
-            createdAt: '2027-10-05T03:00:00Z',
-          },
-        ],
+        status: 'CONFIRMED',
+        payment: {
+          id: 'payment',
+          method: 'FAKE',
+          status: 'SUCCESS',
+          amount: current.depositAmount,
+          paidAt: '2027-10-05T03:00:00Z',
+        },
       };
       data = current;
       status = 201;
@@ -602,56 +600,138 @@ test('incomplete guest browses, is prompted only when booking and completes prof
     page.getByRole('link', { name: 'Tiếp tục đặt phòng' }),
   ).toBeVisible();
 });
-test('deposit opens a QR-free claim dialog and never confirms merely on submission', async ({
+test('one click confirms payment, refresh persists status and booking appears immediately', async ({
   page,
 }) => {
   await mock(page);
   await page.setViewportSize({ width: 375, height: 900 });
-  await page.goto(`/bookings/${booking.id}/payment`);
-  await expect(page.getByRole('img', { name: /QR/ })).toHaveCount(0);
+  await page.goto('/bookings/' + booking.id + '/payment');
+  await expect(page.getByRole('img', { name: /QR/i })).toHaveCount(0);
+  await expect(page.getByLabel('Mã giao dịch MoMo *')).toHaveCount(0);
   await page
-    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
+    .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
-  await expect(page.getByRole('dialog')).toContainText(
-    'chưa xác nhận đã nhận tiền',
+  await expect(page).toHaveURL(new RegExp('/payment/result$'));
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công!' }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Thanh toán thành công!' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Tải hóa đơn PDF' }),
+  ).toBeVisible();
+  await page
+    .getByRole('link', { name: 'Xem đặt phòng của tôi', exact: true })
+    .click();
+  await expect(page.locator('article')).toContainText('Đã xác nhận');
+});
+test('payment request error stays recoverable without manual transfer actions', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.route('**/api/bookings/*/pay', (route) =>
+    route.fulfill({
+      status: 409,
+      json: { message: 'Phòng không còn khả dụng. Vui lòng kiểm tra lại.' },
+    }),
   );
-  await page.getByLabel('Mã giao dịch MoMo *').fill('UI-TRANSFER-123');
+  await page.goto('/bookings/' + booking.id + '/payment');
   await page
     .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
-  ).toBeVisible();
+    page
+      .getByRole('region', { name: 'Thông tin thanh toán' })
+      .getByRole('alert'),
+  ).toContainText('Phòng không còn khả dụng');
   await expect(
-    page.getByRole('link', { name: 'Xem đặt phòng của tôi', exact: true }),
-  ).toHaveCount(0);
+    page.getByRole('button', { name: 'Tôi đã thanh toán', exact: true }),
+  ).toBeEnabled();
 });
-test('missing recipient shows controlled unavailable state and disables transfer claims', async ({
+
+test('payment disables while processing and rapid clicks send only one request', async ({
   page,
 }) => {
   await mock(page);
-  await page.route(`**/api/bookings/${booking.id}/payment`, (route) =>
-    route.fulfill({
-      json: {
-        booking,
-        recipient: {
-          available: false,
-          receiverName: null,
-          receiverPhone: null,
-          verificationWindowMinutes: 60,
+  let calls = 0;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/bookings/*/pay', async (route) => {
+    calls++;
+    await pending;
+    await route.fulfill({
+      status: 409,
+      json: { message: 'Hết thời gian thanh toán.' },
+    });
+  });
+  await page.goto(`/bookings/${booking.id}/payment`);
+  const button = page.getByRole('button', {
+    name: 'Tôi đã thanh toán',
+    exact: true,
+  });
+  await button.evaluate((element) => {
+    (element as HTMLButtonElement).click();
+    (element as HTMLButtonElement).click();
+  });
+  await expect(
+    page.getByRole('button', { name: 'Đang xử lý thanh toán…' }),
+  ).toBeDisabled();
+  await expect.poll(() => calls).toBe(1);
+  release();
+  await expect(button).toBeEnabled();
+});
+
+for (const status of ['EXPIRED', 'CANCELLED'] as const)
+  test(`${status} booking cannot offer payment`, async ({ page }) => {
+    await mock(page);
+    await page.route('**/api/bookings/*/payment', (route) =>
+      route.fulfill({
+        json: {
+          booking: { ...booking, status },
+          serverNow: '2027-10-05T03:00:00Z',
         },
-        serverNow: '2027-10-05T03:00:00Z',
+      }),
+    );
+    await page.goto(`/bookings/${booking.id}/payment`);
+    await expect(
+      page.getByRole('button', { name: 'Tôi đã thanh toán', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('status').filter({
+        hasText:
+          status === 'EXPIRED' ? 'Đã hết hạn giữ phòng' : 'Đặt phòng đã hủy',
+      }),
+    ).toBeVisible();
+  });
+
+test('unpaid invoice shows eligibility error and no paid receipt', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.route('**/api/bookings/*/invoice', (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        message:
+          'Biên nhận chỉ được cấp khi khoản cọc đã được ghi nhận thành công.',
       },
     }),
   );
-  await page.goto(`/bookings/${booking.id}/payment`);
+  await page.goto(`/bookings/${booking.id}/invoice`);
+  await expect(page.locator('main').getByRole('alert')).toContainText(
+    'Biên nhận chỉ được cấp',
+  );
   await expect(
-    page.getByText('Thanh toán đang tạm ngừng', { exact: true }),
+    page.getByRole('button', { name: 'Thử lại', exact: true }),
   ).toBeVisible();
+  await expect(page.locator('.invoice-content')).toHaveCount(0);
   await expect(
-    page.getByRole('button', { name: 'Thanh toán cọc', exact: true }),
-  ).toBeDisabled();
-  await expect(page.getByRole('img', { name: /QR/i })).toHaveCount(0);
+    page.getByRole('button', { name: 'Tải PDF', exact: true }),
+  ).toHaveCount(0);
 });
 
 test('verified invoice preserves snapshots and supports print layout on mobile', async ({
@@ -661,9 +741,7 @@ test('verified invoice preserves snapshots and supports print layout on mobile',
   await page.setViewportSize({ width: 375, height: 900 });
   await page.goto(`/bookings/${booking.id}/invoice`);
   await expect(page.getByText('0901234567', { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'In / Xuất PDF' }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'In hóa đơn' })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -697,7 +775,7 @@ test('booking review creates a hold and routes directly into payment', async ({
   await page.getByRole('button', { name: 'Tạo đơn & thanh toán cọc' }).click();
   await expect(page).toHaveURL(new RegExp(`/bookings/${booking.id}/payment$`));
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán qua MoMo', exact: true }),
+    page.getByRole('heading', { name: 'Thanh toán đặt phòng', exact: true }),
   ).toBeVisible();
 });
 
@@ -729,7 +807,7 @@ test('success URL alone cannot pay and unpaid bookings recover outside the paid 
     .getByRole('link', { name: 'Tiếp tục thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Thanh toán qua MoMo' }),
+    page.getByRole('heading', { name: 'Thanh toán đặt phòng' }),
   ).toBeVisible();
 });
 test('multi-property Host selection follows the chosen branch across management tabs', async ({
@@ -749,7 +827,13 @@ test('multi-property Host selection follows the chosen branch across management 
       json:
         new URL(route.request().url()).searchParams.get('propertyId') ===
         branch.id
-          ? [{ ...booking, property: branch }]
+          ? [
+              {
+                ...booking,
+                property: branch,
+                propertyNameSnapshot: branch.name,
+              },
+            ]
           : [booking],
     }),
   );

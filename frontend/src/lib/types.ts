@@ -171,12 +171,6 @@ export interface FeedbackSummary {
 export interface CheckoutPayment {
   booking: Booking;
   serverNow: string;
-  recipient: {
-    available: boolean;
-    receiverName: string | null;
-    receiverPhone: string | null;
-    verificationWindowMinutes: number;
-  };
 }
 export type PaymentState =
   'SUCCESS' | 'FAILED' | 'SUBMITTED' | 'RESOLUTION_REQUIRED';

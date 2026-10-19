@@ -38,9 +38,9 @@ export class BookingAccessService {
   }
   async invoice(user: SessionUser, id: string) {
     const booking = await this.find(user, { id });
-    if (booking.status !== 'CONFIRMED' || booking.payment?.status !== 'SUCCESS')
+    if (booking.payment?.status !== 'SUCCESS')
       throw new ConflictException(
-        'Chỉ đơn đã xác nhận và thanh toán cọc mới có hóa đơn.',
+        'Biên nhận chỉ được cấp khi khoản cọc đã được ghi nhận thành công.',
       );
     return booking;
   }

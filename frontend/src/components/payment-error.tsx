@@ -7,9 +7,11 @@ import { errorMessage } from '@/lib/api';
 export function PaymentError({
   error,
   retry,
+  invoice = false,
 }: {
   error: unknown;
   retry: () => void;
+  invoice?: boolean;
 }) {
   const status = axios.isAxiosError(error) ? error.response?.status : undefined;
   const code = axios.isAxiosError(error)
@@ -25,7 +27,9 @@ export function PaymentError({
         ? 'Phiên đăng nhập đã hết hạn'
         : status === 403
           ? 'Bạn không có quyền mở đặt phòng này'
-          : 'Chưa thể tải thông tin thanh toán';
+          : invoice
+            ? 'Chưa thể mở biên nhận'
+            : 'Chưa thể tải thông tin thanh toán';
   return (
     <div className="container-shell page-section">
       <div className="mx-auto max-w-2xl">

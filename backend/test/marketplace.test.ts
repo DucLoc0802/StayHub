@@ -72,7 +72,7 @@ test('paid history and resumable checkout query different persisted states', asy
     payment: { is: { status: 'SUCCESS' } },
   });
   assert.equal(where[1].guestId, 'customer');
-  assert.ok(where[1].OR);
+  assert.equal(where[1].status, 'PENDING_PAYMENT');
   assert.equal(where[1].guestId, 'customer');
 });
 

@@ -2,13 +2,17 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Module,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { InvoiceService } from './invoice.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public, Roles, SessionUser } from '../common/security';
 import { PaymentsModule } from '../payments/payments.module';
@@ -85,15 +89,35 @@ class HostBookingsController {
 @ApiBearerAuth()
 @Roles('GUEST')
 @Controller('bookings')
-class BookingAccessController {
-  constructor(private readonly access: BookingAccessService) {}
+export class BookingAccessController {
+  constructor(
+    private readonly access: BookingAccessService,
+    private readonly invoices: InvoiceService,
+  ) {}
+  @Get(':id/invoice.pdf') async pdf(
+    @CurrentUser() user: SessionUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Res() res: Response,
+  ) {
+    const { bytes, filename } = await this.invoices.pdf(user, id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'private, no-store, max-age=0',
+      Pragma: 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.send(bytes);
+  }
   @Get('lookup/:code') lookup(
     @CurrentUser() user: SessionUser,
     @Param('code') code: string,
   ) {
     return this.access.find(user, { bookingCode: code.trim().toUpperCase() });
   }
-  @Get(':id/invoice') invoice(
+  @Get(':id/invoice')
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  invoice(
     @CurrentUser() user: SessionUser,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
@@ -148,6 +172,7 @@ class PropertyCalendarController {
   providers: [
     BookingsService,
     BookingAccessService,
+    InvoiceService,
     PublicLookupService,
     LookupRateLimit,
   ],

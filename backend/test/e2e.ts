@@ -303,7 +303,7 @@ async function main() {
   await request('POST', '/bookings', guest.accessToken, bookingData, 409);
   await request(
     'POST',
-    '/bookings/' + booking.id + '/payment-claims',
+    '/bookings/' + booking.id + '/pay',
     otherGuest.accessToken,
     { transactionRef: runId + '-FOREIGN' },
     404,
@@ -339,63 +339,33 @@ async function main() {
       pricePerNight: r.pricePerNight + 100000,
     })),
   });
-  const reference = runId + '-VERIFIED';
-  const submitted = await request<Booking>(
-    'POST',
-    '/bookings/' + booking.id + '/payment-claims',
-    guest.accessToken,
-    { transactionRef: reference },
-    201,
-  );
-  assert.equal(submitted.status, 'PENDING_PAYMENT');
-  assert.equal(submitted.payment, null);
-  const claimId = submitted.paymentAttempts!.at(-1)!.id;
-  await request(
-    'POST',
-    '/admin/bookings/' +
-      booking.id +
-      '/payment-claims/' +
-      claimId +
-      '/reconcile',
-    host.accessToken,
-    {
-      decision: 'VERIFY',
-      receivedAmount: booking.depositAmount,
-      verifiedTransactionRef: reference,
-    },
-    403,
-  );
-  const review = {
-    decision: 'VERIFY',
-    receivedAmount: booking.depositAmount,
-    verifiedTransactionRef: reference,
-  };
+  for (const token of [host.accessToken, admin.accessToken])
+    await request(
+      'POST',
+      '/bookings/' + booking.id + '/pay',
+      token,
+      undefined,
+      403,
+    );
   const paid = await request<Booking>(
     'POST',
-    '/admin/bookings/' +
-      booking.id +
-      '/payment-claims/' +
-      claimId +
-      '/reconcile',
-    admin.accessToken,
-    review,
+    '/bookings/' + booking.id + '/pay',
+    guest.accessToken,
+    undefined,
     201,
   );
+  const retry = await request<Booking>(
+    'POST',
+    '/bookings/' + booking.id + '/pay',
+    guest.accessToken,
+    undefined,
+    201,
+  );
+  assert.equal(paid.payment!.id, retry.payment!.id);
   assert.equal(paid.status, 'CONFIRMED');
   assert.equal(paid.totalAmount, booking.totalAmount);
   assert.equal(paid.payment?.amount, booking.depositAmount);
-  assert.equal(paid.payment?.method, 'MOMO_MANUAL');
-  await request(
-    'POST',
-    '/admin/bookings/' +
-      booking.id +
-      '/payment-claims/' +
-      claimId +
-      '/reconcile',
-    admin.accessToken,
-    review,
-    201,
-  );
+  assert.equal(paid.payment?.method, 'FAKE');
   await request(
     'PATCH',
     '/bookings/' + booking.id + '/cancel',
@@ -403,10 +373,10 @@ async function main() {
   );
   await request(
     'POST',
-    '/bookings/' + booking.id + '/payment-claims',
+    '/bookings/' + booking.id + '/pay',
     guest.accessToken,
-    { transactionRef: runId + '-ALREADY-PAID' },
-    409,
+    undefined,
+    201,
   );
   const late = await request<Booking>(
     'POST',
@@ -419,18 +389,13 @@ async function main() {
     where: { id: late.id },
     data: { paymentDeadlineAt: new Date(Date.now() - 1000) },
   });
-  const lateClaim = await request<Booking>(
+  await request(
     'POST',
-    '/bookings/' + late.id + '/payment-claims',
+    '/bookings/' + late.id + '/pay',
     guest.accessToken,
-    { transactionRef: runId + '-LATE' },
-    201,
+    undefined,
+    409,
   );
-  assert.equal(
-    lateClaim.paymentAttempts!.at(-1)!.status,
-    'RESOLUTION_REQUIRED',
-  );
-  assert.equal(lateClaim.payment, null);
   assert.equal(
     (await prisma.booking.findUniqueOrThrow({ where: { id: late.id } })).status,
     'EXPIRED',

@@ -358,16 +358,8 @@ export class BookingsService {
         await tx.booking.findMany({
           where: {
             guestId,
-            OR: [
-              { status: 'PENDING_PAYMENT', paymentDeadlineAt: { gt: now } },
-              {
-                paymentAttempts: {
-                  some: {
-                    status: { in: ['SUBMITTED', 'RESOLUTION_REQUIRED'] },
-                  },
-                },
-              },
-            ],
+            status: 'PENDING_PAYMENT',
+            paymentDeadlineAt: { gt: now },
             NOT: { payment: { is: { status: 'SUCCESS' } } },
           },
           include: bookingInclude,
@@ -421,22 +413,6 @@ export class BookingsService {
         throw new ConflictException(expiredMessage);
       if (booking.status === 'CANCELLED')
         throw new ConflictException('Đơn đặt phòng đã được hủy.');
-      const claims = await tx.paymentAttempt.updateMany({
-        where: { bookingId: id, status: 'SUBMITTED' },
-        data: {
-          status: 'RESOLUTION_REQUIRED',
-          failureReason:
-            'Đơn đã hủy khi chờ xác minh. Cần kiểm tra khoản tiền nhận và liên hệ khách.',
-        },
-      });
-      if (claims.count)
-        await tx.bookingEvent.create({
-          data: {
-            bookingId: id,
-            type: 'PAYMENT_RESOLUTION_REQUIRED',
-            status: 'CANCELLED',
-          },
-        });
       return bookingResponse(
         await tx.booking.update({
           where: { id },

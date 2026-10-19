@@ -162,19 +162,17 @@ async function mockApi(page: Page, role?: Role) {
       url.pathname.endsWith('/host/bookings')
     )
       json = booking ? [booking] : [];
-    else if (url.pathname.endsWith('/payment-claims') && booking) {
+    else if (url.pathname.endsWith('/pay') && booking) {
       booking = {
         ...booking,
-        paymentAttempts: [
-          {
-            id: 'claim',
-            method: 'MOMO_MANUAL',
-            status: 'SUBMITTED',
-            amount: booking.depositAmount,
-            transactionRef: request.postDataJSON().transactionRef,
-            createdAt: new Date().toISOString(),
-          },
-        ],
+        status: 'CONFIRMED',
+        payment: {
+          id: 'payment',
+          method: 'FAKE',
+          status: 'SUCCESS',
+          amount: booking.depositAmount,
+          paidAt: new Date().toISOString(),
+        },
       };
       json = booking;
     } else if (url.pathname.endsWith('/cancel') && booking) {
@@ -405,17 +403,13 @@ test('gallery, calendar, booking totals, payment and cancellation work with moti
   await expect(toast).toBeVisible();
   await expect(toast).toHaveCSS('transition-duration', '0.24s');
   await page
-    .getByRole('button', { name: 'Thanh toán cọc', exact: true })
-    .click();
-  await page.getByLabel('Mã giao dịch MoMo *').fill('MOTION-TRANSFER-123');
-  await page
     .getByRole('button', { name: 'Tôi đã thanh toán', exact: true })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Đang chờ đối chiếu thanh toán' }),
+    page.getByRole('heading', { name: 'Thanh toán thành công!' }),
   ).toBeVisible();
-  await page.goto('/bookings/pending-payments');
-  await expect(page.locator('article')).toContainText('Chờ thanh toán');
+  await page.goto('/bookings');
+  await expect(page.locator('article')).toContainText('Đã xác nhận');
   await page.getByRole('button', { name: 'Hủy đặt chỗ', exact: true }).click();
   await page.getByRole('button', { name: 'Xác nhận hủy' }).click();
   await expect(page.locator('article')).toContainText('Đã hủy');

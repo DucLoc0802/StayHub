@@ -19,6 +19,7 @@ import { Empty, ErrorState, Loading, StatusBadge } from './ui/states';
 import { BookingLookup } from './booking-extras';
 import { useAuth } from './providers';
 import { useHostProperty } from './host-property-scope';
+import { InvoiceDownload } from './invoice-download';
 export function BookingsList({
   host = false,
   pending = false,
@@ -156,7 +157,7 @@ export function BookingsList({
                       host ? 'text-base font-semibold' : 'text-lg font-semibold'
                     }
                   >
-                    {b.property.name}
+                    {b.propertyNameSnapshot || b.property.name}
                   </h2>
                   <p
                     className={
@@ -173,17 +174,6 @@ export function BookingsList({
                   </p>
                 </div>
                 <StatusBadge status={b.status} />
-                {b.paymentAttempts
-                  ?.filter((p) => p.method === 'MOMO_MANUAL')
-                  .at(-1) && (
-                  <StatusBadge
-                    status={
-                      b.paymentAttempts
-                        .filter((p) => p.method === 'MOMO_MANUAL')
-                        .at(-1)!.status
-                    }
-                  />
-                )}
               </div>
               <div
                 className={
@@ -236,13 +226,13 @@ export function BookingsList({
                       <p className="flex items-center gap-1 text-success">
                         <CreditCard size={14} />
                         {b.payment.method === 'FAKE'
-                          ? 'Giao dịch mô phỏng (lịch sử)'
+                          ? 'Cọc đã ghi nhận (mô phỏng)'
                           : 'Đã xác minh cọc'}{' '}
                         {money(b.payment.amount)} ·{' '}
                         {dateLabel(b.payment.paidAt)}
                       </p>
                       {b.status === 'CANCELLED' && (
-                        <p>Tiền cọc được giữ lại, không hoàn tiền.</p>
+                        <p>Đơn đã hủy. Lịch sử thanh toán vẫn được lưu.</p>
                       )}
                     </>
                   ) : (
@@ -288,13 +278,14 @@ export function BookingsList({
                     </div>
                   )}
               </div>
-              {!host &&
-                b.status === 'CONFIRMED' &&
-                b.payment?.status === 'SUCCESS' && (
-                  <Button asChild variant="outline" className="mt-4">
+              {!host && b.payment?.status === 'SUCCESS' && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button asChild variant="outline">
                     <Link href={`/bookings/${b.id}/invoice`}>Xem hóa đơn</Link>
                   </Button>
-                )}
+                  <InvoiceDownload id={b.id} />
+                </div>
+              )}
               {pending && !paymentState(b, now).canPay && (
                 <Button asChild variant="outline" className="mt-4">
                   <Link href={`/bookings/${b.id}/payment/result`}>
@@ -332,14 +323,11 @@ export function BookingsList({
             Hủy đặt chỗ
           </DialogTitle>
           <DialogDescription className="mt-4 text-sm leading-7 text-muted-foreground">
-            {displayAction?.booking.paymentAttempts?.some(
-              (p) =>
-                p.status === 'SUBMITTED' || p.status === 'RESOLUTION_REQUIRED',
-            )
-              ? 'Bạn đã báo chuyển tiền. Hủy đơn sẽ giải phóng phòng; khoản chuyển tiền cần được kiểm tra và xử lý riêng. Hệ thống không hoàn tiền tự động.'
-              : displayAction?.booking.status === 'CONFIRMED'
-                ? 'Đặt phòng này đã được xác nhận. Nếu hủy, bạn sẽ mất khoản tiền cọc. Bạn có chắc chắn muốn tiếp tục?'
-                : 'Bạn có chắc muốn hủy đặt chỗ này? Bạn chưa thanh toán nên không mất tiền cọc.'}
+            {displayAction?.booking.status === 'CONFIRMED'
+              ? displayAction.booking.payment?.method === 'FAKE'
+                ? 'Đặt phòng đã được xác nhận bằng thanh toán mô phỏng. Hủy đơn sẽ giải phóng phòng và giữ lại biên nhận. Bạn có muốn tiếp tục?'
+                : 'Đặt phòng này đã được xác nhận. Nếu hủy, bạn sẽ mất khoản tiền cọc. Bạn có chắc chắn muốn tiếp tục?'
+              : 'Bạn có chắc muốn hủy đặt chỗ này? Bạn chưa thanh toán nên không mất tiền cọc.'}
           </DialogDescription>
           {mutation.isError && (
             <p role="alert" className="mt-3 text-sm text-destructive">

@@ -784,9 +784,12 @@ details[open] > :not(summary) {
     color: #000;
     background: #fff;
   }
-  .invoice-content dl > div {
+  .invoice-content .invoice-row {
     break-inside: avoid;
     grid-template-columns: 1fr 1fr;
+  }
+  .invoice-content h2 {
+    break-after: avoid;
   }
   .invoice-actions {
     display: none;

@@ -1,6 +1,6 @@
 ﻿# StayHub
 
-Ứng dụng đặt homestay và khách sạn tại TP. Hồ Chí Minh. Giao diện tiếng Việt, cam ấm / kem / trắng; Next.js + TypeScript, NestJS, Prisma 6 và MySQL. Giữ vai trò Guest / Host / Admin và xác minh cọc MoMo thủ công. [Thay đổi vai trò và thanh toán](ROLE_PAYMENT_CHANGES.md).
+Ứng dụng đặt homestay và khách sạn tại TP. Hồ Chí Minh. Giao diện tiếng Việt, cam ấm / kem / trắng; Next.js + TypeScript, NestJS, Prisma 6 và MySQL. Giữ vai trò Guest / Host / Admin và thanh toán mô phỏng một chạm. [Thanh toán và PDF](PAYMENT_AND_INVOICE_IMPLEMENTATION.md).
 
 **Property là cơ sở lưu trú; RoomType là loại phòng/chỗ ở có thể đặt.** Hotel có nhiều loại phòng và số lượng tồn; homestay có một loại nguyên căn với số lượng 1. [Mô hình, quy tắc, API và migration](docs/booking-model.md).
 
@@ -17,7 +17,7 @@ Triển khai frontend và backend trên Vercel: [cấu hình domain, biến môi
 - Link tên chỗ nghỉ ngắn và ổn định; link UUID cũ được chuyển hướng. Responsive, bàn phím, reduced motion, trạng thái loading/error/empty.
 - Lịch có nhãn và màu tồn phòng: xanh từ 5, vàng 3–4, đỏ 1–2; ngày hết phòng bị vô hiệu hóa. Số phòng trên thẻ loại phòng được tính cho kỳ lưu trú đã chọn.
 - Khách bổ sung họ tên/số điện thoại tại tài khoản trước khi đặt; xem chỗ nghỉ và lịch không cần hoàn thiện hồ sơ.
-- Mã đặt chỗ duy nhất, tra cứu theo quyền; thanh toán MoMo không QR, thông báo “Tôi đã thanh toán” chờ Admin xác minh; biên nhận snapshot có nút in/lưu PDF; chỉ công khai đánh giá từ đơn đã xác minh tiền và qua giờ trả phòng.
+- Mã đặt chỗ duy nhất, tra cứu theo quyền; thanh toán mô phỏng “Tôi đã thanh toán” xác nhận ngay; biên nhận snapshot có tải PDF thật và in A4. Không phát sinh giao dịch tiền thật.
 - Admin có thống kê, tìm đơn, danh sách người dùng, lịch sử khách, quản lý tiện ích và xem đánh giá. [Hướng dẫn các chức năng mới](docs/business-features.md).
 
 ## Chạy bằng Docker
@@ -97,6 +97,6 @@ API end-to-end: đặt `DATABASE_URL` và `TEST_API_URL` trỏ database/API test
 
 Browser: frontend/backend test đang chạy, đặt `PLAYWRIGHT_BASE_URL`, `TEST_API_URL`; đặt thêm `INVENTORY_TEST_DATABASE_URL` để chạy ba bài live inventory (tự dọn dữ liệu). Chạy `npm.cmd run test:e2e --prefix frontend`. Playwright mặc định Microsoft Edge; có thể đổi cấu hình trình duyệt trên máy khác.
 
-[Kết quả kiểm chứng](docs/verification.md). MoMo được đối chiếu thủ công: không có merchant API, xác nhận tự động, hoàn tiền tự động hoặc chi trả tự động cho Host. Chưa có email, số phòng vật lý, housekeeping hay kết nối OTA.
+[Kết quả kiểm chứng](docs/verification.md). Thanh toán hiện tại là mô phỏng cho đồ án, không thu hoặc chuyển tiền thật. Xem PAYMENT_AND_INVOICE_IMPLEMENTATION.md để triển khai. Chưa có email, số phòng vật lý, housekeeping hay kết nối OTA.
 
-Bản sửa production ngày 17/10/2026: [báo cáo triển khai và đồng bộ Aiven](STAYHUB_PRODUCTION_FIX_REPORT.md). Admin đối chiếu giao dịch trong chi tiết booking; `/admin/payments` chuyển về `/admin/bookings`. Giao diện và API đánh giá đã ngừng sử dụng; lịch sử trong database được giữ lại. Cron Vercel chạy hằng ngày, còn kiểm tra hết hạn theo timestamp vẫn áp dụng ngay khi truy vấn/đặt phòng.
+Bản sửa production ngày 17/10/2026: [báo cáo triển khai và đồng bộ Aiven](STAYHUB_PRODUCTION_FIX_REPORT.md). Admin xem lịch sử giao dịch trong chi tiết booking; `/admin/payments` chuyển về `/admin/bookings`. Giao diện và API đánh giá đã ngừng sử dụng; lịch sử trong database được giữ lại. Cron Vercel chạy hằng ngày, còn kiểm tra hết hạn theo timestamp vẫn áp dụng ngay khi truy vấn/đặt phòng.

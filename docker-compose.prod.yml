@@ -66,9 +66,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
       CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET for the expiration scheduler}
-      MOMO_RECEIVER_NAME: ${MOMO_RECEIVER_NAME:-}
-      MOMO_RECEIVER_PHONE: ${MOMO_RECEIVER_PHONE:-}
-      MOMO_VERIFICATION_WINDOW_MINUTES: ${MOMO_VERIFICATION_WINDOW_MINUTES:-60}
     command: [node, dist/main.js]
     networks: [app, database]
     depends_on:

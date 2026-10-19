@@ -71,8 +71,8 @@ test('one payment presentation distinguishes claims, rejection, expiry and cance
       },
     ],
   } as Booking;
-  assert.equal(paymentState(reported, now).kind, 'reported');
-  assert.equal(paymentState(reported, now).canPay, false);
+  assert.equal(paymentState(reported, now).kind, 'unpaid');
+  assert.equal(paymentState(reported, now).canPay, true);
   assert.equal(
     paymentState({ ...reported, status: 'CANCELLED' }, now).kind,
     'cancelled',
@@ -95,6 +95,6 @@ test('one payment presentation distinguishes claims, rejection, expiry and cance
       },
       now,
     ).kind,
-    'rejected',
+    'unpaid',
   );
 });
