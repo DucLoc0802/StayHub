@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { SessionUser } from '../common/security';
 import { BookingAccessService } from './booking-access.service';
 
@@ -37,27 +37,23 @@ export async function renderInvoice(
   b: InvoiceBooking,
   generatedAt = new Date(),
 ): Promise<Buffer> {
-  // Support both Nest's compiled layout and Vercel's source entrypoint bundle.
-  const font = [
-    join(__dirname, '../assets/fonts/NotoSans-Regular.ttf'),
-    join(process.cwd(), 'src/assets/fonts/NotoSans-Regular.ttf'),
-    join(process.cwd(), 'dist/assets/fonts/NotoSans-Regular.ttf'),
-  ].find(existsSync);
-  if (!font)
-    throw new Error(
-      'The embedded invoice font is missing from the deployment.',
-    );
+  // Literal reads let Vercel trace both the font and its distribution license.
+  // Nest copies the same relative asset layout into dist for compiled builds.
+  const assets = {
+    font: readFileSync(join(__dirname, '../assets/fonts/NotoSans-Regular.ttf')),
+    license: readFileSync(join(__dirname, '../assets/fonts/OFL.txt'), 'utf8'),
+  };
   const doc = new PDFDocument({
     size: 'A4',
     margin: 44,
     bufferPages: true,
-    font,
     info: {
       Title: `StayHub ${b.bookingCode}`,
       Author: 'StayHub',
       CreationDate: generatedAt,
     },
   });
+  doc.font(assets.font);
   const chunks: Buffer[] = [];
   const result = new Promise<Buffer>((resolve, reject) => {
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));

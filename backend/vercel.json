@@ -2,9 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nestjs",
   "buildCommand": "npm run build:vercel",
-  "functions": {
-    "src/main.ts": { "includeFiles": "{src,dist}/assets/fonts/**" }
-  },
   "crons": [
     { "path": "/api/internal/expire-bookings", "schedule": "0 0 * * *" }
   ],

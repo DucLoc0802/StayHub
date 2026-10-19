@@ -45,6 +45,8 @@ node --env-file=.env.production node_modules/prisma/build/index.js migrate deplo
 
 Trong **Settings > Build and Deployment**, chọn Root Directory `backend`, Framework Preset **NestJS**. File `backend/vercel.json` chọn framework và build command `npm run build:vercel`. Giữ Output Directory theo mặc định của framework. Vercel hỗ trợ entrypoint `src/main.ts`; không cần thêm handler hay rewrite `/api`.
 
+Không thêm `functions["src/main.ts"]`: bộ phát hiện build NestJS hiện tại của Vercel từ chối cấu hình này với lỗi `unused_function`, khiến backend tiếp tục phục vụ bản cũ dù frontend đã cập nhật. Font PDF và giấy phép được đóng gói qua các lệnh `readFileSync` có đường dẫn tĩnh trong `invoice.service.ts`; Nest cũng sao chép chúng vào `dist/assets/fonts` khi build. Sau triển khai, kiểm tra `/api/docs-json` có `POST /api/bookings/{id}/pay` và `GET /api/bookings/{id}/invoice.pdf`, rồi kiểm tra tải PDF bằng tài khoản có quyền.
+
 Trong **Settings > Environment Variables**, thêm các biến cho **Production**:
 
 | Biến           | Giá trị                                |
