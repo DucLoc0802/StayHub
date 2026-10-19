@@ -55,7 +55,7 @@ function AdminBookingRecord({ booking: b }: { booking: Booking }) {
         <p className="text-xs">
           {b.payment?.status === 'SUCCESS'
             ? b.payment.method === 'FAKE'
-              ? 'Giao dịch mô phỏng (lịch sử)'
+              ? 'Đã hoàn thành giao dịch'
               : 'Cọc đã được xác minh'
             : failed
               ? 'Thanh toán cọc chưa thành công'

@@ -11,8 +11,8 @@ const labels: Record<string, string> = {
   PAYMENT_REJECTED: 'Thông báo thanh toán bị từ chối',
   PAYMENT_RESOLUTION_REQUIRED: 'Khoản chuyển tiền cần xử lý riêng',
   SIMULATED_PAYMENT_SUCCESS:
-    'Giao dịch mô phỏng thành công · Không thu tiền thật',
-  SIMULATED_PAYMENT_FAILED: 'Giao dịch mô phỏng thất bại · Không thu tiền thật',
+    'Giao dịch mô phỏng thành công',
+  SIMULATED_PAYMENT_FAILED: 'Giao dịch mô phỏng thất bại',
   CONFIRMED: 'Xác nhận đặt phòng',
   CANCELLED: 'Hủy đặt phòng',
   EXPIRED: 'Hết hạn thanh toán',

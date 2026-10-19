@@ -91,7 +91,7 @@ export function PublicBookingLookup() {
                 {result.paymentState === 'PAID'
                   ? 'Đã xác minh thanh toán cọc'
                   : result.paymentState === 'SIMULATED'
-                    ? 'Giao dịch mô phỏng trong lịch sử, không thu tiền thật'
+                    ? 'Giao dịch xác minh'
                     : 'Chưa thanh toán cọc'}
               </p>
               {result.paymentDeadlineAt && (
