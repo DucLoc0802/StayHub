@@ -83,7 +83,12 @@ export const api = {
   hostBookings: (propertyId?: string) =>
     get<Booking[]>('/host/bookings', { propertyId }),
   createBooking: (body: unknown) => post<Booking>('/bookings', body),
-  pay: (id: string) => post<Booking>(`/bookings/${id}/pay`),
+  pay: async (id: string) =>
+    (
+      await client.post<Booking>(`/bookings/${id}/pay`, undefined, {
+        timeout: 30000,
+      })
+    ).data,
   lookupBooking: (code: string) =>
     get<Booking>(`/bookings/lookup/${encodeURIComponent(code)}`),
   publicLookup: (body: { bookingCode: string; email: string }) =>

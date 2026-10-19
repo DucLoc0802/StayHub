@@ -19,7 +19,7 @@ test(
     const prisma = new PrismaService({ datasources: { db: { url } } });
     const inventory = new InventoryService(prisma),
       bookings = new BookingsService(prisma, inventory),
-      payments = new PaymentsService(inventory),
+      payments = new PaymentsService(inventory, prisma),
       properties = new PropertiesService(prisma, inventory);
     const guests: string[] = [],
       propertyIds: string[] = [];

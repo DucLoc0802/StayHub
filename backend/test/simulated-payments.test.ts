@@ -68,7 +68,7 @@ test(
     assert.match(new URL(url!).pathname, /^\/stayhub_(inventory|seed)_test$/);
     const prisma = new PrismaService({ datasources: { db: { url } } });
     const inventory = new InventoryService(prisma),
-      payments = new PaymentsService(inventory),
+      payments = new PaymentsService(inventory, prisma),
       bookings = new BookingsService(prisma, inventory),
       access = new BookingAccessService(prisma, inventory);
     const users: string[] = [];

@@ -121,3 +121,13 @@ Questions skipped: 0 unresolved review priorities; the requested implementation 
 6. Promote the verified backend and frontend previews together, then repeat the authenticated smoke test on production. Roll back application deployments if needed; do not delete payment records or reverse history to roll back UI behavior.
 
 Remaining rollout work: preview/production deployments, hosted font-bundle verification and production smoke tests. No claim is made that Vercel or Aiven has been updated. Missing historical host-contact/identity snapshots cannot be reconstructed safely and are not invented.
+
+## Payment transaction timeout follow-up — 19 October 2026
+
+After the deployment configuration fix, production exposed `POST /bookings/:id/pay` but logged Prisma `P2028` and returned HTTP 500. The previous payment code loaded the entire booking graph three times inside a 10-second transaction. A regression test using an isolated MySQL connection with 300 ms of response latency reproduced an expired transaction with that code.
+
+Payment now reads only the fields needed for ownership, inventory and settlement while holding the existing Guest/property locks. It loads the complete response once after commit. Payment transactions have a bounded 20-second timeout; other operations retain their existing 10-second default. The payment HTTP client waits up to 30 seconds. Recognized Prisma transaction-expiry errors return `503 TRANSACTION_TIMEOUT` with a recoverable message and the existing request ID; they are not automatically retried.
+
+`backend/test/payment-latency.test.ts` exercises the delayed MySQL connection and verifies one persisted payment, attempt and confirmation. Existing concurrency, expiry, cancellation, ownership and historical-record tests continue to cover the same transaction rules. This follow-up does not change the database schema or require a migration. Production diagnosis used read-only database queries; no production payment was submitted by the agent. Deploy both backend and frontend changes before repeating the payment smoke test.
+
+Verification: backend Vercel build, backend/frontend TypeScript and ESLint passed; all 87 backend tests passed without skips, including the latency reproduction; all 3 frontend API configuration tests passed. These are local results. This follow-up has not been committed, pushed or deployed by the agent.

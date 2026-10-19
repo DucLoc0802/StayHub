@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Prisma } from '@prisma/client';
 import {
   ArgumentsHost,
   BadRequestException,
@@ -40,6 +41,18 @@ test('missing API route, missing booking and invalid booking identifiers have di
     'RESOURCE_NOT_FOUND',
   );
   assert.equal(result(new ForbiddenException()).code, 'FORBIDDEN');
+  const timeout = result(
+    new Prisma.PrismaClientKnownRequestError('Transaction API error', {
+      code: 'P2028',
+      clientVersion: '6.19.2',
+      meta: {
+        error: 'Transaction already closed: query on an expired transaction.',
+      },
+    }),
+  );
+  assert.equal(timeout.statusCode, 503);
+  assert.equal(timeout.code, 'TRANSACTION_TIMEOUT');
+  assert.doesNotMatch(timeout.message, /Prisma|Transaction API error/);
   try {
     await bookingIdPipe().transform('pending-payments', { type: 'param' });
     assert.fail('must reject non-UUID');

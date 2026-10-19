@@ -24,6 +24,7 @@ export class InventoryService {
   async forGuest<T>(
     guestId: string,
     work: (tx: Prisma.TransactionClient, now: Date) => Promise<T>,
+    timeoutMs?: number,
   ): Promise<T> {
     const result = await this.prisma.serializable(async (tx) => {
       // Serialize requests for one guest even when they target different properties.
@@ -42,7 +43,7 @@ export class InventoryService {
         if (error instanceof HttpException) return { error };
         throw error;
       }
-    });
+    }, timeoutMs);
     if ('error' in result) throw result.error;
     return result.value;
   }

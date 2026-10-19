@@ -76,6 +76,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
         code = 'CONCURRENT_CHANGE';
         message = 'Dữ liệu vừa thay đổi. Vui lòng thử lại.';
       }
+      if (
+        error.code === 'P2028' &&
+        /expired|timeout|timed out/i.test(String(error.meta?.error ?? ''))
+      ) {
+        status = 503;
+        code = 'TRANSACTION_TIMEOUT';
+        message =
+          'Xử lý thanh toán hoặc đặt phòng mất quá lâu. Vui lòng kiểm tra trạng thái đơn và thử lại.';
+      }
     }
     if (typeof message === 'string' && !/[À-ỹ]/.test(message)) {
       message =

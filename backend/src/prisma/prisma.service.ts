@@ -15,13 +15,14 @@ export class PrismaService
 
   async serializable<T>(
     work: (tx: Prisma.TransactionClient) => Promise<T>,
+    timeoutMs = 10000,
   ): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
         return await this.$transaction(work, {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
           maxWait: 5000,
-          timeout: 10000,
+          timeout: timeoutMs,
         });
       } catch (error) {
         if (
